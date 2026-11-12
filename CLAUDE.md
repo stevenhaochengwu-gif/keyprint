@@ -1,0 +1,197 @@
+# Keyprint
+
+Keyprint is a browser typing trainer that lives in one file, `index.html`, with no build step, no dependencies and no tests. It has three kinds of test. Words, Adaptive (letters unlock one at a time as you learn them) and My text (your own pasted text, text files or PDFs). It also has an on-screen keyboard with finger colors and hand outlines, daily goals, and a Progress page of canvas charts. Progress saves in the browser, or in Claude artifact storage when it runs as an artifact, and optionally to a Cloudflare Worker that the user runs.
+
+## Files
+
+- `index.html` is the entire app, about 6,900 lines of HTML, CSS and JS. Keep it one self-contained file. The owner also runs it as an artifact in the Claude chat app (that is where `window.storage` comes from), so don't split it into modules or add local files, packages or a build step.
+- `README.md` is a one-line stub.
+- `save-worker.js` is the companion Cloudflare Worker for Cloud save. A comment in section 4 refers to it, but it is not in the repo, so the server side of cloud saves can't be read or tested here. Treat the contract that `Cloud.call` already uses as fixed, and ask the owner for the Worker file before changing anything on the cloud side. The UI copy says the Worker needs a `SAVE_KEY` secret and a `DATA` binding, and the client sends GET, PUT and DELETE.
+
+## Running and checking changes
+
+Open `index.html` in a browser, or serve the folder with `python3 -m http.server 8000` and visit http://localhost:8000/. The only network requests are Google Fonts, pdf.js 3.11.174 from cdnjs (loaded only when a PDF is added) and the user's Cloud save address.
+
+In this cloud environment Chromium and Playwright are preinstalled, `require('playwright')` works, and `chromium.launch()` needs no options. A `file://` URL is fine and gets working localStorage. Google Fonts fail here with `ERR_TUNNEL_CONNECTION_FAILED`, which is expected. Listen for `pageerror`, because one syntax error anywhere stops the whole app. Top-level `const` and `let` names (`state`, `lesson`, `APP`, `Store`) can be read from `page.evaluate`. After load, keystrokes go to the hidden `#sink` input, which already has focus. Each `browser.newPage()` starts with empty storage. To test an old or odd save, seed `keyprint-state-v1` with `page.addInitScript` before `goto`. Keep test scripts and screenshots outside the repo.
+
+```js
+const { chromium } = require('playwright');
+(async () => {
+  const browser = await chromium.launch();
+  const page = await browser.newPage();
+  page.on('pageerror', (e) => console.log('pageerror', e.message));
+  await page.goto('file:///home/user/keyprint/index.html');
+  await page.waitForFunction(() => document.querySelector('#text .c'));
+  const text = await page.evaluate(() => lesson.text);
+  await page.keyboard.type(text.slice(0, 10));
+  console.log(await page.evaluate(() => lesson.pos)); // 10
+  await page.screenshot({ path: '/tmp/keyprint.png' });
+  await browser.close();
+})();
+```
+
+## Architecture of index.html
+
+The line numbers below are approximate and drift with every edit, so find sections by their markers instead. `grep -n '^/\* ' index.html` lists the CSS headers (`/* Top bar ----- */`) and every script section and subsection, along with some ordinary comments. HTML views start at `<!-- Practice ====`, `<!-- Progress, with the calendar on top ====` and `<!-- Settings ====`.
+
+| Approx lines | Marker | What lives there |
+|---|---|---|
+| 1 to 14 | `<head>` | Meta tags, three logo icon data URIs (lines 7 to 9), Google Fonts |
+| 15 to 1307 | `<style>` | Light `:root`, dark palette twice, components, `data-zoom` modes, cheer, reduced motion |
+| 1309 to 1928 | `<body>` | Top bar and tabs, `#view-practice` and `#view-progress` (mostly empty containers the script fills), `#view-settings` (full markup), `#toast`, `#chartTip`, `#zenHint`, `#announce` |
+| 1929 to 2089 | first `<script>`, not strict | `WORD_TIERS`, `COMMON_WORDS`, `BLOCKED`, `LITERARY_WORDS` |
+| 2105 | `/* 1. Configuration` | `APP` (tuning, storage keys, `version`) and `DEFAULTS` (settings schema) |
+| 2165 | `/* 2. Keyboard data` | `LAYOUTS`, `FINGER_PATTERNS`, `CODE_ROWS`/`CODE_POS`, `SHIFTED`/`UNSHIFT`, `IS_MAC`, `KEY_NAMES`, `BOTTOM_ROW` |
+| 2243 | `/* 3. Helpers` | `$`, `$$`, `clamp`, `mean`, `round`, `node(tag, cls, text)`, speed, percent and duration formatters |
+| 2281 | `/* 4. State and storage` | `state`, `profile()`, `Store`, save pipeline, `Cloud`, `pushCloud`, `mergeSaves`, `hydrate` |
+| 2712 | `/* 5. Text generation` | Letter `MODEL`, `adaptiveText`, `POOLS`, `wordsText`, My text docs (`cleanDocument`, `splitPassages`, `addDoc`, `openDoc`, `deleteDoc`), `MARKS`, `decorate` |
+| 3093 | `/* 6. Letter statistics` | `keySpeed`, `skill`, `focusKey`, `canUnlock`, `weakLetters`, `applyKeyStats`, `testDetail` |
+| 3201 | `/* 7. Test engine` | `lesson`, goals and time tracking, `newLesson`, `startLesson`, `typeChar`, `failAttempt`, `backspace`, `finishLesson` |
+| 3548 | `/* 8. Practice screen` | `el` registry for the whole app, header renderers, Goal celebration, Zoom, text renderer, My text library and pdf.js |
+| 4699 | `/* 9. Keyboard` | `buildKeyboard`, `refreshKeyboard`, `drawHands`, `markNextKey`, cue, `celebrateUnlock` |
+| 4980 | `/* 10. Progress screen` | `prog`, `TYPISTS`, `palette()`, `sizeCanvas`, eight canvases drawn by seven functions, Calendar subsection |
+| 6160 | `/* 11. Settings` | `EFFECTS`, `applyTheme`, `setSetting`, `bindSettings`, `syncSettingsUI`, backup and restore, Cloud save subsection, reset |
+| 6632 | `/* 12. Events` | `showView`, `onKeyDown`, `onSinkInput`, `bindEvents` |
+| 6824 | `/* 13. Start` | `init()`, called on the last script line |
+
+The script does all the rendering. Keystrokes go from `onKeyDown` or `onSinkInput` into section 7, to `typeChar`, `backspace`, `restartLesson` (Esc) and `skipAhead` (Tab). Those call the painters in sections 8 and 9. Each settings control is bound by `data-setting="<key>"` through `bindSettings`. It then goes through `setSetting`, which runs the refreshers listed in `EFFECTS` and saves.
+
+The script changes the look mostly through root attributes (`data-theme`, `data-font`, `data-zoom`) and classes, plus a few inline styles for timing and position (`--fade` on the board, `--leave` on the cheer, caret and text transforms). In the other direction, canvases and confetti read colors from CSS variables through `palette()` and `burst()`.
+
+## State, storage and versioning
+
+- **The `state` object.** It holds `version, settings, profiles, daily, clean, goalMetOn, cheered, docs, docId, removed, savedAt`. Each `profiles[layout]` is `{unlocked, keys, history, customPos, resetAt}`, so letter stats, unlocks and history are kept per layout. `daily` and `clean` (ms per local `YYYY-MM-DD`) are shared by all layouts.
+- **Saved shapes are fixed.**
+  - Letter stats are `{t, n, e, m, x}`.
+  - History entries are `{ts, wpm, acc, dur, words, mode, tries, nk, k}`, with `k[ch] = [avgMs, timed, typed, missed]`. Older entries have no `k` or `nk` and must keep working.
+  - Docs are `{id, title, words, passages, at, added, finished}`. Doc text is never stored in the main blob.
+- **`Store`.** It uses Claude's `window.storage` if present, then localStorage, then nothing. It writes three kinds of key (plus a `keyprint-probe` it sets and removes to test localStorage).
+  - `keyprint-state-v1`, the whole state.
+  - `keyprint-doc:<id>`, one per text.
+  - `keyprint-cloud`, the Worker address and key.
+
+  Never rename these keys, or every existing save is orphaned.
+- **Saving.**
+  - `scheduleSave` debounces (400 ms by default, 500 from `setSetting`), then calls `saveLocal`.
+  - `saveLocal` stamps `savedAt`, writes, marks the cloud copy dirty and calls `scheduleCloud`, which pushes at most every 20 s.
+  - `flushSaves` runs on `pagehide` and when the page is hidden.
+  - `ready` stays false until `init` has hydrated, so nothing can write DEFAULTS over a real save. Keep it that way.
+- **`hydrate` is the one gate for every load.** That covers init, cloud connect, the merge inside `pushCloud`, backup restore and daily cloud copy restore. It rebuilds state field by field and resets any setting whose `typeof` differs from DEFAULTS. It checks enums against include lists or lookup tables and clamps numbers. It caps history at `APP.historyLimit`, `daily` and `clean` at 400 days and `removed` at 200. It never updates `state.version`.
+- **Migrations.** To change the schema, bump `APP.version` (currently 7) and add an `if (from < N)` block in `hydrate`.
+  - `from` is `Number(saved.version) || 1`. An object without `version` therefore runs every migration and has its unit, capitals, punctuation, word pool, theme and finger colors forced.
+  - Always pass `hydrate` a parsed or `snapshot()` copy that still has `version`. Never pass live state, because `hydrate` clears each state field before reading the same field from its argument, which would wipe profiles, daily, clean and docs. It also keeps the argument's `keys` objects by reference (`cleanKeys` mutates and returns them).
+- **New top-level fields.** A new state field goes in the initial `state` and in `hydrate`. If you miss `hydrate`, the saved value is silently dropped on every reload. `mergeSaves` starts from a copy of the newer save, so it only needs code if both copies' values should be combined.
+- **Cloud save** (`Cloud`, `pushCloud`, the Cloud save subsection).
+  - It sends bearer-key fetches to the user's Worker. Object names are the state and doc Store keys URL-encoded, plus `backups` and `backup-YYYY-MM-DD`. `keyprint-cloud` never leaves the browser.
+  - Status 401 becomes `key`, 500 becomes `setup` and any other failure `reach`. A GET that returns 404 is null.
+  - A normal push GETs first and merges if the remote `savedAt` is newer than `Cloud.seen`, then PUTs.
+  - The push on page close skips the GET. It uses `keepalive` only for bodies under 60,000 characters, so a long history may not reach the cloud on close. Local saves are not affected.
+- **`mergeSaves`.**
+  - History is unioned by `ts|wpm`, keeping only entries at or after the later `resetAt`.
+  - When both copies share a `resetAt`, each letter keeps the copy with the larger `n`, and `unlocked` takes the max. Otherwise the copy with the later reset wins both.
+  - `daily` and `clean` take the max per day, not the sum.
+  - `keepMine` keeps the local settings and `docId`.
+  - To replace the cloud copy instead of merging with it, set `state.savedAt = Date.now()` and `Cloud.seen = state.savedAt` before `pushCloud`.
+- **Backups** are `{app: "keyprint", version, savedAt, state, texts}`. Restore drops any doc whose text is missing from `texts`.
+- **Docs.** Doc ids must match `/^[a-z0-9]{4,40}$/`, or `hydrate` silently drops the document. Changing `APP.mergeWords`, `splitWords` or `pieceWords` moves saved `doc.at` positions onto different passages.
+
+## Conventions
+
+- **Code.**
+  - Two-space indent, double quotes, semicolons, trailing commas in multi-line literals, `const` and `let`, template literals and arrow callbacks.
+  - Use function declarations for real logic and one-line arrow consts for tiny helpers.
+  - Names are UPPER_SNAKE for tables, PascalCase for singletons (`Store`, `Cloud`) and camelCase otherwise.
+  - Short local names are normal, such as `s` for settings, `p` profile, `L` lesson, `k` letter stats, `ch` char and `P` palette.
+- **DOM.**
+  - Build elements with `node(tag, cls, text)` and `replaceChildren`, and hide them with the `hidden` property.
+  - Show state through classList toggles that CSS reads.
+  - Delegate clicks with `closest("button[data-...]")` and go through `el` for element refs.
+  - To restart an animation, remove the class, run `void el.offsetWidth`, then add the class back.
+  - Destructive buttons take two clicks, with a changed label and a 4000 ms disarm. Reset progress and Restore this copy add an `armed` class, and a text's Remove button sets `data-armed`.
+- **CSS.**
+  - Colors come from custom properties (the red to green skill ramp in computed `hsl()` is the exception), and themes only redefine variables. Short rules go on one line.
+  - Numbers use `tabular-nums`. Figures put `<dt>` before `<dd>` and flip them with `column-reverse`.
+  - Classes are short and hyphenated, and state classes are single words. Ids are camelCase, apart from `view-*`, settings inputs `set-*` (except `sdSettings`) and readouts `out-<settingKey>`.
+  - Every `<button>` has `type="button"`.
+- **Comments.**
+  - Write plain full sentences ending in periods, often in the second person, explaining intent above the code. Trailing inline comments are short lowercase fragments.
+  - Empty `catch` blocks say why they are empty.
+  - Section headers are `/* N. Name ---- */`, padded with dashes to about column 80, and subsections have no number.
+  - In APP comments the unit comes first (`// ms between saves`).
+- **UI copy.**
+  - Use sentence case, second person, short and friendly wording. Contractions are welcome.
+  - Full sentences end with a period. Button labels, button states and short toasts don't ("Start over", "Backup downloaded").
+  - Feature names are capitalized like proper nouns ("My text", "One mistake restarts", "Text only").
+  - Numbers go through `toLocaleString("en-US")` ("1,000"). Negatives use the Unicode minus, gains get an explicit +, and speed units come from `unitLabel()`.
+  - Join a label and its value with a comma ("Speed now, 80% of target").
+- **Punctuation.** No colons, no double dashes and no em or en dashes in UI copy or comments. The only runs of dashes are the section header rules. Use periods, commas or parentheses instead. The owner dislikes colons and double dashes in prose generally, so follow the same rule in docs and commit messages.
+- **Internal ids differ from UI names.**
+  - `custom` is My text, `suddenDeath` is One mistake restarts, `emulate` is Follow key positions, and `weakBoost` is Extra practice for weak letters.
+  - `mistakes` values `clear`, `delete` and `move` are Right key clears, Backspace to delete and Move on.
+  - Speeds are always stored in wpm, and a letter's speed is `12000 / ms`. cpm is for display only (x5).
+
+## Gotchas and invariants
+
+- **Adding a setting** takes four things.
+  - A DEFAULTS entry of the right JS type, because controls are cast by `typeof DEFAULTS[key]`.
+  - For enums, a check in `hydrate`'s include lists or lookup tables.
+  - Markup with `data-setting`. Seg buttons also need a `data-value` exactly equal to `String(value)`.
+  - An `EFFECTS` entry, or changing the setting only saves it. The order of the effect checks in `setSetting` matters.
+- **Adding a word pool** needs a `POOLS` entry and an `<option>` in `#set-pool`.
+- **Adding a punctuation mark** needs a `MARKS` entry and handling in `decorate`. Keep `decorate`'s step order, which is apostrophes, then pairs, then wraps, then end marks, with capitals last.
+- **Word tiers.** `POOLS` slices `COMMON_WORDS` at 200 and 500, so the `WORD_TIERS` sizes (100, 100, 300, 500) and their order matter. A duplicated word shifts every later boundary. Keep the word list `<script>` before the main one.
+- **Load order.**
+  - Many functions use names that are declared later, such as `el`, `view`, `ZOOMS`, `POOLS`, `MARK_IDS` and `shiftX`. This only works because they first run inside `init()`, so don't add top-level calls into code that touches later names. Put new startup work in `init()`.
+  - Syntax a browser can't parse stops the whole app, not just one feature. `splitPassages` and `titleFrom` already use regex lookbehind, and the code avoids `?.` and `??`.
+- **The `el` registry** looks up most ids once, at load, for all sections. A renamed id becomes null and crashes somewhere else later. `#focusCap` must keep its inner span.
+- **`[hidden] { display: none !important; }` is load-bearing.** Many elements set their own display and are hidden only through `hidden`.
+- **Themes.**
+  - The dark palette is written twice (the `prefers-color-scheme` block and `:root[data-theme="dark"]`), and the two must stay identical. New variables also go in the light `:root`.
+  - The System theme means there is no `data-theme` attribute.
+  - The `<html data-theme="dark" data-font="ubuntu">` defaults must match DEFAULTS.
+- **Zoom.** Any `data-zoom` value hides the keyboard deck, so Normal must remove the attribute.
+  - `applyZoom` sets it only on the Practice view.
+  - `setSetting` sets `zoomBack` before calling it.
+  - In Text only, Esc is the only way out.
+- **Text rendering.**
+  - `charEls[i]` must line up with `lesson.text`. The caret and the trail span are not in it.
+  - `paintChar` overwrites each char's whole className from `lesson.states` (0 waiting, 1 right, 2 right after a mistake, 3 wrong). Any new char class must be added inside `paintChar`.
+  - The line-height 1.7 and `calc(1.7em * 3)` height drive `measureLines`. `.w` must stay inline-block with `white-space: pre`, and `.c` inline-block.
+- **Layout reads return 0 while a view is hidden.** New layout-dependent code must rerun wherever `measureLines`, `drawHands`, `markNextKey` and `moveCaret` already do, which is showView, applyZoom, resize, `fonts.ready` and the lines and hands effects.
+- **Keyboard geometry.**
+  - Every row is 15 units (`--U` is `100cqw / 15`), and `BOTTOM_ROW` adds up to 15 on both Mac and PC.
+  - `LAYOUTS` rows have 13, 13, 11 and 10 keys, and `FINGER_PATTERNS` and `CODE_ROWS` must match.
+  - Fingers 0 to 3 are the left hand, 4 to 7 the right hand and 8 the thumbs.
+  - `drawHands` uses fixed SVG ids, so only one hands SVG can exist.
+- **`keepPartial`** must run before `lesson` is replaced. `startLesson` does this, and `L.counted` stops double counting. Text is generated before it runs, so generation sees the stats from before the partial test.
+- **Stale settings refs.** A `const s = state.settings` captured before a `hydrate` goes stale.
+- **`coolUntil`** is shared by `failAttempt` (whose `hold` is captured after `checkGoals`) and `playCheer` (which adds `APP.cheerHold`). `checkGoals` must stay between tests.
+- **Docs in progress.** `finishLesson` and `skipAhead` advance whatever `activeDoc()` is at that moment, because the lesson stores no doc id.
+- **Logo and rings.**
+  - The cheer overlay clones `.brand .logo`. Its CSS expects four rings followed by the SVG, and four paths, with `pathLength="100"` on the three ridges and the fourth as the core line.
+  - A logo change also means updating the three icon copies in `<head>`.
+  - `RING` is `2*PI*15.5`, which must match the `r="15.5"` goal circles.
+- **Charts.**
+  - Each canvas's drawing size comes from its CSS height. Hidden canvases draw nothing.
+  - `speedChart`, `overview` and `keyChart` share `LESSON_PAD`. They need equal widths and no border or padding.
+  - `prog.geo` entries exist only after a draw, and `testDays` is rebuilt only in `renderProgress`.
+  - `SMOOTH.length - 1` must equal the `max` of both `[data-smooth]` ranges.
+  - Renaming a chart CSS variable silently turns that chart `#888`.
+- **Copy that restates script values.** "three seconds" is `APP.idleGap` and "1 to 1,000" is `APP.maxWords`, so change copy and value together. The select and slider options cover fewer values than `hydrate` accepts.
+- **Reduced motion** uses `0.001ms` rather than `none`, so end events still fire.
+- **`.sink`** must stay focusable (opacity 0, not display none) and keep its 16px font size, or iOS zooms on focus.
+- **Z-index stack.** Toast 30, cheer 20, chart tip 15, zen hint 5, cue 3.
+
+## Leftovers (safe to remove, easy to mistake for live code)
+
+- CSS from an old Progress page, namely `.summary`, `.panel*`, `#chart`, `.chart-wrap`, `.tip`, `.keys-head`, `.key-list` and `.krow` through `.kerr`. Also `@keyframes blink`.
+- Unused script hooks.
+  - `shake()` is never called.
+  - `.board.typing` has no CSS.
+  - `.notch` is always hidden.
+  - The `[data-toggle]` and TEXTAREA branches in `bindSettings` have no matching markup.
+  - `customPos` is saved and copied by `hydrate` but never used.
+- Stale comments.
+  - "Both lists live in words.js". There is no such file, and the lists are inline.
+  - The letter model comment says it uses only common words, but it uses both lists.
+  - `defaultKey`'s comment says slowest letter, but it ranks by `skill()`.
