@@ -6,13 +6,15 @@ Keyprint is a browser typing trainer that lives in one file, `index.html`, with 
 
 - `index.html` is the entire app, about 6,900 lines of HTML, CSS and JS. Keep it one self-contained file. The owner also runs it as an artifact in the Claude chat app (that is where `window.storage` comes from), so don't split it into modules or add local files, packages or a build step.
 - `README.md` is a one-line stub.
-- `save-worker.js` is the companion Cloudflare Worker for Cloud save. A comment in section 4 refers to it, but it is not in the repo, so the server side of cloud saves can't be read or tested here. Treat the contract that `Cloud.call` already uses as fixed, and ask the owner for the Worker file before changing anything on the cloud side. The UI copy says the Worker needs a `SAVE_KEY` secret and a `DATA` binding, and the client sends GET, PUT and DELETE.
+- `save-worker.js` is the Cloudflare Worker behind Cloud save (an ES module, `export default { fetch }`). It stores everything in a Workers KV namespace bound as `DATA` and only answers requests with `Authorization: Bearer <SAVE_KEY>`. The owner deploys it by hand in the Cloudflare dashboard, so editing this file changes nothing live. Say so whenever a change needs a redeploy, and keep the app working with the Worker that is already deployed.
 
 ## Running and checking changes
 
 Open `index.html` in a browser, or serve the folder with `python3 -m http.server 8000` and visit http://localhost:8000/. The only network requests are Google Fonts, pdf.js 3.11.174 from cdnjs (loaded only when a PDF is added) and the user's Cloud save address.
 
 In this cloud environment Chromium and Playwright are preinstalled, `require('playwright')` works, and `chromium.launch()` needs no options. A `file://` URL is fine and gets working localStorage. Google Fonts fail here with `ERR_TUNNEL_CONNECTION_FAILED`, which is expected. Listen for `pageerror`, because one syntax error anywhere stops the whole app. Top-level `const` and `let` names (`state`, `lesson`, `APP`, `Store`) can be read from `page.evaluate`. After load, keystrokes go to the hidden `#sink` input, which already has focus. Each `browser.newPage()` starts with empty storage. To test an old or odd save, seed `keyprint-state-v1` with `page.addInitScript` before `goto`. Keep test scripts and screenshots outside the repo.
+
+To test Cloud save end to end, run the real Worker locally. Copy `save-worker.js` to a temporary `.mjs` file with the test app's origin added to `SITES`, import it in Node 22, and serve it with `http.createServer` by turning each request into a `Request` and calling `worker.fetch(request, { DATA, SAVE_KEY })`. A `Map` behind async `get`, `put`, `delete` and `list({ prefix, cursor })` (returning `{ keys: [{ name }], list_complete, cursor }`) stands in for KV. Serve `index.html` over http from that origin, not `file://`, or CORS blocks everything. Use one browser context per simulated device, and set `timezoneId` on a context to test time zone behavior. The stand-in KV is instantly consistent and has no rate limit, so wrap it when a test needs real KV behavior.
 
 ```js
 const { chromium } = require('playwright');
@@ -84,6 +86,12 @@ The script changes the look mostly through root attributes (`data-theme`, `data-
 - **Cloud save** (`Cloud`, `pushCloud`, the Cloud save subsection).
   - It sends bearer-key fetches to the user's Worker. Object names are the state and doc Store keys URL-encoded, plus `backups` and `backup-YYYY-MM-DD`. `keyprint-cloud` never leaves the browser.
   - Status 401 becomes `key`, 500 becomes `setup` and any other failure `reach`. A GET that returns 404 is null.
+- **The Worker side** (`save-worker.js`).
+  - `SITES` lists the only origins allowed by CORS (`https://type.stevenwu.org` and the `typing.stevenhaochengwu.workers.dev` address). From any other origin, including a Claude artifact, a `file://` page or localhost, the browser blocks every response and the app reports `reach`.
+  - Routes are `OPTIONS` (no key needed), `GET backups` (the daily copy days, newest first), then GET, PUT and DELETE on a name matching `/^[A-Za-z0-9._:-]{1,120}$/`. Doc names decode to `keyprint-doc:<id>`, which fits.
+  - A PUT of `keyprint-state-v1` also writes `backup-<day>` if that day has no copy yet. The day is the UTC date, so outside UTC the "day" starts at a local time other than midnight (evening in the US). Daily copies are never deleted.
+  - DELETE refuses the main state and daily copies (403). Bodies over 20,000,000 characters get 413. Missing `DATA` or `SAVE_KEY` gives 500, which the app shows as the setup message.
+  - Workers KV is eventually consistent. A write can take 60 seconds or more to show up at other Cloudflare locations, same-key writes are limited to one per second (faster ones throw a 429 inside `put`), and the last write wins. Two devices are not guaranteed to see each other's latest save, which is why `mergeSaves` exists and why it must never drop data from either side.
   - A normal push GETs first and merges if the remote `savedAt` is newer than `Cloud.seen`, then PUTs.
   - The push on page close skips the GET. It uses `keepalive` only for bodies under 60,000 characters, so a long history may not reach the cloud on close. Local saves are not affected.
 - **`mergeSaves`.**
