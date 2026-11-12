@@ -1104,7 +1104,8 @@ label.row { cursor: pointer; }
 /* Zoom --------------------------------------------------------------- */
 
 /* No keyboard makes the text bigger and hides the keyboard. Text only also hides
-   everything around the text and centers it on the screen. Esc brings it all back. */
+   everything around the text and centers it on the screen. Esc brings it all back,
+   and so does the button at the top on a touch screen. */
 :root[data-zoom="nokeys"] { --zoom: 1.32; }
 :root[data-zoom="text"] { --zoom: 1.62; }
 :root[data-zoom] .shell { max-width: 1140px; }
@@ -1144,6 +1145,9 @@ label.row { cursor: pointer; }
   bottom: 28px;
   z-index: 5;
   margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
   color: var(--ink-2);
   font-size: 13px;
   white-space: nowrap;
@@ -1154,7 +1158,30 @@ label.row { cursor: pointer; }
 }
 
 .zen-hint.show { opacity: 1; transform: translate(-50%, 0); transition-duration: 0.35s; }
+.zen-tap { display: none; }
 :root:not([data-zoom="text"]) .zen-hint { display: none; }
+
+/* A touch screen has no Esc key, so there the way out stays on screen as a button. It sits
+   in the space above the text, where it never covers words still to be typed, and where
+   a phone's on-screen keyboard can't hide it. */
+@media (pointer: coarse) {
+  :root[data-zoom="text"] .shell { padding-top: 68px; }
+  .zen-hint {
+    top: 10px;
+    bottom: auto;
+    min-height: 44px;
+    padding: 0 18px;
+    border: 1px solid var(--line);
+    border-radius: 22px;
+    background: var(--bg);
+    cursor: pointer;
+    opacity: 1;
+    pointer-events: auto;
+    transform: translate(-50%, 0);
+  }
+  .zen-key { display: none; }
+  .zen-tap { display: inline; }
+}
 
 /* Goal celebration ---------------------------------------------------- */
 
@@ -1787,7 +1814,7 @@ label.row { cursor: pointer; }
         <div class="row">
           <div class="row-text">
             <span class="row-label">Zoom</span>
-            <span class="row-hint">No keyboard hides the keyboard and makes the text bigger. Text only hides everything but the text, and <kbd>Esc</kbd> brings the rest back.</span>
+            <span class="row-hint">No keyboard hides the keyboard and makes the text bigger. Text only hides everything but the text, and <kbd>Esc</kbd> brings the rest back. On a touch screen, tap Leave Text only at the top instead.</span>
           </div>
           <div class="seg" data-setting="zoom" role="group" aria-label="Zoom">
             <button type="button" data-value="normal">Normal</button>
@@ -1924,7 +1951,7 @@ label.row { cursor: pointer; }
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <div class="chart-tip" id="chartTip" hidden></div>
-<p class="zen-hint" id="zenHint" aria-hidden="true">Press <kbd>Esc</kbd> to leave Text only</p>
+<button class="zen-hint" id="zenHint" type="button" tabindex="-1"><span class="zen-key">Press <kbd>Esc</kbd> to leave Text only</span><span class="zen-tap">Leave Text only</span></button>
 <p class="sr-only" id="announce" role="status" aria-live="polite"></p>
 <script>
 /* Common English words for typing tests, grouped by how often they show up in everyday
@@ -2109,6 +2136,9 @@ const APP = {
   storageKey: "keyprint-state-v1",
   cloudConfig: "keyprint-cloud", // where this browser remembers the cloud save address and key
   cloudDelay: 20000,   // ms between saves to your Cloudflare account while you practice
+  cloudPending: "keyprint-pending", // cloud name for the copy a hidden or closing page sends at once
+  pendingTests: 30,    // newest tests per layout in that copy, so it stays small enough to send while closing
+  cloudTimeout: 20000, // ms before a cloud request that hasn't answered counts as failed
   letterOrder: "etaoinshrdlcumwfgypbvkjxqz", // adaptive tests unlock letters in this order
   minSamples: 12,      // timed keystrokes a letter needs before it can count as learned
   minInterval: 25,     // ms. Faster gaps between keys are ignored as noise
@@ -2399,6 +2429,7 @@ function saveLocal() {
   localDirty = false;
   Store.save(state);
   cloudDirty = true;
+  leftCopy = false;
   scheduleCloud();
 }
 
@@ -2419,7 +2450,7 @@ function flushSaves() {
     saveTimer = 0;
     saveLocal();
   }
-  if (cloudDirty) pushCloud(true);
+  if (cloudDirty) sendLeaving();
 }
 
 const snapshot = () => JSON.parse(JSON.stringify(state));
@@ -2429,25 +2460,35 @@ const snapshot = () => JSON.parse(JSON.stringify(state));
 const Cloud = {
   url: "",
   key: "",
-  seen: 0,   // savedAt of the cloud copy the last time this browser read or wrote it
-  lastOk: 0, // when the last save to the cloud worked
+  seen: 0,      // savedAt of the cloud copy the last time this browser read or wrote it
+  lastOk: 0,    // when the last save to the cloud worked
+  replaceAt: 0, // savedAt of a restored copy that replaces the cloud copy, until it is saved
   error: "",
   get on() {
     return Boolean(this.url && this.key);
   },
+  // Cloud saves run one at a time, so a request that never answers would hold up every
+  // save after it. It gives up after APP.cloudTimeout instead. A closing page can't wait.
   async call(method, name, body, keepalive = false) {
-    const res = await fetch(`${this.url}/${encodeURIComponent(name)}`, {
-      method,
-      headers: { Authorization: `Bearer ${this.key}`, "Content-Type": "text/plain;charset=UTF-8" },
-      body,
-      cache: "no-store",
-      keepalive: keepalive && (!body || body.length < 60000),
-    });
-    if (method === "GET" && res.status === 404) return null;
-    if (res.status === 401) throw new Error("key");
-    if (res.status === 500) throw new Error("setup");
-    if (!res.ok) throw new Error("reach");
-    return method === "GET" ? res.text() : true;
+    const stop = keepalive ? null : new AbortController();
+    const timer = stop ? setTimeout(() => stop.abort(), APP.cloudTimeout) : 0;
+    try {
+      const res = await fetch(`${this.url}/${encodeURIComponent(name)}`, {
+        method,
+        headers: { Authorization: `Bearer ${this.key}`, "Content-Type": "text/plain;charset=UTF-8" },
+        body,
+        cache: "no-store",
+        keepalive: keepalive && (!body || body.length < 60000),
+        signal: stop ? stop.signal : undefined,
+      });
+      if (method === "GET" && res.status === 404) return null;
+      if (res.status === 401) throw new Error("key");
+      if (res.status === 500) throw new Error("setup");
+      if (!res.ok) throw new Error("reach");
+      return method === "GET" ? await res.text() : true;
+    } finally {
+      clearTimeout(timer);
+    }
   },
 };
 
@@ -2540,6 +2581,8 @@ function mergeSaves(mine, theirs, keepMine) {
 }
 
 let cloudTimer = 0;
+let cloudRun = null;  // the cloud save running now
+let cloudNext = null; // one more cloud save, asked for while that one runs
 
 // Changes reach the cloud within APP.cloudDelay, and never more often than that.
 function scheduleCloud() {
@@ -2547,34 +2590,108 @@ function scheduleCloud() {
   cloudTimer = setTimeout(() => pushCloud(), APP.cloudDelay);
 }
 
-async function pushCloud(leaving = false) {
+// Cloud saves run one at a time, so two can't read the same copy and then both write it.
+// A save asked for while one runs waits for it, then runs once for everyone who asked.
+function pushCloud() {
+  if (!cloudRun) {
+    cloudRun = sendCloud().finally(() => {
+      cloudRun = null;
+    });
+    return cloudRun;
+  }
+  if (!cloudNext) {
+    cloudNext = cloudRun.then(() => {
+      cloudNext = null;
+      return pushCloud();
+    });
+  }
+  return cloudNext;
+}
+
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, Math.max(0, ms)));
+
+// The main cloud copy is only ever written after reading it and merging it in, so newer
+// progress from another browser is never replaced.
+async function sendCloud() {
   clearTimeout(cloudTimer);
   cloudTimer = 0;
   if (!Cloud.on) return false;
+  const { url, key } = Cloud;
+  const sameCloud = () => Cloud.url === url && Cloud.key === key; // Disconnect may come mid-save
+  const leftBefore = leftAt;
   try {
-    if (!leaving) {
-      // Another browser may have saved since this one last looked, so fold that in first.
-      const remote = await Cloud.call("GET", APP.storageKey);
-      const theirs = remote ? JSON.parse(remote) : null;
-      if (theirs && (theirs.savedAt || 0) > Cloud.seen) {
-        hydrate(mergeSaves(snapshot(), theirs, true));
-        afterMerge();
-      }
+    // Another browser may have saved since this one last looked, and a page that was hidden
+    // or closed may have left its copy, so fold both in first.
+    const [remote, pending] = await Promise.all([Cloud.call("GET", APP.storageKey), Cloud.call("GET", APP.cloudPending)]);
+    if (!sameCloud()) return false;
+    const theirs = remote ? JSON.parse(remote) : null;
+    const left = pending ? JSON.parse(pending) : null;
+    let merged = false;
+    if (theirs && (theirs.savedAt || 0) > Cloud.seen) {
+      hydrate(mergeSaves(snapshot(), theirs, true));
+      merged = true;
     }
+    // A restored copy replaces everything before it, including a copy left before the restore.
+    if (left && !(Cloud.replaceAt && (left.savedAt || 0) <= Cloud.replaceAt)) {
+      hydrate(mergeSaves(snapshot(), left, true));
+      merged = true;
+    }
+    if (merged) afterMerge();
+    // Workers KV takes only one write a second to the same name, so a save right after
+    // another one waits out the rest of that second.
+    await wait(Cloud.lastOk + 1100 - Date.now());
+    if (!sameCloud()) return false;
     state.savedAt = Math.max(state.savedAt || 0, Date.now());
-    await Cloud.call("PUT", APP.storageKey, JSON.stringify(state), leaving);
+    await Cloud.call("PUT", APP.storageKey, JSON.stringify(state));
     Store.save(state);
     Cloud.seen = state.savedAt;
     Cloud.lastOk = Date.now();
+    Cloud.replaceAt = 0;
     Cloud.error = "";
     cloudDirty = false;
+    if (pending) clearPending(leftBefore);
     return true;
   } catch (err) {
+    if (!sameCloud()) return false;
     Cloud.error = cloudProblem(err);
-    if (!leaving) cloudTimer = setTimeout(() => pushCloud(), 60000); // try again in a minute
+    cloudTimer = setTimeout(() => pushCloud(), 60000); // try again in a minute
     return false;
   } finally {
     renderCloudStatus();
+  }
+}
+
+let leftCopy = false; // this page already sent the cloud a copy of its latest changes as it left
+let leftAt = 0;       // when it did
+
+// A hidden page may never run again (phones often stop one right away), and a closing page
+// can't wait for answers, so either one sends its copy at once. It goes under its own name,
+// APP.cloudPending, so it can never replace newer progress from another browser. The next
+// cloud save from any browser, or the next start, merges it in.
+function sendLeaving() {
+  if (!Cloud.on || leftCopy) return;
+  leftCopy = true;
+  leftAt = Date.now();
+  // Merging only ever adds tests, so the copy can leave out older ones and still lose
+  // nothing. They are in the main copy already, or go up with the next regular save.
+  const copy = snapshot();
+  for (const p of Object.values(copy.profiles || {})) {
+    if (p && Array.isArray(p.history)) p.history = p.history.slice(-APP.pendingTests);
+  }
+  Cloud.call("PUT", APP.cloudPending, JSON.stringify(copy), true).catch(() => {
+    // the regular cloud save brings these changes along anyway
+  });
+}
+
+// Once a save has merged a left copy into the main one, the left copy goes. If this page
+// left a newer copy in the meantime, that one stays for the next save to merge.
+async function clearPending(leftBefore) {
+  await wait(leftAt + 1100 - Date.now()); // one write a second to the same name
+  if (leftAt !== leftBefore || !Cloud.on) return;
+  try {
+    await Cloud.call("DELETE", APP.cloudPending);
+  } catch (err) {
+    // the next save merges it again, which changes nothing, and tries again
   }
 }
 
@@ -4070,7 +4187,8 @@ function drawCap(ctx, p, font, alpha) {
 /* Zoom --------------------------------------------------------------------- */
 
 // Normal shows everything. No keyboard hides the keyboard and makes the text bigger.
-// Text only hides everything but the text, and Esc brings the rest back.
+// Text only hides everything but the text, and Esc (or the button at the top on a touch
+// screen) brings the rest back.
 const ZOOMS = ["normal", "nokeys", "text"];
 const ZOOM_NAMES = { normal: "Normal", nokeys: "No keyboard", text: "Text only" };
 let zoomShown = "";      // the zoom on screen, always normal away from the practice page
@@ -4094,9 +4212,17 @@ function applyZoom() {
   else root.dataset.zoom = z;
   if (z === "text") flashZenHint();
   else el.zenHint.classList.remove("show");
+  el.board.classList.remove("zoom-in", "zoom-out");
+  // Text only can be taller than a phone's screen, and reaching the zoom buttons there means
+  // scrolling down, so it opens with the line you're typing in view. This runs before the
+  // zoom animation starts, because its scaling would throw the measurement off.
+  if (z === "text" && from !== "text" && lesson && charEls.length) {
+    const full = state.settings.textView === "full";
+    const target = full ? charEls[Math.min(lesson.pos, charEls.length - 1)] : el.textWindow;
+    target.scrollIntoView({ block: "center" });
+  }
   if (from && view === "practice") {
     const dir = ZOOMS.indexOf(z) > ZOOMS.indexOf(from) ? "zoom-in" : "zoom-out";
-    el.board.classList.remove("zoom-in", "zoom-out");
     void el.board.offsetWidth;
     el.board.classList.add(dir);
     clearTimeout(zoomTimer);
@@ -6408,6 +6534,7 @@ async function restoreBackup(data) {
     // The backup file replaces the cloud copy instead of merging with it.
     state.savedAt = Date.now();
     Cloud.seen = state.savedAt;
+    Cloud.replaceAt = state.savedAt;
     try {
       await uploadDocs();
     } catch (err) {
@@ -6555,6 +6682,7 @@ async function onCloudOff() {
   Cloud.error = "";
   Cloud.lastOk = 0;
   Cloud.seen = 0;
+  Cloud.replaceAt = 0;
   await Store.remove(APP.cloudConfig);
   el.cloudKey.value = "";
   el.cloudDaysRow.hidden = true;
@@ -6590,6 +6718,7 @@ async function onCloudRestore() {
     hydrate(JSON.parse(raw));
     state.savedAt = Date.now();
     Cloud.seen = state.savedAt; // the restored copy replaces the cloud copy instead of merging with it
+    Cloud.replaceAt = state.savedAt;
     docCache.clear();
     if (state.docId && !(await openDoc(state.docId))) state.docId = "";
     Store.save(state);
@@ -6738,6 +6867,11 @@ function bindEvents() {
   document.addEventListener("keydown", onKeyDown);
   el.zoomIn.addEventListener("click", () => stepZoom(1));
   el.zoomOut.addEventListener("click", () => stepZoom(-1));
+  // On a touch screen the Text only hint is a button that stays on screen, since there's no Esc.
+  el.zenHint.addEventListener("click", () => {
+    leaveTextOnly();
+    focusSink();
+  });
   // In Text only, moving the mouse brings the Esc hint back for a moment.
   document.addEventListener("mousemove", (e) => {
     if (zoomShown !== "text" || el.zenHint.classList.contains("show")) return;
@@ -6842,12 +6976,14 @@ async function init() {
   if (Cloud.on) {
     // Fold in the cloud copy, so a cleared browser or another computer loses nothing.
     try {
-      const remote = await Cloud.call("GET", APP.storageKey);
+      const [remote, pending] = await Promise.all([Cloud.call("GET", APP.storageKey), Cloud.call("GET", APP.cloudPending)]);
       const theirs = remote ? JSON.parse(remote) : null;
       if (theirs) {
         start = mergeSaves(local, theirs, false);
         Cloud.seen = theirs.savedAt || 0;
       }
+      // A page that was hidden or closed may have left a copy newer than the main one.
+      if (pending) start = mergeSaves(start, JSON.parse(pending), false);
     } catch (err) {
       Cloud.error = cloudProblem(err);
     }

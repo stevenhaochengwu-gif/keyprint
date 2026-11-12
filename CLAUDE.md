@@ -76,7 +76,10 @@ The script changes the look mostly through root attributes (`data-theme`, `data-
 - **Saving.**
   - `scheduleSave` debounces (400 ms by default, 500 from `setSetting`), then calls `saveLocal`.
   - `saveLocal` stamps `savedAt`, writes, marks the cloud copy dirty and calls `scheduleCloud`, which pushes at most every 20 s.
-  - `flushSaves` runs on `pagehide` and when the page is hidden.
+  - `flushSaves` runs on `pagehide` and when the page is hidden. It saves locally, then `sendLeaving` sends a slim copy (the newest `APP.pendingTests` tests per layout) with `keepalive` to `keyprint-pending`, once per batch of changes. It never writes the main cloud copy, because a hidden page may never run again (phones often stop one right away) and a closing page can't wait to read first.
+  - `pushCloud` runs one `sendCloud` at a time and queues at most one more for everyone who asks meanwhile. Keep it that way, or two saves read the same copy and both write it.
+  - `sendCloud` reads the main copy and `keyprint-pending` together, merges both in, waits until 1.1 s after its last successful PUT, writes the main copy, then deletes `keyprint-pending` (unless this page left a newer one meanwhile). It gives up quietly if Cloud save was disconnected or changed mid-save. Never write the main copy without that read and merge, or a stale tab replaces newer progress from another device.
+  - Every `Cloud.call` except a keepalive one gives up after `APP.cloudTimeout`, so one stuck request can't hold up the queue forever.
   - `ready` stays false until `init` has hydrated, so nothing can write DEFAULTS over a real save. Keep it that way.
 - **`hydrate` is the one gate for every load.** That covers init, cloud connect, the merge inside `pushCloud`, backup restore and daily cloud copy restore. It rebuilds state field by field and resets any setting whose `typeof` differs from DEFAULTS. It checks enums against include lists or lookup tables and clamps numbers. It caps history at `APP.historyLimit`, `daily` and `clean` at 400 days and `removed` at 200. It never updates `state.version`.
 - **Migrations.** To change the schema, bump `APP.version` (currently 7) and add an `if (from < N)` block in `hydrate`.
@@ -84,7 +87,7 @@ The script changes the look mostly through root attributes (`data-theme`, `data-
   - Always pass `hydrate` a parsed or `snapshot()` copy that still has `version`. Never pass live state, because `hydrate` clears each state field before reading the same field from its argument, which would wipe profiles, daily, clean and docs. It also keeps the argument's `keys` objects by reference (`cleanKeys` mutates and returns them).
 - **New top-level fields.** A new state field goes in the initial `state` and in `hydrate`. If you miss `hydrate`, the saved value is silently dropped on every reload. `mergeSaves` starts from a copy of the newer save, so it only needs code if both copies' values should be combined.
 - **Cloud save** (`Cloud`, `pushCloud`, the Cloud save subsection).
-  - It sends bearer-key fetches to the user's Worker. Object names are the state and doc Store keys URL-encoded, plus `backups` and `backup-YYYY-MM-DD`. `keyprint-cloud` never leaves the browser.
+  - It sends bearer-key fetches to the user's Worker. Object names are the state and doc Store keys URL-encoded, plus `keyprint-pending` (`APP.cloudPending`), `backups` and `backup-YYYY-MM-DD`. `keyprint-cloud` never leaves the browser.
   - Status 401 becomes `key`, 500 becomes `setup` and any other failure `reach`. A GET that returns 404 is null.
 - **The Worker side** (`save-worker.js`).
   - `SITES` lists the only origins allowed by CORS (`https://type.stevenwu.org` and the `typing.stevenhaochengwu.workers.dev` address). From any other origin, including a Claude artifact, a `file://` page or localhost, the browser blocks every response and the app reports `reach`.
@@ -92,14 +95,14 @@ The script changes the look mostly through root attributes (`data-theme`, `data-
   - A PUT of `keyprint-state-v1` also writes `backup-<day>` if that day has no copy yet. The day is the UTC date, so outside UTC the "day" starts at a local time other than midnight (evening in the US). Daily copies are never deleted.
   - DELETE refuses the main state and daily copies (403). Bodies over 20,000,000 characters get 413. Missing `DATA` or `SAVE_KEY` gives 500, which the app shows as the setup message.
   - Workers KV is eventually consistent. A write can take 60 seconds or more to show up at other Cloudflare locations, same-key writes are limited to one per second (faster ones throw a 429 inside `put`), and the last write wins. Two devices are not guaranteed to see each other's latest save, which is why `mergeSaves` exists and why it must never drop data from either side.
-  - A normal push GETs first and merges if the remote `savedAt` is newer than `Cloud.seen`, then PUTs.
-  - The push on page close skips the GET. It uses `keepalive` only for bodies under 60,000 characters, so a long history may not reach the cloud on close. Local saves are not affected.
+  - A save merges the main copy only if its `savedAt` is newer than `Cloud.seen`, and merges a left copy in `keyprint-pending` whenever one exists. `init` merges both at start.
+  - `keepalive` only applies to bodies under 60,000 characters, which is why the left copy is slim. Merging only ever adds tests, so leaving older ones out of it loses nothing.
 - **`mergeSaves`.**
   - History is unioned by `ts|wpm`, keeping only entries at or after the later `resetAt`.
   - When both copies share a `resetAt`, each letter keeps the copy with the larger `n`, and `unlocked` takes the max. Otherwise the copy with the later reset wins both.
   - `daily` and `clean` take the max per day, not the sum.
   - `keepMine` keeps the local settings and `docId`.
-  - To replace the cloud copy instead of merging with it, set `state.savedAt = Date.now()` and `Cloud.seen = state.savedAt` before `pushCloud`.
+  - To replace the cloud copy instead of merging with it, set `state.savedAt = Date.now()`, `Cloud.seen = state.savedAt` and `Cloud.replaceAt = state.savedAt` before `pushCloud`. `replaceAt` makes the save drop a left copy from before the restore instead of merging it back in.
 - **Backups** are `{app: "keyprint", version, savedAt, state, texts}`. Restore drops any doc whose text is missing from `texts`.
 - **Docs.** Doc ids must match `/^[a-z0-9]{4,40}$/`, or `hydrate` silently drops the document. Changing `APP.mergeWords`, `splitWords` or `pieceWords` moves saved `doc.at` positions onto different passages.
 
@@ -160,7 +163,8 @@ The script changes the look mostly through root attributes (`data-theme`, `data-
 - **Zoom.** Any `data-zoom` value hides the keyboard deck, so Normal must remove the attribute.
   - `applyZoom` sets it only on the Practice view.
   - `setSetting` sets `zoomBack` before calling it.
-  - In Text only, Esc is the only way out.
+  - In Text only, Esc leaves. On touch screens (`pointer: coarse`) the `#zenHint` button stays at the top as the way out, since there is no Esc. Elsewhere it is a fading hint that never takes clicks or focus (`tabindex="-1"`, `pointer-events: none`).
+  - Entering Text only scrolls the cursor (or the Three lines window) into view, before the zoom animation starts, because the animation's scaling throws off measurements.
 - **Text rendering.**
   - `charEls[i]` must line up with `lesson.text`. The caret and the trail span are not in it.
   - `paintChar` overwrites each char's whole className from `lesson.states` (0 waiting, 1 right, 2 right after a mistake, 3 wrong). Any new char class must be added inside `paintChar`.
