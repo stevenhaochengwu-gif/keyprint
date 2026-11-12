@@ -70,16 +70,17 @@ The script changes the look mostly through root attributes (`data-theme`, `data-
 - **`Store`.** It uses Claude's `window.storage` if present, then localStorage, then nothing. It writes three kinds of key (plus a `keyprint-probe` it sets and removes to test localStorage).
   - `keyprint-state-v1`, the whole state.
   - `keyprint-doc:<id>`, one per text.
-  - `keyprint-cloud`, the Worker address and key.
+  - `keyprint-cloud`, the Worker address and key, plus `replaceAt` while a restore isn't safely in the cloud yet.
 
   Never rename these keys, or every existing save is orphaned.
 - **Saving.**
   - `scheduleSave` debounces (400 ms by default, 500 from `setSetting`), then calls `saveLocal`.
   - `saveLocal` stamps `savedAt`, writes, marks the cloud copy dirty and calls `scheduleCloud`, which pushes at most every 20 s.
-  - `flushSaves` runs on `pagehide` and when the page is hidden. It saves locally, then `sendLeaving` sends a slim copy (the newest `APP.pendingTests` tests per layout) with `keepalive` to `keyprint-pending`, once per batch of changes. It never writes the main cloud copy, because a hidden page may never run again (phones often stop one right away) and a closing page can't wait to read first.
+  - `flushSaves` runs on `pagehide` and when the page is hidden. It saves locally, then `sendLeaving` sends a slim copy with `keepalive` to `keyprint-pending`, once per batch of changes. The copy holds only tests since this browser's last cloud save (at most `APP.pendingTests` per layout) and the last 3 days of totals, since merging only ever adds. It never writes the main cloud copy, because a hidden page may never run again (phones often stop one right away) and a closing page can't wait to read first.
   - `pushCloud` runs one `sendCloud` at a time and queues at most one more for everyone who asks meanwhile. Keep it that way, or two saves read the same copy and both write it.
-  - `sendCloud` reads the main copy and `keyprint-pending` together, merges both in, waits until 1.1 s after its last successful PUT, writes the main copy, then deletes `keyprint-pending` (unless this page left a newer one meanwhile). It gives up quietly if Cloud save was disconnected or changed mid-save. Never write the main copy without that read and merge, or a stale tab replaces newer progress from another device.
-  - Every `Cloud.call` except a keepalive one gives up after `APP.cloudTimeout`, so one stuck request can't hold up the queue forever.
+  - `sendCloud` first waits until 1.1 s after its last successful PUT (timed with `performance.now()`, as KV takes one write a second per name), then reads the main copy and `keyprint-pending` together, merges both in, writes the main copy, and awaits deleting `keyprint-pending` (unless this page left a newer one meanwhile) before the next queued save may read. It gives up quietly if Cloud save was disconnected or changed mid-save. Never write the main copy without that read and merge, or a stale tab replaces newer progress from another device.
+  - Every `Cloud.call` except a keepalive one gives up if no answer starts within `APP.cloudTimeout` plus 1 s per 10,000 characters uploaded. Once the answer starts, the body can take as long as it needs. This keeps one stuck request from holding up the queue without cutting off big uploads on slow links.
+  - All browsers share the one `keyprint-pending` name. Two browsers leaving within moments of each other can replace or delete each other's left copy before it's merged. The changes then stay in that browser and reach the cloud the next time it opens. Per-browser names listed in the main copy would close this, and the Worker already allows them.
   - `ready` stays false until `init` has hydrated, so nothing can write DEFAULTS over a real save. Keep it that way.
 - **`hydrate` is the one gate for every load.** That covers init, cloud connect, the merge inside `pushCloud`, backup restore and daily cloud copy restore. It rebuilds state field by field and resets any setting whose `typeof` differs from DEFAULTS. It checks enums against include lists or lookup tables and clamps numbers. It caps history at `APP.historyLimit`, `daily` and `clean` at 400 days and `removed` at 200. It never updates `state.version`.
 - **Migrations.** To change the schema, bump `APP.version` (currently 7) and add an `if (from < N)` block in `hydrate`.
@@ -102,7 +103,7 @@ The script changes the look mostly through root attributes (`data-theme`, `data-
   - When both copies share a `resetAt`, each letter keeps the copy with the larger `n`, and `unlocked` takes the max. Otherwise the copy with the later reset wins both.
   - `daily` and `clean` take the max per day, not the sum.
   - `keepMine` keeps the local settings and `docId`.
-  - To replace the cloud copy instead of merging with it, set `state.savedAt = Date.now()`, `Cloud.seen = state.savedAt` and `Cloud.replaceAt = state.savedAt` before `pushCloud`. `replaceAt` makes the save drop a left copy from before the restore instead of merging it back in.
+  - To replace the cloud copy instead of merging with it (a restore), call `markReplace()` before `pushCloud`. It stamps `state.savedAt` and sets `Cloud.seen` and `Cloud.replaceAt`, and `replaceAt` is stored in `keyprint-cloud` with the address and key. While it's set, `sendCloud` and `init` drop any main or left copy whose `savedAt` is at or before it instead of merging it, and `init` forces a save. It's cleared only after a save that saw it has written the main copy and deleted any left copy. That keeps a restore from being undone by a queued save or by closing the page before the save lands.
 - **Backups** are `{app: "keyprint", version, savedAt, state, texts}`. Restore drops any doc whose text is missing from `texts`.
 - **Docs.** Doc ids must match `/^[a-z0-9]{4,40}$/`, or `hydrate` silently drops the document. Changing `APP.mergeWords`, `splitWords` or `pieceWords` moves saved `doc.at` positions onto different passages.
 

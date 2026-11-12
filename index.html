@@ -2138,7 +2138,7 @@ const APP = {
   cloudDelay: 20000,   // ms between saves to your Cloudflare account while you practice
   cloudPending: "keyprint-pending", // cloud name for the copy a hidden or closing page sends at once
   pendingTests: 30,    // newest tests per layout in that copy, so it stays small enough to send while closing
-  cloudTimeout: 20000, // ms before a cloud request that hasn't answered counts as failed
+  cloudTimeout: 20000, // ms a cloud request may wait for an answer to start, plus 1 s per 10,000 characters it uploads
   letterOrder: "etaoinshrdlcumwfgypbvkjxqz", // adaptive tests unlock letters in this order
   minSamples: 12,      // timed keystrokes a letter needs before it can count as learned
   minInterval: 25,     // ms. Faster gaps between keys are ignored as noise
@@ -2462,16 +2462,20 @@ const Cloud = {
   key: "",
   seen: 0,      // savedAt of the cloud copy the last time this browser read or wrote it
   lastOk: 0,    // when the last save to the cloud worked
-  replaceAt: 0, // savedAt of a restored copy that replaces the cloud copy, until it is saved
+  putAt: -1e9,  // performance.now() of that save, for spacing writes without trusting the clock
+  replaceAt: 0, // savedAt of a restored copy, remembered with the address and key until it's safely saved
   error: "",
   get on() {
     return Boolean(this.url && this.key);
   },
   // Cloud saves run one at a time, so a request that never answers would hold up every
-  // save after it. It gives up after APP.cloudTimeout instead. A closing page can't wait.
+  // save after it. It gives up after APP.cloudTimeout instead, with more time for a bigger
+  // upload. Once the answer starts arriving it can take as long as it needs, and a closing
+  // page can't wait for an answer at all.
   async call(method, name, body, keepalive = false) {
     const stop = keepalive ? null : new AbortController();
-    const timer = stop ? setTimeout(() => stop.abort(), APP.cloudTimeout) : 0;
+    const limit = APP.cloudTimeout + (body ? body.length / 10 : 0);
+    const timer = stop ? setTimeout(() => stop.abort(), limit) : 0;
     try {
       const res = await fetch(`${this.url}/${encodeURIComponent(name)}`, {
         method,
@@ -2481,6 +2485,7 @@ const Cloud = {
         keepalive: keepalive && (!body || body.length < 60000),
         signal: stop ? stop.signal : undefined,
       });
+      clearTimeout(timer);
       if (method === "GET" && res.status === 404) return null;
       if (res.status === 401) throw new Error("key");
       if (res.status === 500) throw new Error("setup");
@@ -2508,10 +2513,23 @@ async function loadCloudConfig() {
     if (cfg && typeof cfg.url === "string" && typeof cfg.key === "string") {
       Cloud.url = cfg.url;
       Cloud.key = cfg.key;
+      Cloud.replaceAt = Number(cfg.replaceAt) || 0;
     }
   } catch (err) {
     // nothing remembered yet
   }
+}
+
+const saveCloudConfig = () => Store.write(APP.cloudConfig, JSON.stringify({ url: Cloud.url, key: Cloud.key, replaceAt: Cloud.replaceAt }));
+
+// A restore replaces the cloud copy instead of merging with it. Until a save has put it in
+// the cloud with no older copy left behind, copies from before it are dropped, not merged.
+// That's remembered across reloads, so closing the page too soon can't undo the restore.
+function markReplace() {
+  state.savedAt = Date.now();
+  Cloud.seen = state.savedAt;
+  Cloud.replaceAt = state.savedAt;
+  saveCloudConfig();
 }
 
 // Combines two saved copies so progress from either one is kept. Tests are matched by when
@@ -2618,38 +2636,45 @@ async function sendCloud() {
   if (!Cloud.on) return false;
   const { url, key } = Cloud;
   const sameCloud = () => Cloud.url === url && Cloud.key === key; // Disconnect may come mid-save
-  const leftBefore = leftAt;
   try {
+    // Workers KV takes only one write a second to the same name, so a save right after
+    // another one waits out the rest of that second. It waits before reading, so the copy
+    // it writes is never staler than it has to be.
+    await wait(Cloud.putAt + 1100 - performance.now());
+    if (!sameCloud()) return false;
+    const leftBefore = leftAt;
     // Another browser may have saved since this one last looked, and a page that was hidden
     // or closed may have left its copy, so fold both in first.
     const [remote, pending] = await Promise.all([Cloud.call("GET", APP.storageKey), Cloud.call("GET", APP.cloudPending)]);
     if (!sameCloud()) return false;
+    const replacing = Cloud.replaceAt; // read after the wait, in case a restore came meanwhile
     const theirs = remote ? JSON.parse(remote) : null;
     const left = pending ? JSON.parse(pending) : null;
+    const beforeRestore = (copy) => replacing && (copy.savedAt || 0) <= replacing;
     let merged = false;
-    if (theirs && (theirs.savedAt || 0) > Cloud.seen) {
+    if (theirs && (theirs.savedAt || 0) > Cloud.seen && !beforeRestore(theirs)) {
       hydrate(mergeSaves(snapshot(), theirs, true));
       merged = true;
     }
-    // A restored copy replaces everything before it, including a copy left before the restore.
-    if (left && !(Cloud.replaceAt && (left.savedAt || 0) <= Cloud.replaceAt)) {
+    if (left && !beforeRestore(left)) {
       hydrate(mergeSaves(snapshot(), left, true));
       merged = true;
     }
     if (merged) afterMerge();
-    // Workers KV takes only one write a second to the same name, so a save right after
-    // another one waits out the rest of that second.
-    await wait(Cloud.lastOk + 1100 - Date.now());
-    if (!sameCloud()) return false;
     state.savedAt = Math.max(state.savedAt || 0, Date.now());
     await Cloud.call("PUT", APP.storageKey, JSON.stringify(state));
+    Cloud.putAt = performance.now();
     Store.save(state);
     Cloud.seen = state.savedAt;
     Cloud.lastOk = Date.now();
-    Cloud.replaceAt = 0;
     Cloud.error = "";
     cloudDirty = false;
-    if (pending) clearPending(leftBefore);
+    // The left copy is merged now, so it goes. This finishes before the next save reads.
+    const cleared = pending ? await clearPending(leftBefore) : true;
+    if (replacing && cleared && Cloud.replaceAt === replacing) {
+      Cloud.replaceAt = 0;
+      saveCloudConfig();
+    }
     return true;
   } catch (err) {
     if (!sameCloud()) return false;
@@ -2662,36 +2687,44 @@ async function sendCloud() {
 }
 
 let leftCopy = false; // this page already sent the cloud a copy of its latest changes as it left
-let leftAt = 0;       // when it did
+let leftAt = -1e9;    // performance.now() when it did
 
 // A hidden page may never run again (phones often stop one right away), and a closing page
 // can't wait for answers, so either one sends its copy at once. It goes under its own name,
-// APP.cloudPending, so it can never replace newer progress from another browser. The next
-// cloud save from any browser, or the next start, merges it in.
+// APP.cloudPending, so it never replaces the main copy. The next cloud save from any browser,
+// or the next start, merges it in. All browsers share that one name, so if two leave within
+// moments of each other, the later copy can replace the earlier one before it's merged. The
+// earlier browser still has those changes, and they reach the cloud the next time it opens.
 function sendLeaving() {
   if (!Cloud.on || leftCopy) return;
   leftCopy = true;
-  leftAt = Date.now();
-  // Merging only ever adds tests, so the copy can leave out older ones and still lose
-  // nothing. They are in the main copy already, or go up with the next regular save.
+  leftAt = performance.now();
+  // Merging only ever adds, so the copy leaves out what the main copy already has, which keeps
+  // it small enough for the browser to finish sending after the page is gone. That's tests
+  // from before this browser's last cloud save, and all but the last few days of totals.
   const copy = snapshot();
+  const since = Cloud.lastOk - 60000;
   for (const p of Object.values(copy.profiles || {})) {
-    if (p && Array.isArray(p.history)) p.history = p.history.slice(-APP.pendingTests);
+    if (p && Array.isArray(p.history)) p.history = p.history.filter((e) => e && e.ts > since).slice(-APP.pendingTests);
+  }
+  for (const field of ["daily", "clean"]) {
+    copy[field] = Object.fromEntries(Object.entries(copy[field] || {}).sort().slice(-3));
   }
   Cloud.call("PUT", APP.cloudPending, JSON.stringify(copy), true).catch(() => {
-    // the regular cloud save brings these changes along anyway
+    leftCopy = false; // the next hide tries again, and the regular cloud save brings these changes anyway
   });
 }
 
 // Once a save has merged a left copy into the main one, the left copy goes. If this page
 // left a newer copy in the meantime, that one stays for the next save to merge.
 async function clearPending(leftBefore) {
-  await wait(leftAt + 1100 - Date.now()); // one write a second to the same name
-  if (leftAt !== leftBefore || !Cloud.on) return;
+  await wait(leftAt + 1100 - performance.now()); // one write a second to the same name
+  if (leftAt !== leftBefore || !Cloud.on) return false;
   try {
     await Cloud.call("DELETE", APP.cloudPending);
+    return true;
   } catch (err) {
-    // the next save merges it again, which changes nothing, and tries again
+    return false; // the next save merges it again, which changes nothing, and tries again
   }
 }
 
@@ -6529,12 +6562,10 @@ async function restoreBackup(data) {
   }
   state.docs = state.docs.filter((d) => docCache.has(d.id));
   if (state.docId && !(await openDoc(state.docId))) state.docId = "";
+  // The backup file replaces the cloud copy instead of merging with it.
+  if (Cloud.on) markReplace();
   await Store.save(state);
   if (Cloud.on) {
-    // The backup file replaces the cloud copy instead of merging with it.
-    state.savedAt = Date.now();
-    Cloud.seen = state.savedAt;
-    Cloud.replaceAt = state.savedAt;
     try {
       await uploadDocs();
     } catch (err) {
@@ -6653,7 +6684,7 @@ async function onCloudConnect() {
       newLesson();
     }
     await uploadDocs();
-    await Store.write(APP.cloudConfig, JSON.stringify({ url, key }));
+    await saveCloudConfig();
     Cloud.error = "";
     cloudDirty = true;
     const ok = await pushCloud();
@@ -6716,9 +6747,7 @@ async function onCloudRestore() {
     const raw = await Cloud.call("GET", `backup-${day}`);
     if (!raw) throw new Error("reach");
     hydrate(JSON.parse(raw));
-    state.savedAt = Date.now();
-    Cloud.seen = state.savedAt; // the restored copy replaces the cloud copy instead of merging with it
-    Cloud.replaceAt = state.savedAt;
+    markReplace(); // the restored copy replaces the cloud copy instead of merging with it
     docCache.clear();
     if (state.docId && !(await openDoc(state.docId))) state.docId = "";
     Store.save(state);
@@ -6978,12 +7007,15 @@ async function init() {
     try {
       const [remote, pending] = await Promise.all([Cloud.call("GET", APP.storageKey), Cloud.call("GET", APP.cloudPending)]);
       const theirs = remote ? JSON.parse(remote) : null;
+      const left = pending ? JSON.parse(pending) : null;
+      // A restore that isn't safely in the cloud yet still wins over copies from before it.
+      const beforeRestore = (copy) => Cloud.replaceAt && (copy.savedAt || 0) <= Cloud.replaceAt;
       if (theirs) {
-        start = mergeSaves(local, theirs, false);
+        if (!beforeRestore(theirs)) start = mergeSaves(local, theirs, false);
         Cloud.seen = theirs.savedAt || 0;
       }
       // A page that was hidden or closed may have left a copy newer than the main one.
-      if (pending) start = mergeSaves(start, JSON.parse(pending), false);
+      if (left && !beforeRestore(left)) start = mergeSaves(start, left, false);
     } catch (err) {
       Cloud.error = cloudProblem(err);
     }
@@ -6992,7 +7024,7 @@ async function init() {
   applyTheme();
   applyZoom();
   ready = true;
-  if (start !== local) saveLocal(); // keeps this browser and the cloud copy in step
+  if (start !== local || Cloud.replaceAt) saveLocal(); // keeps this browser and the cloud copy in step
   el.cloudUrl.value = Cloud.url.replace(/^https:\/\//, "");
   el.cloudKey.value = Cloud.key;
   renderCloudStatus();
