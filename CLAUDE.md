@@ -1,10 +1,10 @@
 # Keyprint
 
-Keyprint is a browser typing trainer that lives in one file, `index.html`, with no build step, no dependencies and no tests. It has four kinds of test. Step up (the default, where each day starts short and every perfect test adds a word), Words, Adaptive (letters unlock one at a time as you learn them) and My text (your own pasted text, text files or PDFs). It also has an on-screen keyboard with finger colors and hand outlines, daily goals, and a Progress page of canvas charts. Progress saves in the browser, or in Claude artifact storage when it runs as an artifact, and optionally to a Cloudflare Worker that the user runs.
+Keyprint is a browser typing trainer that lives in one file, `index.html`, with no build step, no dependencies and no tests. It has four kinds of test. Step up (the default, where each day starts short and every perfect test adds a word), Words, Adaptive (letters unlock one at a time as you learn them) and My text (your own pasted text, text files or PDFs). It also has an on-screen keyboard with finger colors and hand outlines, daily goals, a Progress page of canvas charts, and an Analysis page that works out where your mistakes come from (keys, confusions, key switches, Shift, fingers, pace, place in the word) and builds a Practice these test from them. Progress saves in the browser, or in Claude artifact storage when it runs as an artifact, and optionally to a Cloudflare Worker that the user runs.
 
 ## Files
 
-- `index.html` is the entire app, about 6,900 lines of HTML, CSS and JS. Keep it one self-contained file. The owner also runs it as an artifact in the Claude chat app (that is where `window.storage` comes from), so don't split it into modules or add local files, packages or a build step.
+- `index.html` is the entire app, about 8,500 lines of HTML, CSS and JS. Keep it one self-contained file. The owner also runs it as an artifact in the Claude chat app (that is where `window.storage` comes from), so don't split it into modules or add local files, packages or a build step.
 - `README.md` is a one-line stub.
 - `wrangler.jsonc` and `.assetsignore` deploy the site to Cloudflare (see Deploying).
 - `save-worker.js` is the Cloudflare Worker behind Cloud save (an ES module, `export default { fetch }`). It stores everything in a Workers KV namespace bound as `DATA` and only answers requests with `Authorization: Bearer <SAVE_KEY>`. The owner deploys it by hand in the Cloudflare dashboard, so editing this file changes nothing live. Say so whenever a change needs a redeploy, and keep the app working with the Worker that is already deployed.
@@ -41,24 +41,24 @@ const { chromium } = require('playwright');
 
 ## Architecture of index.html
 
-The line numbers below are approximate and drift with every edit, so find sections by their markers instead. `grep -n '^/\* ' index.html` lists the CSS headers (`/* Top bar ----- */`) and every script section and subsection, along with some ordinary comments. HTML views start at `<!-- Practice ====`, `<!-- Progress, with the calendar on top ====` and `<!-- Settings ====`.
+The line numbers below are approximate and drift with every edit, so find sections by their markers instead. `grep -n '^/\* ' index.html` lists the CSS headers (`/* Top bar ----- */`) and every script section and subsection, along with some ordinary comments. HTML views start at `<!-- Practice ====`, `<!-- Progress, with the calendar on top ====`, `<!-- Analysis, every mistake and where it comes from ====` and `<!-- Settings ====`.
 
 | Approx lines | Marker | What lives there |
 |---|---|---|
 | 1 to 14 | `<head>` | Meta tags, three logo icon data URIs (lines 7 to 9), Google Fonts |
-| 15 to 1307 | `<style>` | Light `:root`, dark palette twice, components, `data-zoom` modes, cheer, reduced motion |
-| 1309 to 1928 | `<body>` | Top bar and tabs, `#view-practice` and `#view-progress` (mostly empty containers the script fills), `#view-settings` (full markup), `#toast`, `#chartTip`, `#zenHint`, `#announce` |
+| 15 to 1307 | `<style>` | Light `:root`, dark palette twice, components, Analysis bars and tiles, `data-zoom` modes, cheer, small screens, reduced motion |
+| 1309 to 1928 | `<body>` | Top bar and tabs, `#view-practice`, `#view-progress` and `#view-analysis` (card skeletons and empty containers the script fills), `#view-settings` (full markup), `#toast`, `#chartTip`, `#zenHint`, `#announce` |
 | 1929 to 2089 | first `<script>`, not strict | `WORD_TIERS`, `COMMON_WORDS`, `BLOCKED`, `LITERARY_WORDS` |
 | 2105 | `/* 1. Configuration` | `APP` (tuning, storage keys, `version`) and `DEFAULTS` (settings schema) |
 | 2165 | `/* 2. Keyboard data` | `LAYOUTS`, `FINGER_PATTERNS`, `CODE_ROWS`/`CODE_POS`, `SHIFTED`/`UNSHIFT`, `IS_MAC`, `KEY_NAMES`, `BOTTOM_ROW` |
 | 2243 | `/* 3. Helpers` | `$`, `$$`, `clamp`, `mean`, `round`, `node(tag, cls, text)`, speed, percent and duration formatters |
 | 2281 | `/* 4. State and storage` | `state`, `profile()`, `Store`, save pipeline, `Cloud`, `pushCloud`, `mergeSaves`, `hydrate` |
-| 2712 | `/* 5. Text generation` | Letter `MODEL`, `adaptiveText`, `POOLS`, `wordsText`, My text docs (`cleanDocument`, `splitPassages`, `addDoc`, `openDoc`, `deleteDoc`), `MARKS`, `decorate` |
+| 2712 | `/* 5. Text generation` | Letter `MODEL`, `adaptiveText`, `POOLS`, `wordsText`, `drillText` (Practice these), My text docs (`cleanDocument`, `splitPassages`, `addDoc`, `openDoc`, `deleteDoc`), `MARKS`, `decorate` |
 | 3093 | `/* 6. Letter statistics` | `keySpeed`, `skill`, `focusKey`, `canUnlock`, `weakLetters`, `applyKeyStats`, `testDetail` |
-| 3201 | `/* 7. Test engine` | `lesson`, goals and time tracking, `newLesson`, `startLesson`, `typeChar`, `failAttempt`, `backspace`, `finishLesson` |
+| 3201 | `/* 7. Test engine` | `lesson`, goals and time tracking, keystroke capture (`keyDetail`, `unfinished`, `joinDetail`, `noteMiss`), `newLesson`, `startLesson`, `typeChar`, `failAttempt`, `backspace`, `finishLesson` |
 | 3548 | `/* 8. Practice screen` | `el` registry for the whole app, header renderers, Goal celebration, Zoom, text renderer, My text library and pdf.js |
 | 4699 | `/* 9. Keyboard` | `buildKeyboard`, `refreshKeyboard`, `drawHands`, `markNextKey`, cue, `celebrateUnlock` |
-| 4980 | `/* 10. Progress screen` | `prog`, `TYPISTS`, `palette()`, `sizeCanvas`, eight canvases drawn by seven functions, Calendar subsection |
+| 4980 | `/* 10. Progress screen` | `prog`, `TYPISTS`, `palette()`, `sizeCanvas`, eight canvases drawn by seven functions, Calendar subsection, Analysis subsection (`ANALYSIS_MIN`, `analyze`, `renderAnalysis` and one `renderAna*` per card, `drillPlan`, `startDrill`) |
 | 6160 | `/* 11. Settings` | `EFFECTS`, `applyTheme`, `setSetting`, `bindSettings`, `syncSettingsUI`, backup and restore, Cloud save subsection, reset |
 | 6632 | `/* 12. Events` | `showView`, `onKeyDown`, `onSinkInput`, `bindEvents` |
 | 6824 | `/* 13. Start` | `init()`, called on the last script line |
@@ -72,7 +72,10 @@ The script changes the look mostly through root attributes (`data-theme`, `data-
 - **The `state` object.** It holds `version, settings, profiles, daily, clean, goalMetOn, cheered, docs, docId, removed, step, restoredAt, devices, savedAt`. `step` is `{day, words}`, how far Step up has grown on that local day, and `mergeSaves` keeps the larger on the same day or the later day's. Each `profiles[layout]` is `{unlocked, keys, history, customPos, resetAt}`, so letter stats, unlocks and history are kept per layout. `daily` and `clean` (ms per local `YYYY-MM-DD`) are shared by all layouts.
 - **Saved shapes are fixed.**
   - Letter stats are `{t, n, e, m, x}`.
-  - History entries are `{ts, wpm, acc, dur, words, mode, tries, nk, k}`, with `k[ch] = [avgMs, timed, typed, missed]`. Older entries have no `k` or `nk` and must keep working.
+  - History entries are `{ts, wpm, acc, dur, words, mode, tries, nk, k, tx, mx, tm}`, with `k[ch] = [avgMs, timed, typed, missed]`. Older entries have no `k` or `nk` and must keep working.
+  - `tx`, `mx` and `tm` are every keystroke of the test, for the Analysis tab, made by `keyDetail` and `joinDetail` in `finishLesson`. `tx` is the test text. `mx` is `[[i, typed, ms], ...]`, the first wrong key at each position `i` of `tx` that went wrong, with the ms since the key before (left out when there is none, at a test's first key or right after Backspace). Wrong keys typed after it while the mistake still shows (the trail, and every blocked key with Backspace to delete) are not noted again, so `mx` lines up with `errAt`. `tm` is two base 36 digits per character of `tx` (so `tm.length === 2 * tx.length`), the time before the key that typed it right on the first try in 10 ms steps, capped at `APP.idleGap`, or `zz` when there is none (first key, after Backspace, or a missed position).
+  - Attempts that end early (a failed try in One mistake restarts, Esc, Tab, a settings change) have no entry of their own. `keepPartial` holds their keys in `unfinished` (not saved, at most `APP.unfinishedChars` characters, dropped on a layout change or Reset progress), and the next finished test on the same layout puts them first in its `tx`, each part ending in a `\n` with `zz` in `tm`. Lesson text never contains `\n`, and the analysis never counts a switch across one. So `tx` can be longer than the text the entry's `wpm` and `acc` describe.
+  - Only the newest `APP.detailTests` tests per layout, holding at most `APP.detailChars` characters of `tx`, keep these three fields. `trimDetail` strips the rest, and both `finishLesson` and `hydrate` run it, so merges can't grow it back. Old entries without them, or with ones that don't add up, are skipped by `detailedTests` and work everywhere else as before.
   - Docs are `{id, title, words, passages, at, added, finished}`. Doc text is never stored in the main blob.
 - **`Store`.** It uses Claude's `window.storage` if present, then localStorage, then nothing. It writes three kinds of key (plus a `keyprint-probe` it sets and removes to test localStorage).
   - `keyprint-state-v1`, the whole state.
@@ -83,7 +86,7 @@ The script changes the look mostly through root attributes (`data-theme`, `data-
 - **Saving.**
   - `scheduleSave` debounces (400 ms by default, 500 from `setSetting`), then calls `saveLocal`.
   - `saveLocal` stamps `savedAt`, writes, marks the cloud copy dirty and calls `scheduleCloud`, which pushes at most every 20 s.
-  - `flushSaves` runs on `pagehide` and when the page is hidden. It saves locally, then `sendLeaving` sends a slim copy with `keepalive` to this browser's own slot, `keyprint-pending-<device>`, once per batch of changes. The copy carries `leftAt` (this browser's clock) and only this browser's own `left` mark, since its other marks may cover copies whose tests it isn't carrying. The copy holds only tests since this browser's last cloud save (at most `APP.pendingTests` per layout) and the last 3 days of totals, since merging only ever adds. It never writes the main cloud copy, because a hidden page may never run again (phones often stop one right away) and a closing page can't wait to read first.
+  - `flushSaves` runs on `pagehide` and when the page is hidden. It saves locally, then `sendLeaving` sends a slim copy with `keepalive` to this browser's own slot, `keyprint-pending-<device>`, once per batch of changes. The copy carries `leftAt` (this browser's clock) and only this browser's own `left` mark, since its other marks may cover copies whose tests it isn't carrying. The copy holds only tests since this browser's last cloud save (at most `APP.pendingTests` per layout) and the last 3 days of totals, since merging only ever adds. Only the newest of those tests keep `tx`, `mx` and `tm`, up to `APP.leftDetail` characters of them, and the rest reach the cloud with the next regular save. It never writes the main cloud copy, because a hidden page may never run again (phones often stop one right away) and a closing page can't wait to read first.
   - `pushCloud` runs one `sendCloud` at a time and queues at most one more for everyone who asks meanwhile. Keep it that way, or two saves read the same copy and both write it.
   - `sendCloud` first waits until 1.1 s after its last successful PUT (timed with `performance.now()`, as KV takes one write a second per name). Then `readCloud` reads the main copy and the slot of every browser listed in `state.devices` and in the main copy, `foldLeft` merges each slot whose `leftAt` is newer than that browser's `left` mark and raises the mark, and the main copy is written. Slots are never deleted. The marks make sure each left copy is merged once. It gives up quietly if Cloud save was disconnected or changed mid-save. Never write the main copy without that read and merge, or a stale tab replaces newer progress from another device.
   - Every `Cloud.call` except a keepalive one gives up if no answer starts within `APP.cloudTimeout` plus 1 s per 10,000 characters uploaded. Once the answer starts, the body can take as long as it needs. This keeps one stuck request from holding up the queue without cutting off big uploads on slow links.
@@ -91,7 +94,7 @@ The script changes the look mostly through root attributes (`data-theme`, `data-
   - Tabs of one browser share its slot, so each tab folds in the other tabs' local saves through the `storage` event. Keep that listener, or a stale tab's local save or left copy drops another tab's tests.
   - Known limit. KV's delay between locations can drop a browser from the main copy's list (last write wins), and then its newest left copy waits until that browser opens again.
   - `ready` stays false until `init` has hydrated, so nothing can write DEFAULTS over a real save. Keep it that way.
-- **`hydrate` is the one gate for every load.** That covers init, cloud connect, the merge inside `pushCloud`, backup restore and daily cloud copy restore. It rebuilds state field by field and resets any setting whose `typeof` differs from DEFAULTS. It checks enums against include lists or lookup tables and clamps numbers. It caps history at `APP.historyLimit`, `daily` and `clean` at 400 days and `removed` at 200. It never updates `state.version`.
+- **`hydrate` is the one gate for every load.** That covers init, cloud connect, the merge inside `pushCloud`, backup restore and daily cloud copy restore. It rebuilds state field by field and resets any setting whose `typeof` differs from DEFAULTS. It checks enums against include lists or lookup tables and clamps numbers. It caps history at `APP.historyLimit` (and its keystroke detail through `trimDetail`), `daily` and `clean` at 400 days and `removed` at 200. It never updates `state.version`.
 - **Migrations.** To change the schema, bump `APP.version` (currently 8) and add an `if (from < N)` block in `hydrate`. Version 8 moves saves that were on Words to Step up.
   - `from` is `Number(saved.version) || 1`. An object without `version` therefore runs every migration and has its unit, capitals, punctuation, word pool, theme and finger colors forced.
   - Always pass `hydrate` a parsed or `snapshot()` copy that still has `version`. Never pass live state, because `hydrate` clears each state field before reading the same field from its argument, which would wipe profiles, daily, clean and docs. It also keeps the argument's `keys` objects by reference (`cleanKeys` mutates and returns them).
@@ -108,7 +111,7 @@ The script changes the look mostly through root attributes (`data-theme`, `data-
   - A save merges the main copy only if its `savedAt` is newer than `Cloud.seen`. `init` merges the main copy and the left copies at start.
   - `keepalive` only applies to bodies under 60,000 characters, which is why the left copy is slim. Merging only ever adds tests, so leaving older ones out of it loses nothing.
 - **`mergeSaves`.**
-  - History is unioned by `ts|wpm`, keeping only entries at or after the later `resetAt`.
+  - History is unioned by `ts|wpm`, keeping only entries at or after the later `resetAt`. When both copies have a test, the one with `tx` wins, so a slim left copy never strips a test's keystrokes.
   - When both copies share a `resetAt`, each letter keeps the copy with the larger `n`, and `unlocked` takes the max. Otherwise the copy with the later reset wins both.
   - `daily` and `clean` take the max per day, not the sum.
   - `keepMine` keeps the local settings and `docId`.
@@ -185,7 +188,8 @@ The script changes the look mostly through root attributes (`data-theme`, `data-
   - `LAYOUTS` rows have 13, 13, 11 and 10 keys, and `FINGER_PATTERNS` and `CODE_ROWS` must match.
   - Fingers 0 to 3 are the left hand, 4 to 7 the right hand and 8 the thumbs.
   - `drawHands` uses fixed SVG ids, so only one hands SVG can exist.
-- **`keepPartial`** must run before `lesson` is replaced. `startLesson` does this, and `L.counted` stops double counting. Text is generated before it runs, so generation sees the stats from before the partial test.
+- **`keepPartial`** must run before `lesson` is replaced. `startLesson` does this, and `L.counted` stops double counting. Text is generated before it runs, so generation sees the stats from before the partial test. It also hands the partial test's keystrokes to `unfinished`.
+- **Keystroke capture.** `typeChar` works out `gap` before it touches `L.start` or `L.last`, notes a miss with `noteMiss` only when `errAt` goes from 0 to 1, and sets `L.gaps[i]` only for a first try that was right. Keep those three rules if you change how mistakes work, or the Analysis tab counts trail keys and Backspace retypes as new mistakes. None of it feeds speed, accuracy, letter stats or goals.
 - **Stale settings refs.** A `const s = state.settings` captured before a `hydrate` goes stale.
 - **`coolUntil`** is shared by `failAttempt` (whose `hold` is captured after `checkGoals`) and `playCheer` (which adds `APP.cheerHold`). `checkGoals` must stay between tests.
 - **Celebrations come in three sizes, and they should stay different.**
@@ -194,6 +198,13 @@ The script changes the look mostly through root attributes (`data-theme`, `data-
   - The daily typing goal, alone or with the clean one, gets `playCheer`, the slow release overlay. `renderCharge` (called from `renderGoal`) builds up to it from `APP.chargeFrom` of the goal by setting `.charging`, `--charge` and `--breath` on the Typing today goal and the board.
   - Sounds are `perfect`, `clean` and `release` in `sound()`, and play only with the Sound setting on.
 - **Docs in progress.** `finishLesson` and `skipAhead` advance whatever `activeDoc()` is at that moment, because the lesson stores no doc id.
+- **The Analysis tab.**
+  - `renderAnalysis` runs `analyze` over the current layout's detailed tests only when the tab opens (`showView`) and after a merge (`afterMerge`), never per keystroke. It fills in once there are `ANALYSIS_MIN.tests` detailed tests, and each card has its own minimum in `ANALYSIS_MIN` before a key, switch or group shows. Rankings mix `ANALYSIS_MIN.prior` keys at the overall rate into each rate (`rankRates`), so a rarely typed key ranks a little lower than its raw rate and the bars aren't always in strict order.
+  - Key places for reasons and switch kinds come from `keyPlace`, which uses `LAYOUTS`, the finger pattern and `ROW_START` (the key widths before each row, matching `buildKeyboard`). A new layout or finger pattern works without changes as long as those tables stay in step.
+  - The cards are plain HTML. `.bars` is one grid and each `.bar-row` is `display: contents`, so the labels, bars and figures line up across rows. Bar lengths are the `--v` custom property (0 to 1).
+  - Copy that restates script values. The Rushing notes ("Under half your usual gap" and so on) restate the 0.5, 0.8 and 1.25 cutoffs in `analyze`, and the slow switch cutoff is 1.15 times the usual gap in `renderAnaSlow`.
+  - Below 480px wide the brand name is visually hidden so the four tabs fit. A fifth tab needs another look at that.
+- **Practice these.** `startDrill` builds a plan with `drillPlan`, then calls `startLesson(text, 1, plan)`. The plan sits on `lesson.drill`, and a drill lesson's `mode` is `"words"`, so it never moves My text along (`skipAhead` checks `lesson.drill` too) or unlocks a letter. `restartLesson`, the restart effect in `setSetting` and `failAttempt` pass the plan on, so Esc and One mistake restarts stay in the drill. `renderFocus` shows the plan's keys while a drill is on, and the next test after it is a normal one.
 - **Logo and rings.**
   - The cheer overlay clones `.brand .logo`. Its CSS expects four rings followed by the SVG, and four paths, with `pathLength="100"` on the three ridges and the fourth as the core line.
   - A logo change also means updating the three icon copies in `<head>`.

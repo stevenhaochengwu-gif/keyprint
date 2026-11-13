@@ -997,6 +997,92 @@ button.cal-day:not(:disabled):not(.picked):hover { box-shadow: 0 0 0 1.5px var(-
   .card { padding: 18px 12px 16px; }
 }
 
+/* Analysis ------------------------------------------------------------ */
+
+/* The cards are the Progress page's, filled with plain bars instead of charts. */
+.stats.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.stats .miss dd { color: var(--c-miss); }
+
+.trend { display: flex; align-items: flex-end; justify-content: center; gap: 4px; max-width: 560px; height: 104px; margin: 22px auto 0; }
+.tcol { display: flex; flex: 1 1 0; flex-direction: column; align-items: center; justify-content: flex-end; gap: 4px; min-width: 0; max-width: 34px; height: 100%; }
+.tbar { width: 100%; height: calc(var(--v, 0) * 84px); min-height: 2px; border-radius: 3px 3px 0 0; background: var(--c-miss); }
+.tlab { color: var(--ink-3); font-size: 11px; line-height: 1; font-variant-numeric: tabular-nums; }
+
+.bars {
+  display: grid;
+  grid-template-columns: max-content minmax(60px, 1fr) max-content;
+  align-items: center;
+  gap: 6px 14px;
+  max-width: 620px;
+  margin: 18px auto 0;
+}
+
+.bar-row { display: contents; }
+.bl { display: inline-flex; align-items: center; gap: 5px; font-size: 13.5px; }
+.bt { height: 6px; border-radius: 3px; background: var(--track); overflow: hidden; }
+.bt i { display: block; width: calc(var(--v, 0) * 100%); min-width: 2px; height: 100%; border-radius: 3px; background: var(--c-miss); }
+.bt i.slip { background: var(--c-ratio); }
+.bt i.slow { background: var(--c-hit); }
+.bv { font-size: 13.5px; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.bn { grid-column: 2 / -1; margin: -4px 0 4px; color: var(--ink-2); font-size: 12.5px; line-height: 1.35; }
+.ana-none { grid-column: 1 / -1; color: var(--ink-3); font-size: 13.5px; text-align: center; }
+.ana-none .kc { margin: 2px; }
+.bars + .card-note { margin-top: 16px; }
+
+.kc {
+  display: inline-grid;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 5px;
+  border-radius: 4px;
+  background: var(--key);
+  color: var(--key-ink);
+  font-family: var(--font-text);
+  font-size: 14px;
+  line-height: 1;
+  white-space: pre;
+}
+
+.kc.sp { color: var(--ink-2); font-family: var(--font-ui); font-size: 11.5px; }
+.kto { color: var(--ink-3); font-size: 12px; }
+.fsw { flex: none; width: 12px; height: 12px; border-radius: 3px; background: var(--f-thumb); box-shadow: inset 0 0 0 1px var(--line); }
+.fsw[data-f="0"], .fsw[data-f="7"] { background: var(--f-pinky); }
+.fsw[data-f="1"], .fsw[data-f="6"] { background: var(--f-ring); }
+.fsw[data-f="2"], .fsw[data-f="5"] { background: var(--f-middle); }
+.fsw[data-f="3"] { background: var(--f-index); }
+.fsw[data-f="4"] { background: var(--f-index-2); }
+
+.ana-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 14px; margin-top: 18px; }
+.ana-pair { display: inline-flex; align-items: center; gap: 4px; }
+.ana-center { text-align: center; }
+.focus-detail.chips { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 3px; }
+.focus-detail.chips .kc { min-width: 20px; height: 20px; font-size: 12.5px; }
+.bn .kc,
+.slip-got .kc { min-width: 17px; height: 17px; padding: 0 4px; font-size: 12px; vertical-align: -3px; }
+.bn .kc.sp,
+.slip-got .kc.sp { font-size: 10.5px; }
+.slip .kc { background: var(--bg); }
+
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; max-width: 720px; margin: 18px auto 0; }
+.tile { display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 10px 8px 8px; border-radius: 6px; background: var(--surface); }
+.tile .kc { background: var(--bg); }
+.tile b { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.tile .bt { align-self: stretch; height: 4px; }
+.tile small { color: var(--ink-2); font-size: 11.5px; font-variant-numeric: tabular-nums; text-align: center; }
+.tiles .ana-none { margin-top: 4px; }
+
+.slips { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; max-width: 720px; margin: 18px auto 0; }
+.slip { display: inline-flex; align-items: baseline; gap: 8px; padding: 5px 10px; border-radius: 6px; background: var(--surface); }
+.slip-word { font-family: var(--font-text); font-size: 15px; white-space: pre; }
+.slip-word mark { border-radius: 2px; background: var(--miss-soft); color: var(--miss); }
+.slip-got { color: var(--ink-2); font-size: 12.5px; white-space: nowrap; }
+
+@media (max-width: 720px) {
+  .stats.four { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .bars { gap: 6px 10px; }
+}
+
 /* Settings ------------------------------------------------------------ */
 
 .group { padding: 14px 0 6px; border-top: 1px solid var(--line); }
@@ -1419,6 +1505,20 @@ label.row { cursor: pointer; }
   .key-list { columns: 1; }
 }
 
+/* Four tabs and the name don't fit across a phone, so there the logo stands in for the
+   name, which screen readers still hear. */
+@media (max-width: 480px) {
+  .tabs { gap: 16px; }
+  .brand span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -1452,6 +1552,7 @@ label.row { cursor: pointer; }
     <nav class="tabs" aria-label="Sections">
       <button class="tab" type="button" data-view="practice" aria-current="page">Practice</button>
       <button class="tab" type="button" data-view="progress">Progress</button>
+      <button class="tab" type="button" data-view="analysis">Analysis</button>
       <button class="tab" type="button" data-view="settings">Settings</button>
     </nav>
   </header>
@@ -1659,6 +1760,100 @@ label.row { cursor: pointer; }
           <p class="card-lede">The same counts on your keyboard. The blue half of each circle grows with how often you type the key, and the red half with how often you miss it.</p>
           <canvas id="heatmap" role="img" aria-label="Keyboard heatmap of the letters you type and miss"></canvas>
           <div class="legend"><span><i class="sw hit"></i>Typed</span><span><i class="sw miss"></i>Mistakes</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Analysis, every mistake and where it comes from ============== -->
+    <section class="view" id="view-analysis" aria-labelledby="anaTitle" hidden>
+      <div class="view-head">
+        <h2 id="anaTitle">Analysis</h2>
+        <p id="anaSub"></p>
+      </div>
+
+      <div class="card empty" id="anaEmpty">
+        <p class="card-lede" id="anaEmptyText"></p>
+        <p class="empty-action"><button class="btn" type="button" data-goto="practice">Start practicing</button></p>
+      </div>
+
+      <div id="anaBody" hidden>
+        <div class="card">
+          <h3 class="card-title">Overview</h3>
+          <p class="card-lede">Every test you finish keeps each key you pressed, so this page can show where your mistakes come from. A key counts as missed when your first try at it was wrong.</p>
+          <dl class="stats four" id="anaStats"></dl>
+          <div class="trend" id="anaTrend" role="img" aria-label="Your error rate over time"></div>
+          <p class="card-note" id="anaTrendNote"></p>
+        </div>
+
+        <div class="card">
+          <h3 class="card-title">Practice these</h3>
+          <p class="card-lede">A test made of words full of your most missed keys and trickiest key switches, picked from the cards below. It changes as you improve.</p>
+          <div class="ana-chips" id="anaDrillKeys"></div>
+          <p class="empty-action ana-center"><button class="btn" type="button" id="anaDrill">Practice these keys</button></p>
+        </div>
+
+        <div class="card">
+          <h3 class="card-title">Most missed keys</h3>
+          <p class="card-lede">How often each key goes wrong when it's the one to type, most missed first. Spaces, numbers and symbols count too. A key you've typed only a few times ranks a little lower until there's more to go on.</p>
+          <div class="bars" id="anaKeys"></div>
+        </div>
+
+        <div class="card">
+          <h3 class="card-title">What you type instead</h3>
+          <p class="card-lede">The key you meant, then the key you hit, most common first. Each one has the likely reason, worked out from your layout and fingers.</p>
+          <div class="bars" id="anaSwaps"></div>
+        </div>
+
+        <div class="card">
+          <h3 class="card-title">Tricky key switches</h3>
+          <p class="card-lede">Many mistakes start in the move from one key to the next. These are the switches that go wrong more often than your other keys, with how your fingers travel for each.</p>
+          <div class="bars" id="anaPairs"></div>
+        </div>
+
+        <div class="card">
+          <h3 class="card-title">Shift and combinations</h3>
+          <p class="card-lede">Capitals and shifted symbols take two keys at once. Here's how they compare with keys that need no Shift, and which Shift slips you make.</p>
+          <dl class="key-figs" id="anaShift"></dl>
+          <div class="bars" id="anaShiftSlips"></div>
+          <p class="card-note" id="anaShiftNote"></p>
+        </div>
+
+        <div class="card">
+          <h3 class="card-title">Punctuation and symbols</h3>
+          <p class="card-lede">Every mark, number and symbol you've typed, with how often it goes wrong. Pick more of them under Marks to include in Settings to practice them.</p>
+          <div class="tiles" id="anaSymbols"></div>
+        </div>
+
+        <div class="card">
+          <h3 class="card-title">Fingers and hands</h3>
+          <p class="card-lede">Mistakes by the finger that should press each key, from your keyboard layout and finger pattern in Settings.</p>
+          <dl class="key-figs" id="anaHands"></dl>
+          <div class="bars" id="anaFingers"></div>
+        </div>
+
+        <div class="card">
+          <h3 class="card-title">Slow switches</h3>
+          <p class="card-lede">The switches where you hesitate, by your typical time from the first key to the second. Mistakes and long pauses are left out.</p>
+          <div class="bars" id="anaSlow"></div>
+        </div>
+
+        <div class="card">
+          <h3 class="card-title">Rushing</h3>
+          <p class="card-lede">How often a key goes wrong at different speeds. Each key is measured against your usual time between keys in the same test.</p>
+          <div class="bars" id="anaRush"></div>
+          <p class="card-note" id="anaRushNote"></p>
+        </div>
+
+        <div class="card">
+          <h3 class="card-title">Where in a word</h3>
+          <p class="card-lede">Mistakes by where the key sits in its word. A high first letter usually means the jump from the space bar into the next word.</p>
+          <div class="bars" id="anaWord"></div>
+        </div>
+
+        <div class="card">
+          <h3 class="card-title">Recent mistakes</h3>
+          <p class="card-lede">Your latest slips, newest first, each in the word where it happened.</p>
+          <div class="slips" id="anaRecent"></div>
         </div>
       </div>
     </section>
@@ -2262,6 +2457,10 @@ const APP = {
   focusShare: 0.7,     // share of adaptive words that include the focus letter
   maxWords: 1000,      // longest test allowed
   historyLimit: 1000,  // tests kept per layout
+  detailTests: 300,    // newest tests per layout that keep every keystroke for the Analysis tab
+  detailChars: 120000, // characters of text those tests may keep per layout, newest first
+  leftDetail: 15000,   // characters of keystroke detail a left copy may carry, newest tests first
+  unfinishedChars: 3000, // characters of unfinished attempts held for the next finished test's detail
   chartPoints: 200,    // tests drawn on the progress chart
   idleGap: 3000,       // ms. Longer pauses between keys don't count as practice time
   coolDowns: { short: 600, medium: 1200, long: 2000 }, // ms of fading pause after a mistake in One mistake restarts
@@ -2711,7 +2910,11 @@ function mergeSaves(mine, theirs, keepMine) {
     const resetAt = Math.max(a.resetAt || 0, b.resetAt || 0);
     const tests = new Map();
     for (const e of [...(a.history || []), ...(b.history || [])]) {
-      if (e && e.ts >= resetAt) tests.set(`${e.ts}|${e.wpm}`, e);
+      if (!e || !(e.ts >= resetAt)) continue;
+      const id = `${e.ts}|${e.wpm}`;
+      const had = tests.get(id);
+      // A copy that left out a test's keystrokes, like a left copy, never takes them away.
+      if (!had || typeof e.tx === "string" || typeof had.tx !== "string") tests.set(id, e);
     }
     let keys;
     let unlocked;
@@ -2894,8 +3097,17 @@ function sendLeaving() {
   // from before this browser's last cloud save, and all but the last few days of totals.
   const copy = snapshot();
   const since = Cloud.lastOk - 60000;
+  let room = APP.leftDetail; // the newest tests keep their keystrokes too, while they fit
   for (const p of Object.values(copy.profiles || {})) {
-    if (p && Array.isArray(p.history)) p.history = p.history.filter((e) => e && e.ts > since).slice(-APP.pendingTests);
+    if (!p || !Array.isArray(p.history)) continue;
+    p.history = p.history.filter((e) => e && e.ts > since).slice(-APP.pendingTests);
+    for (let i = p.history.length - 1; i >= 0; i--) {
+      const e = p.history[i];
+      if (typeof e.tx !== "string") continue;
+      const size = e.tx.length + String(e.tm || "").length + JSON.stringify(e.mx || []).length;
+      if (size <= room) room -= size;
+      else dropDetail(e);
+    }
   }
   for (const field of ["daily", "clean"]) {
     copy[field] = Object.fromEntries(Object.entries(copy[field] || {}).sort().slice(-3));
@@ -2927,6 +3139,31 @@ function cleanKeys(raw) {
     if (k && typeof k === "object" && !Number.isFinite(k.x)) k.x = Math.round((Number(k.e) || 0) * (Number(k.m) || 0));
   }
   return keys;
+}
+
+// Only the newest tests keep every keystroke (tx, mx and tm), so saves stay small. Older
+// tests keep their speed, accuracy and letter detail, and the Analysis tab skips them.
+const dropDetail = (e) => {
+  delete e.tx;
+  delete e.mx;
+  delete e.tm;
+};
+
+function trimDetail(history) {
+  let tests = 0;
+  let chars = 0;
+  for (let i = history.length - 1; i >= 0; i--) {
+    const e = history[i];
+    if (!e || typeof e !== "object") continue;
+    if (typeof e.tx !== "string") {
+      if ("mx" in e || "tm" in e) dropDetail(e);
+      continue;
+    }
+    tests += 1;
+    chars += e.tx.length;
+    if (tests > APP.detailTests || chars > APP.detailChars) dropDetail(e);
+  }
+  return history;
 }
 
 function hydrate(saved) {
@@ -2995,7 +3232,7 @@ function hydrate(saved) {
     state.profiles[id] = {
       unlocked: clamp(Math.round(p.unlocked) || s.startKeys, 1, APP.letterOrder.length),
       keys: cleanKeys(p.keys),
-      history: Array.isArray(p.history) ? p.history.slice(-APP.historyLimit) : [],
+      history: trimDetail(Array.isArray(p.history) ? p.history.slice(-APP.historyLimit) : []),
       customPos: Math.max(0, Math.round(p.customPos) || 0),
       resetAt: Number(p.resetAt) || 0,
     };
@@ -3196,6 +3433,124 @@ function wordsText(s) {
   const words = [];
   for (let i = 0; i < s.lessonWords; i++) words.push(next());
   return decorate(words, s, next, false);
+}
+
+// Practice these, from the Analysis tab. Words holding your most missed keys and trickiest
+// key switches come up most, and missed symbols and capitals are worked in the way they show
+// up in real writing. A switch no word holds still brings words with its keys, and with
+// nothing to go on at all, common words fill the test.
+let drillWords = null;
+const PAIRED = { "(": ")", "[": "]", "{": "}", "<": ">", ")": "(", "]": "[", "}": "{", ">": "<" };
+const isLetter = (ch) => (ch >= "a" && ch <= "z") || (ch >= "A" && ch <= "Z");
+
+function drillText(plan, s) {
+  const pool = drillWords || (drillWords = [...new Set([...COMMON_WORDS, ...LITERARY_WORDS])].filter((w) => w.length > 1));
+  const wants = []; // [test, how many words should pass it, weight in the free draw]
+  const symbols = [];
+  const ties = []; // a symbol and the letter it follows or leads, like s then a period
+  const caps = new Set();
+  const want = (test, quota, weight) => wants.push([test, quota, weight]);
+  const addSymbol = (ch) => { if (!symbols.includes(ch)) symbols.push(ch); };
+  const lower = (ch) => ch.toLowerCase();
+  for (const ch of plan.keys) {
+    if (!isLetter(ch)) {
+      if (ch !== " ") addSymbol(ch);
+      continue;
+    }
+    want((w) => w.includes(lower(ch)), 3, 1.5);
+    if (ch !== lower(ch)) caps.add(lower(ch));
+  }
+  for (const [a, b] of plan.pairs) {
+    if (isLetter(a) && isLetter(b) && b === lower(b)) {
+      const gram = lower(a + b);
+      if (pool.some((w) => w.includes(gram))) want((w) => w.includes(gram), 3, 4);
+      else for (const ch of gram) want((w) => w.includes(ch), 1, 1);
+      if (a !== lower(a)) caps.add(lower(a));
+      continue;
+    }
+    if (isLetter(a)) want((w) => w.endsWith(lower(a)), 2, 1);
+    if (isLetter(b)) want((w) => w.startsWith(lower(b)), 2, 1);
+    if (isLetter(b) && b !== lower(b)) caps.add(lower(b));
+    for (const ch of [a, b]) if (ch !== " " && !isLetter(ch)) addSymbol(ch);
+    if (isLetter(a) && b !== " " && !isLetter(b)) ties.push({ m: b, end: lower(a) });
+    if (isLetter(b) && a !== " " && !isLetter(a)) ties.push({ m: a, start: lower(b) });
+  }
+  // Every key and switch gets a few words of its own, and the rest are drawn by how much
+  // they hold. With few words to pick from, any common word will do.
+  const scoreOf = (w) => wants.reduce((sum, [test, , weight]) => sum + (test(w) ? weight : 0), 0);
+  let picks = pool.map((w) => [w, scoreOf(w)]).filter(([, score]) => score > 0);
+  if (picks.length < 12) picks = COMMON_WORDS.slice(0, 200).map((w) => [w, 1]);
+  const count = clamp(s.lessonWords, 15, 50);
+  const used = new Map();
+  const take = (list) => {
+    for (let tries = 0; tries < 8; tries++) {
+      const w = pick(list);
+      if ((used.get(w) || 0) < 2) {
+        used.set(w, (used.get(w) || 0) + 1);
+        return w;
+      }
+    }
+    return pick(list);
+  };
+  const words = [];
+  for (const [test, quota] of wants) {
+    const fits = pool.filter(test).map((w) => [w, 1]);
+    for (let k = 0; k < quota && fits.length && words.length < count; k++) words.push(take(fits));
+  }
+  while (words.length < count) words.push(take(picks));
+  for (let i = words.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [words[i], words[j]] = [words[j], words[i]];
+  }
+  for (let i = 1; i < words.length; i++) {
+    if (words[i] !== words[i - 1]) continue;
+    const j = words.findIndex((w, k) => w !== words[i] && words[k - 1] !== words[i] && words[k + 1] !== words[i]);
+    if (j >= 0) [words[i], words[j]] = [words[j], words[i]]; // the same word twice in a row moves apart
+  }
+  const num = (max) => String(1 + Math.floor(Math.random() * max));
+  const withMark = (w, m) => {
+    if (".,;:!?".includes(m)) return w + m;
+    if (PAIRED[m]) {
+      const open = "([{<".includes(m) ? m : PAIRED[m];
+      return open + w + PAIRED[open];
+    }
+    if ("\"*`".includes(m)) return m + w + m;
+    if ("#@~".includes(m)) return m + w;
+    if (m === "'") return w.endsWith("s") ? `${w}'` : `${w}'s`;
+    return `${w}${m}${take(picks)}`; // joins two words, like - / _ | \ + = ^
+  };
+  const token = (m) => {
+    if (m >= "0" && m <= "9") return Math.random() < 0.5 ? `${m}${num(9)}` : `${num(9)}${m}`;
+    if (m === "$") return `$${num(99)}`;
+    if (m === "%") return `${num(100)}%`;
+    return m === "&" ? "&" : "";
+  };
+  // Each missed symbol shows up in about one word in seven, and at least twice. Symbols that
+  // stand in for a word go between words, and the rest go on words, the right ones first
+  // when the switch into or out of them is the tricky part.
+  for (const m of symbols.slice(0, 4)) {
+    const times = Math.max(2, Math.round(count / 7));
+    for (let k = 0; k < times; k++) {
+      if (token(m)) {
+        const spots = []; // between two words, so two stand ins never meet
+        for (let at = 1; at <= words.length; at++) {
+          if (/[a-z]/i.test(words[at - 1]) && (at === words.length || /[a-z]/i.test(words[at]))) spots.push(at);
+        }
+        words.splice(spots.length ? pickFrom(spots) : words.length, 0, token(m));
+        continue;
+      }
+      const open = words.map((w, i) => (/^[a-z]+$/.test(w) ? i : -1)).filter((i) => i >= 0);
+      const tied = open.filter((i) => ties.some((t) => t.m === m && (t.end ? words[i].endsWith(t.end) : words[i].startsWith(t.start))));
+      const from = tied.length ? tied : open;
+      if (from.length) {
+        const i = from[Math.floor(Math.random() * from.length)];
+        words[i] = withMark(words[i], m);
+      }
+    }
+  }
+  return words
+    .map((w) => (caps.has(w[0]) || (plan.shift && Math.random() < 0.25) ? capitalize(w) : w))
+    .join(" ");
 }
 
 // My text keeps whole documents, like articles and essays, with no length limit.
@@ -3681,6 +4036,7 @@ function keepPartial(L) {
   const upto = Math.min(L.text.length, L.pos + (L.errAt[L.pos] ? 1 : 0));
   if (!upto) return;
   applyKeyStats(state.profiles[L.layout] || profile(), L, upto);
+  holdPartial(L, upto);
   scheduleSave();
 }
 
@@ -3691,6 +4047,37 @@ function stepWords() {
   const today = state.step.day === dayKey() ? state.step.words : 0;
   const start = Math.min(s.stepStart, s.stepTop);
   return clamp(today || start, start, s.stepTop);
+}
+
+// Every key of a test, for the Analysis tab. tx is the text, mx the mistakes and tm the
+// time before each key typed right on the first try, two base 36 digits in 10 ms steps
+// for each character of tx, or "zz" when there is none.
+function keyDetail(L, upto = L.text.length) {
+  let tm = "";
+  for (let i = 0; i < upto; i++) tm += L.gaps[i] < 0 ? "zz" : Math.round(L.gaps[i] / 10).toString(36).padStart(2, "0");
+  return { tx: L.text.slice(0, upto), mx: L.misses.filter((m) => m[0] < upto), tm };
+}
+
+// Attempts that end early, like a failed try in One mistake restarts or one you leave with
+// Esc or Tab, have no test of their own. Their keys wait here and join the next test you
+// finish on the same layout, each part after a line break, so no mistake goes unseen.
+let unfinished = null; // { layout, parts }
+
+function holdPartial(L, upto) {
+  if (!unfinished || unfinished.layout !== L.layout) unfinished = { layout: L.layout, parts: [] };
+  unfinished.parts.push(keyDetail(L, upto));
+  let size = unfinished.parts.reduce((sum, part) => sum + part.tx.length, 0);
+  while (size > APP.unfinishedChars && unfinished.parts.length) size -= unfinished.parts.shift().tx.length;
+}
+
+function joinDetail(parts) {
+  const mx = [];
+  let at = 0;
+  for (const part of parts) {
+    for (const m of part.mx) mx.push([m[0] + at, ...m.slice(1)]);
+    at += part.tx.length + 1;
+  }
+  return { tx: parts.map((part) => part.tx).join("\n"), mx, tm: parts.map((part) => part.tm).join("zz") };
 }
 
 function newLesson(attempt = 1) {
@@ -3714,7 +4101,7 @@ function newLesson(attempt = 1) {
 
 // Tab gives new text. In My text it moves on to the next passage.
 function skipAhead() {
-  const doc = state.settings.mode === "custom" ? activeDoc() : null;
+  const doc = state.settings.mode === "custom" && !(lesson && lesson.drill) ? activeDoc() : null;
   if (doc && doc.passages) {
     doc.at = (doc.at + 1) % doc.passages;
     scheduleSave();
@@ -3723,7 +4110,9 @@ function skipAhead() {
   checkGoals();
 }
 
-function startLesson(text, attempt = 1) {
+// A drill is a Practice these test from the Analysis tab. It counts as a Words test, so it
+// never moves My text along or unlocks a letter, and it goes back to your usual tests after.
+function startLesson(text, attempt = 1, drill = null) {
   if (lesson && !lesson.done) keepPartial(lesson);
   const wordAt = new Uint32Array(text.length + 1);
   for (let i = 0; i < text.length; i++) wordAt[i + 1] = wordAt[i] + (text[i] === " " ? 1 : 0);
@@ -3744,10 +4133,13 @@ function startLesson(text, attempt = 1) {
     active: 0,  // typing time in this test, without long pauses
     trail: [],  // wrong keys typed at the cursor, shown before it until the right key comes
     typed: [],  // what was typed at positions that went wrong, when mistakes move the cursor on
+    gaps: new Int16Array(text.length).fill(-1), // ms before each key that was right on the first try, -1 if not
+    misses: [], // the first wrong key at each position that went wrong, as [index, key, ms before it]
     afterBackspace: false,
     done: false,
-    mode: state.settings.mode,
+    mode: drill ? "words" : state.settings.mode,
     layout: state.settings.layout,
+    drill,
     counted: false, // true once this test's letters are in the stats
   };
   el.boardEmpty.hidden = true;
@@ -3762,8 +4154,15 @@ function startLesson(text, attempt = 1) {
 }
 
 function restartLesson() {
-  if (lesson) startLesson(lesson.text, lesson.attempt);
+  if (lesson) startLesson(lesson.text, lesson.attempt, lesson.drill);
   checkGoals();
+}
+
+// Notes the first wrong key at a position for the Analysis tab. Wrong keys typed after it,
+// before the mistake is fixed, follow from that one and aren't noted again.
+function noteMiss(L, i, ch, gap) {
+  L.misses.push(gap >= 0 ? [i, ch, gap] : [i, ch]);
+  L.gaps[i] = -1;
 }
 
 function typeChar(ch) {
@@ -3775,6 +4174,9 @@ function typeChar(ch) {
   const now = performance.now();
   countTime(L, now);
   const expected = L.text[L.pos];
+  // The time since the key before, for the Analysis tab. A test's first key and a key
+  // right after Backspace have none.
+  const gap = L.start && !L.afterBackspace ? Math.min(APP.idleGap, Math.max(0, Math.round(now - L.last))) : -1;
   if (!L.start) {
     L.start = now;
     L.last = now;
@@ -3792,6 +4194,7 @@ function typeChar(ch) {
 
   if (!hit && sudden) {
     L.errors += 1;
+    noteMiss(L, L.pos, ch, gap);
     L.errAt[L.pos] = 1; // the missed letter counts as a mistake for that letter
     addTrail(ch, true); // a softer highlight that fades out with the text
     failAttempt();
@@ -3818,12 +4221,14 @@ function typeChar(ch) {
         (L.samples[expected] || (L.samples[expected] = [])).push(dt);
       }
     }
+    if (!L.errAt[L.pos] && L.gaps[L.pos] < 0) L.gaps[L.pos] = gap;
     L.states[L.pos] = L.errAt[L.pos] ? 2 : 1;
     L.lastOk = now;
     sound("key");
     clearTrail();
   } else {
     L.errors += 1;
+    if (!L.errAt[L.pos]) noteMiss(L, L.pos, ch, gap);
     L.errAt[L.pos] = 1;
     sound("miss");
     if (s.mistakes !== "move") {
@@ -3879,7 +4284,8 @@ function failAttempt() {
   markNextKey();
   clearTimeout(coolTimer);
   coolTimer = setTimeout(() => {
-    if (lesson === L) newLesson(L.attempt + 1);
+    if (lesson === L && L.drill) startLesson(drillText(L.drill, state.settings), L.attempt + 1, L.drill);
+    else if (lesson === L) newLesson(L.attempt + 1);
     coolUntil = hold;
     el.board.style.setProperty("--fade", `${Math.round(total * 0.6)}ms`);
     el.board.classList.remove("cooling");
@@ -3919,6 +4325,8 @@ function finishLesson() {
   const acc = L.strokes ? (L.strokes - L.errors) / L.strokes : 1;
   applyKeyStats(p, L);
   L.counted = true;
+  const early = unfinished && unfinished.layout === L.layout ? unfinished.parts : [];
+  unfinished = null;
   p.history.push({
     ts: Date.now(),
     wpm: round(wpm, 1),
@@ -3928,8 +4336,10 @@ function finishLesson() {
     mode: L.mode,
     tries: L.attempt,
     ...testDetail(L),
+    ...joinDetail([...early, keyDetail(L)]),
   });
   if (p.history.length > APP.historyLimit) p.history.splice(0, p.history.length - APP.historyLimit);
+  trimDetail(p.history);
   if (L.errors === 0 && L.active > 0) addClean(L.active);
 
   let unlocked = null;
@@ -4043,6 +4453,29 @@ const el = {
   calPrev: $("#calPrev"),
   calNext: $("#calNext"),
   calGrid: $("#calGrid"),
+  anaSub: $("#anaSub"),
+  anaEmpty: $("#anaEmpty"),
+  anaEmptyText: $("#anaEmptyText"),
+  anaBody: $("#anaBody"),
+  anaStats: $("#anaStats"),
+  anaTrend: $("#anaTrend"),
+  anaTrendNote: $("#anaTrendNote"),
+  anaDrillKeys: $("#anaDrillKeys"),
+  anaDrill: $("#anaDrill"),
+  anaKeys: $("#anaKeys"),
+  anaSwaps: $("#anaSwaps"),
+  anaPairs: $("#anaPairs"),
+  anaShift: $("#anaShift"),
+  anaShiftSlips: $("#anaShiftSlips"),
+  anaShiftNote: $("#anaShiftNote"),
+  anaSymbols: $("#anaSymbols"),
+  anaHands: $("#anaHands"),
+  anaFingers: $("#anaFingers"),
+  anaSlow: $("#anaSlow"),
+  anaRush: $("#anaRush"),
+  anaRushNote: $("#anaRushNote"),
+  anaWord: $("#anaWord"),
+  anaRecent: $("#anaRecent"),
   layoutSelect: $("#set-layout"),
   unlockNext: $("#unlockNext"),
   unlockHint: $("#unlockHint"),
@@ -4127,6 +4560,18 @@ function renderFocus() {
   const s = state.settings;
   const p = profile();
   const adaptive = s.mode === "adaptive";
+  const drill = lesson && lesson.drill;
+  el.focusDetail.classList.toggle("chips", Boolean(drill));
+  if (drill) {
+    // A Practice these test names the keys and switches it leans on.
+    el.focus.hidden = false;
+    el.focusCap.hidden = true;
+    el.focusMeter.hidden = true;
+    el.focusDetail.hidden = false;
+    el.focusTitle.textContent = "Practice these";
+    el.focusDetail.replaceChildren(...drillChips(drill));
+    return;
+  }
   el.focus.hidden = s.mode === "words";
   el.focusCap.hidden = !adaptive;
   el.focusMeter.hidden = !adaptive;
@@ -6723,6 +7168,610 @@ function renderCalendar() {
   el.calGrid.replaceChildren(...cells);
 }
 
+/* Analysis ----------------------------------------------------------------- */
+
+// The Analysis tab reads the keys the newest tests keep (tx, mx and tm, see keyDetail) and
+// works out where your mistakes come from. It all happens when the tab opens, never while
+// you type. Everything comes from the current layout's record.
+const ANALYSIS_MIN = {
+  tests: 3,   // tests with every key kept before the tab fills in
+  key: 20,    // times a letter or the space was the key to type before it is ranked
+  symbol: 6,  // times a mark, number or symbol was the key to type before it is ranked
+  pair: 12,   // times a key switch came up before it is ranked
+  timed: 8,   // timed switches before one can count as slow
+  shift: 15,  // keys in a Shift group before its rate shows
+  group: 30,  // keys in a finger, hand, pace or word place before its rate shows
+  prior: 20,  // keys at your overall rate mixed into every ranking, so a lucky or unlucky few can't top it
+};
+const ROW_START = [0, 1.5, 1.75, 2.25]; // key widths before the first character key of each row
+const FINGER_NAMES = ["Left pinky", "Left ring", "Left middle", "Left index", "Right index", "Right middle", "Right ring", "Right pinky", "Thumbs"];
+const SHIFT_SLIPS = {
+  forgot: { name: "Forgot Shift", note: "A capital or shifted symbol came out plain" },
+  held: { name: "Held Shift too long", note: "Shift was still down for the key after a capital" },
+  extra: { name: "Shift by mistake", note: "Shift came down on a key that needs none" },
+};
+let analysisNow = null; // the analysis on screen, which Practice these builds its test from
+
+const needsShift = (ch) => (ch >= "A" && ch <= "Z") || Boolean(UNSHIFT[ch]);
+const baseKey = (ch) => (ch >= "A" && ch <= "Z" ? ch.toLowerCase() : UNSHIFT[ch] || ch);
+const handOf = (f) => (f < 4 ? 0 : f < 8 ? 1 : 2); // left, right, thumbs
+const countOf = (n) => n.toLocaleString("en-US");
+const timesText = (n) => (n === 1 ? "once" : n === 2 ? "twice" : `${countOf(n)} times`);
+const missedText = (t) => `${countOf(t.x)} of ${countOf(t.n)} missed`;
+const rateOf = (t) => (t && t.n ? t.x / t.n : 0);
+
+function medianOf(list) {
+  if (!list.length) return 0;
+  const sorted = list.slice().sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+// Where a character sits on your layout, by row, column, finger and how far in from the
+// left edge it is in key widths, or null for one the layout doesn't have. A shifted
+// character sits on the key it shares. The space bar is row 4.
+function keyPlace(ch, rows, fingers) {
+  if (ch === " ") return { r: 4, c: 0, f: 8, x: 7.5 };
+  const base = baseKey(ch);
+  for (let r = 0; r < rows.length; r++) {
+    const c = rows[r].indexOf(base);
+    if (c >= 0) return { r, c, f: fingers[r][c], x: ROW_START[r] + c + (r === 1 && c === 12 ? 0.75 : 0.5) };
+  }
+  return null;
+}
+
+// The likely reason for a wrong key, from the keys around it and where the two keys sit.
+function missReason(want, got, prev, next, place) {
+  if (baseKey(want) === baseKey(got)) {
+    if (needsShift(want)) return SHIFT_SLIPS.forgot.name;
+    return prev && needsShift(prev) ? SHIFT_SLIPS.held.name : SHIFT_SLIPS.extra.name;
+  }
+  if (want === " ") return "Missed the space";
+  if (got === " ") return "Space too soon";
+  if (next && got === next) return "Typed the next key first";
+  if (prev && got === prev) return "Doubled the key before";
+  const a = place(want);
+  const b = place(got);
+  if (!a || !b) return "A key off your layout";
+  if (Math.hypot(a.x - b.x, a.r - b.r) < 1.45) return "The key next to it";
+  if (a.f === b.f) return "Same finger, other key";
+  if (a.r === b.r && handOf(a.f) !== handOf(b.f) && a.c + b.c === (a.r === 0 ? 11 : 9)) return "Same key, other hand";
+  return handOf(a.f) === handOf(b.f) ? "Same hand, other key" : "Other hand";
+}
+
+// How your fingers travel from one key to the next.
+function switchKind(a, b, place) {
+  const pa = place(a);
+  const pb = place(b);
+  if (!pa || !pb) return "";
+  if (a === " ") return "From the space bar";
+  if (b === " ") return "Into the space bar";
+  const parts = [];
+  if (baseKey(a) === baseKey(b)) parts.push("Same key twice");
+  else if (pa.f === pb.f) parts.push("Same finger");
+  else parts.push(handOf(pa.f) === handOf(pb.f) ? "Same hand" : "Hand switch");
+  if (Math.abs(pa.r - pb.r) >= 2) parts.push("row jump");
+  if (needsShift(b)) parts.push("with Shift");
+  else if (needsShift(a)) parts.push("after Shift");
+  return parts.join(", ");
+}
+
+// The tests that kept their keys, read back. One saved before keys were kept, or one whose
+// detail doesn't add up, is left out.
+function detailedTests(h) {
+  const out = [];
+  for (const e of h) {
+    if (!e || typeof e.tx !== "string" || !e.tx || !Array.isArray(e.mx) || typeof e.tm !== "string") continue;
+    const n = e.tx.length;
+    if (e.tm.length !== n * 2) continue;
+    const miss = new Map();
+    for (const m of e.mx) {
+      if (!Array.isArray(m) || !Number.isInteger(m[0]) || m[0] < 0 || m[0] >= n || e.tx[m[0]] === "\n") continue;
+      if (typeof m[1] !== "string" || m[1].length !== 1 || m[1] === e.tx[m[0]] || miss.has(m[0])) continue;
+      miss.set(m[0], { got: m[1], ms: Number.isFinite(m[2]) && m[2] >= 0 ? m[2] : -1 });
+    }
+    const gaps = new Int16Array(n).fill(-1);
+    for (let i = 0; i < n; i++) {
+      const code = e.tm.slice(2 * i, 2 * i + 2);
+      const v = code === "zz" || miss.has(i) ? NaN : parseInt(code, 36);
+      if (Number.isFinite(v)) gaps[i] = Math.min(APP.idleGap, v * 10);
+    }
+    out.push({ ts: Number(e.ts) || 0, tx: e.tx, miss, gaps });
+  }
+  return out;
+}
+
+// Goes through every key of every detailed test once and tallies it every way the cards
+// need. Each tally is { n, x }, keys typed and keys missed.
+function analyze(h, s) {
+  const tests = detailedTests(h);
+  const rows = LAYOUTS[s.layout].rows;
+  const fingers = FINGER_PATTERNS[s.fingerPattern] || FINGER_PATTERNS.angle;
+  const places = new Map();
+  const place = (ch) => {
+    if (!places.has(ch)) places.set(ch, keyPlace(ch, rows, fingers));
+    return places.get(ch);
+  };
+  const add = (map, key, bad) => {
+    let t = map.get(key);
+    if (!t) map.set(key, (t = { n: 0, x: 0 }));
+    t.n += 1;
+    t.x += bad;
+    return t;
+  };
+  const A = {
+    tests: tests.length,
+    keys: 0,
+    missed: 0,
+    series: [],          // keys and misses of each test, oldest first
+    chars: new Map(),    // by the key to type
+    swaps: new Map(),    // by the key to type and the key typed
+    pairs: new Map(),    // by the key before and the key to type, with ms of the clean ones
+    fingers: new Map(),
+    hands: new Map(),
+    shift: new Map(),
+    slips: new Map(),
+    word: new Map(),
+    pace: new Map(),     // by how fast the key came next to your usual pace
+    after: new Map(),    // by how fast the key before it came
+    recent: [],
+    usual: [],           // the usual ms between keys in each test
+    place,
+  };
+  for (const t of tests) {
+    const { tx, miss, gaps } = t;
+    const timed = [];
+    for (let i = 0; i < tx.length; i++) if (gaps[i] >= APP.minInterval && gaps[i] <= APP.maxInterval) timed.push(gaps[i]);
+    const usual = timed.length >= 10 ? medianOf(timed) : 0;
+    if (usual) A.usual.push(usual);
+    const gapAt = (i) => (miss.has(i) ? miss.get(i).ms : gaps[i]);
+    let keys = 0;
+    let missed = 0;
+    for (let i = 0; i < tx.length; i++) {
+      const ch = tx[i];
+      if (ch === "\n") continue; // between attempts, see unfinished
+      const prev = i > 0 && tx[i - 1] !== "\n" ? tx[i - 1] : "";
+      const next = i + 1 < tx.length && tx[i + 1] !== "\n" ? tx[i + 1] : "";
+      const m = miss.get(i);
+      const bad = m ? 1 : 0;
+      keys += 1;
+      missed += bad;
+      add(A.chars, ch, bad);
+      const at = place(ch);
+      if (at) {
+        add(A.fingers, at.f, bad);
+        add(A.hands, handOf(at.f), bad);
+      }
+      if (ch === " ") add(A.word, "space", bad);
+      else {
+        add(A.word, !prev || prev === " " ? "first" : !next || next === " " ? "last" : "inside", bad);
+        const up = needsShift(ch);
+        add(A.shift, up ? "with" : "without", bad);
+        if (up) add(A.shift, isLetter(ch) ? "capital" : "symbol", bad);
+        else if (prev && needsShift(prev)) add(A.shift, "after", bad);
+      }
+      if (prev && !miss.has(i - 1)) {
+        const pair = add(A.pairs, prev + ch, bad);
+        if (!bad && gaps[i] >= APP.minInterval && gaps[i] <= APP.maxInterval) (pair.ms || (pair.ms = [])).push(gaps[i]);
+      }
+      const gap = gapAt(i);
+      if (usual && gap >= APP.minInterval && gap <= APP.maxInterval) {
+        const r = gap / usual;
+        add(A.pace, r < 0.5 ? "rushed" : r < 0.8 ? "quick" : r <= 1.25 ? "usual" : "slow", bad);
+      }
+      const before = prev ? gapAt(i - 1) : -1;
+      if (usual && before >= APP.minInterval && before <= APP.maxInterval) {
+        const r = before / usual;
+        if (r < 0.5) add(A.after, "fast", bad);
+        else if (r >= 0.8 && r <= 1.25) add(A.after, "usual", bad);
+      }
+      if (!m) continue;
+      const reason = missReason(ch, m.got, prev, next, place);
+      const swap = add(A.swaps, ch + m.got, 1);
+      swap.why = swap.why || {};
+      swap.why[reason] = (swap.why[reason] || 0) + 1;
+      const slip = Object.keys(SHIFT_SLIPS).find((id) => SHIFT_SLIPS[id].name === reason);
+      if (slip) {
+        const tally = add(A.slips, slip, 1);
+        if (!tally.like) tally.like = [ch, m.got];
+      }
+      A.recent.push({ t, i, got: m.got });
+    }
+    A.series.push({ ts: t.ts, keys, missed });
+    A.keys += keys;
+    A.missed += missed;
+  }
+  A.rate = A.keys ? A.missed / A.keys : 0;
+  A.usualMs = medianOf(A.usual);
+  return A;
+}
+
+// Ranks tallies by error rate, mixed with your overall rate in proportion to how few times
+// each one came up, so a key typed four times can't top the list on one slip.
+function rankRates(map, min, base) {
+  const k = ANALYSIS_MIN.prior;
+  return [...map.entries()]
+    .filter(([, t]) => t.n >= min)
+    .map(([key, t]) => ({ key, n: t.n, x: t.x, rate: t.x / t.n, score: (t.x + k * base) / (t.n + k), ms: t.ms }))
+    .sort((a, b) => b.score - a.score || b.n - a.n);
+}
+
+const keyMin = (ch) => (isLetter(ch) || ch === " " ? ANALYSIS_MIN.key : ANALYSIS_MIN.symbol);
+const missedKeys = (A) => rankRates(A.chars, 0, A.rate).filter((r) => r.x > 0 && r.n >= keyMin(r.key));
+const trickyPairs = (A) => rankRates(A.pairs, ANALYSIS_MIN.pair, A.rate).filter((r) => r.x > 0 && r.rate > A.rate);
+
+function slowSwitches(A) {
+  return [...A.pairs.entries()]
+    .filter(([, t]) => t.ms && t.ms.length >= ANALYSIS_MIN.timed)
+    .map(([key, t]) => ({ key, ms: medianOf(t.ms), n: t.ms.length }))
+    .sort((a, b) => b.ms - a.ms);
+}
+
+// What Practice these leans on. Your most missed keys and the switches that go wrong or
+// slow you down most, with extra capitals when Shift trips you up.
+function drillPlan(A) {
+  let keys = missedKeys(A).filter((r) => r.key !== " " && r.rate > A.rate).slice(0, 4).map((r) => r.key);
+  if (!keys.length) keys = missedKeys(A).filter((r) => r.key !== " ").slice(0, 3).map((r) => r.key);
+  const slow = A.usualMs ? slowSwitches(A).filter((r) => r.ms > A.usualMs * 1.3) : [];
+  const pairs = [...new Set([...trickyPairs(A).slice(0, 3), ...slow.slice(0, 2)].map((r) => r.key))];
+  const up = A.shift.get("with");
+  const shift = Boolean(up) && up.n >= ANALYSIS_MIN.shift && rateOf(up) > rateOf(A.shift.get("without")) * 1.5;
+  return { keys, pairs, shift };
+}
+
+// A small key cap. The space bar says space.
+const keyCap = (ch) => node("span", ch === " " ? "kc sp" : "kc", ch === " " ? "space" : ch);
+
+function pairCaps(pair) {
+  const to = node("span", "kto", "\u2192");
+  to.setAttribute("aria-label", "then");
+  return [keyCap(pair[0]), to, keyCap(pair[1])];
+}
+
+function drillChips(plan) {
+  return [
+    ...plan.keys.map(keyCap),
+    ...plan.pairs.map((pair) => {
+      const box = node("span", "ana-pair");
+      box.append(...pairCaps(pair));
+      return box;
+    }),
+  ];
+}
+
+// One row of a bar list, with its label, a bar from 0 to 1, the figure and a note under it.
+function barRow(label, share, value, note, kind) {
+  const row = node("div", "bar-row");
+  const name = node("span", "bl");
+  name.append(...(Array.isArray(label) ? label : [label]));
+  const track = node("span", "bt");
+  const fill = node("i", kind || null);
+  fill.style.setProperty("--v", clamp(share || 0, 0, 1).toFixed(3));
+  track.append(fill);
+  row.append(name, track, node("span", "bv", value));
+  if (note && note.length) {
+    const under = node("span", "bn");
+    under.append(...(Array.isArray(note) ? note : [note]));
+    row.append(under);
+  }
+  return row;
+}
+
+// A wrong key in words, with both keys as caps, like "t typed as r".
+const typedAs = (want, got) => [keyCap(want), " typed as ", keyCap(got)];
+
+function fillBars(box, rows, empty) {
+  box.replaceChildren(...(rows.length ? rows : [node("p", "ana-none", empty)]));
+}
+
+// Rows of error rates, with bars scaled to the highest one shown.
+function rateRows(list, label, note) {
+  const top = Math.max(0.01, ...list.map((r) => r.rate));
+  return list.map((r) => barRow(label(r), r.rate / top, fmtPct(r.rate), note(r)));
+}
+
+function figure(name, value, small) {
+  const item = node("div");
+  const dd = node("dd", value == null ? "none" : null, value == null ? "Not yet" : value);
+  if (value != null && small) dd.append(node("small", null, small));
+  item.append(node("dt", null, name), dd);
+  return item;
+}
+
+const rateFigure = (name, t, min) => figure(name, t && t.n >= min ? fmtPct(rateOf(t)) : null, t ? `of ${countOf(t.n)}` : "");
+
+function renderAnalysis() {
+  const s = state.settings;
+  const p = profile();
+  const A = analyze(p.history, s);
+  analysisNow = A;
+  const layout = LAYOUTS[s.layout].name;
+  const enough = A.tests >= ANALYSIS_MIN.tests;
+  el.anaEmpty.hidden = enough;
+  el.anaBody.hidden = !enough;
+  if (!enough) {
+    const left = ANALYSIS_MIN.tests - A.tests;
+    const more = `${left} more ${left === 1 ? "test" : "tests"}`;
+    el.anaSub.textContent = `Each keyboard layout keeps its own record, and your ${layout} analysis starts after ${ANALYSIS_MIN.tests} tests.`;
+    if (!p.history.length) {
+      el.anaEmptyText.textContent = `Finish ${more} and this page shows which keys, switches and fingers your mistakes come from, then builds a test to practice them.`;
+    } else if (!A.tests) {
+      el.anaEmptyText.textContent = `Your tests so far were saved before every key was kept, so they can't show here. Finish ${more} and your analysis fills in.`;
+    } else {
+      el.anaEmptyText.textContent = `Finish ${more} and your analysis fills in. Every test you finish counts, mistakes and all.`;
+    }
+    return;
+  }
+  el.anaSub.textContent = `${countOf(A.tests)} tests on ${layout} with every key kept, ${countOf(A.keys)} keys in all.`;
+  renderAnaOverview(A);
+  renderAnaDrill(A);
+  renderAnaKeys(A);
+  renderAnaSwaps(A);
+  renderAnaPairs(A);
+  renderAnaShift(A);
+  renderAnaSymbols(A);
+  renderAnaFingers(A);
+  renderAnaSlow(A);
+  renderAnaRush(A);
+  renderAnaWord(A);
+  renderAnaRecent(A);
+}
+
+// Your totals, and your error rate day by day, or test by test until there are three days.
+function renderAnaOverview(A) {
+  const items = [
+    ["tests", "Tests analyzed", countOf(A.tests)],
+    ["time", "Keys analyzed", countOf(A.keys)],
+    ["miss", "Keys missed", countOf(A.missed)],
+    ["acc", "Error rate", fmtPct(A.rate)],
+  ];
+  el.anaStats.replaceChildren(...items.map(([kind, name, value]) => {
+    const item = node("div", kind);
+    item.append(node("dt", null, name), node("dd", null, value));
+    return item;
+  }));
+  const days = new Map();
+  for (const t of A.series) {
+    const day = dayKey(new Date(t.ts));
+    const d = days.get(day) || { keys: 0, missed: 0 };
+    d.keys += t.keys;
+    d.missed += t.missed;
+    days.set(day, d);
+  }
+  const byDay = days.size >= 3;
+  const missRate = (d) => (d.keys ? d.missed / d.keys : 0);
+  const points = byDay
+    ? [...days.entries()].slice(-14).map(([day, d]) => ({
+        label: String(Number(day.slice(8))),
+        rate: missRate(d),
+        title: `${fmtDay(day)}, ${fmtPct(missRate(d))} of ${countOf(d.keys)} keys missed`,
+      }))
+    : A.series.slice(-20).map((t) => ({
+        label: "",
+        rate: missRate(t),
+        title: `${fmtDate(t.ts)}, ${fmtPct(missRate(t))} of ${countOf(t.keys)} keys missed`,
+      }));
+  const top = Math.max(0.02, ...points.map((pt) => pt.rate));
+  el.anaTrend.replaceChildren(...points.map((pt) => {
+    const col = node("span", "tcol");
+    const bar = node("span", "tbar");
+    bar.style.setProperty("--v", (pt.rate / top).toFixed(3));
+    col.title = pt.title;
+    col.append(bar, node("span", "tlab", pt.label));
+    return col;
+  }));
+  const recent = A.series.slice(-20);
+  let trend = "";
+  if (recent.length >= 6) {
+    const half = Math.floor(recent.length / 2);
+    const rate = (list) => missRate(list.reduce((sum, t) => ({ keys: sum.keys + t.keys, missed: sum.missed + t.missed }), { keys: 0, missed: 0 }));
+    const was = rate(recent.slice(0, half));
+    const now = rate(recent.slice(half));
+    const span = `your last ${countOf(recent.length)} tests`;
+    if (now < was * 0.9) trend = ` Your error rate fell from ${fmtPct(was)} to ${fmtPct(now)} over ${span}.`;
+    else if (now > was * 1.1) trend = ` Your error rate rose from ${fmtPct(was)} to ${fmtPct(now)} over ${span}. Easing off the speed a little often brings it back down.`;
+    else trend = ` Your error rate held steady around ${fmtPct(now)} over ${span}.`;
+  }
+  el.anaTrendNote.textContent = `${byDay ? "Each bar is a day" : "Each bar is a test"}, oldest on the left.${trend}`;
+}
+
+function renderAnaDrill(A) {
+  const chips = drillChips(drillPlan(A));
+  el.anaDrillKeys.replaceChildren(...(chips.length ? chips : [node("p", "ana-none", "Nothing stands out yet, so keep typing and check back.")]));
+  el.anaDrill.hidden = !chips.length;
+}
+
+function renderAnaKeys(A) {
+  const list = missedKeys(A).slice(0, 10);
+  fillBars(el.anaKeys, rateRows(list, (r) => keyCap(r.key), missedText), "No key has been missed often enough to rank yet.");
+}
+
+function renderAnaSwaps(A) {
+  const list = [...A.swaps.entries()].filter(([, t]) => t.n >= 2).sort((a, b) => b[1].n - a[1].n).slice(0, 12);
+  const top = Math.max(1, ...list.map(([, t]) => t.n));
+  const rows = list.map(([key, t]) => {
+    const why = Object.entries(t.why).sort((a, b) => b[1] - a[1])[0][0];
+    const missed = (A.chars.get(key[0]) || { x: t.n }).x;
+    return barRow(pairCaps(key), t.n / top, timesText(t.n), `${why}, ${fmtPct(t.n / missed)} of your misses on this key`, "slip");
+  });
+  fillBars(el.anaSwaps, rows, "No wrong key has come up twice yet.");
+}
+
+function renderAnaPairs(A) {
+  const list = trickyPairs(A).slice(0, 10);
+  const rows = rateRows(list, (r) => pairCaps(r.key), (r) => [switchKind(r.key[0], r.key[1], A.place), missedText(r)].filter(Boolean).join(", "));
+  fillBars(el.anaPairs, rows, "No key switch goes wrong more than your other keys yet.");
+}
+
+function renderAnaShift(A) {
+  const sh = A.shift;
+  const min = ANALYSIS_MIN.shift;
+  el.anaShift.replaceChildren(
+    rateFigure("Keys with Shift", sh.get("with"), min),
+    rateFigure("Keys without Shift", sh.get("without"), min),
+    rateFigure("Capitals", sh.get("capital"), min),
+    rateFigure("Shifted symbols", sh.get("symbol"), min),
+    rateFigure("Right after Shift", sh.get("after"), min),
+  );
+  const ids = Object.keys(SHIFT_SLIPS).filter((id) => A.slips.has(id));
+  const top = Math.max(1, ...ids.map((id) => A.slips.get(id).n));
+  const rows = ids.map((id) => {
+    const t = A.slips.get(id);
+    return barRow(SHIFT_SLIPS[id].name, t.n / top, timesText(t.n), [`${SHIFT_SLIPS[id].note}, like `, ...typedAs(t.like[0], t.like[1])], "slip");
+  });
+  fillBars(el.anaShiftSlips, rows, "No Shift slips yet.");
+  const up = sh.get("with");
+  const down = sh.get("without");
+  let note = "";
+  if (up && down && up.n >= min && down.n >= min && rateOf(down) > 0) {
+    const times = rateOf(up) / rateOf(down);
+    if (times >= 1.25) note = `Keys with Shift go wrong ${times.toFixed(1)} times as often as keys without it.`;
+    else if (times <= 0.8) note = "Keys with Shift go wrong less often than keys without it.";
+    else note = "Keys with Shift go wrong about as often as keys without it.";
+  } else if (!up || up.n < min) {
+    note = "Turn on Capital letters, or Punctuation and symbols, in Settings to see how Shift goes for you.";
+  }
+  el.anaShiftNote.textContent = note;
+  el.anaShiftNote.hidden = !note;
+}
+
+function renderAnaSymbols(A) {
+  const all = [...A.chars.entries()]
+    .filter(([ch]) => !isLetter(ch) && ch !== " ")
+    .map(([key, t]) => ({ key, n: t.n, x: t.x, rate: t.x / t.n }))
+    .sort((a, b) => b.rate - a.rate || b.n - a.n);
+  const shown = all.filter((r) => r.n >= ANALYSIS_MIN.symbol);
+  const few = all.filter((r) => r.n < ANALYSIS_MIN.symbol);
+  const top = Math.max(0.01, ...shown.map((r) => r.rate));
+  // One tile per symbol, so a long list of them still fits on a screen.
+  const tiles = shown.map((r) => {
+    const tile = node("div", "tile");
+    const track = node("span", "bt");
+    const fill = node("i");
+    fill.style.setProperty("--v", (r.rate / top).toFixed(3));
+    track.append(fill);
+    tile.append(keyCap(r.key), node("b", null, fmtPct(r.rate)), track, node("small", null, `${countOf(r.x)} of ${countOf(r.n)}`));
+    return tile;
+  });
+  if (few.length) {
+    const rest = node("p", "ana-none");
+    rest.append(`Typed fewer than ${ANALYSIS_MIN.symbol} times so far `, ...few.map((r) => keyCap(r.key)));
+    tiles.push(rest);
+  }
+  fillBars(el.anaSymbols, tiles, "You haven't typed any marks, numbers or symbols yet. Turn on Punctuation and symbols in Settings and pick the ones to practice.");
+}
+
+function renderAnaFingers(A) {
+  const min = ANALYSIS_MIN.group;
+  el.anaHands.replaceChildren(
+    rateFigure("Left hand", A.hands.get(0), min),
+    rateFigure("Right hand", A.hands.get(1), min),
+    rateFigure("Thumbs", A.hands.get(2), min),
+  );
+  const list = FINGER_NAMES.map((name, f) => ({ f, name, ...(A.fingers.get(f) || { n: 0, x: 0 }) }))
+    .filter((r) => r.n >= min)
+    .map((r) => ({ ...r, rate: r.x / r.n }));
+  const worst = list.length ? list.reduce((a, b) => (b.rate > a.rate ? b : a)) : null;
+  const rows = rateRows(list, (r) => {
+    const sw = node("span", "fsw");
+    sw.dataset.f = r.f;
+    return [sw, r.name];
+  }, (r) => `${missedText(r)}${r === worst && r.x > 0 ? ", your most missed finger" : ""}`);
+  fillBars(el.anaFingers, rows, "Not enough keys yet for each finger.");
+}
+
+// Only switches clearly slower than your usual gap count as slow.
+function renderAnaSlow(A) {
+  const usual = A.usualMs;
+  const timed = slowSwitches(A);
+  const list = timed.filter((r) => usual && r.ms >= usual * 1.15).slice(0, 10);
+  const top = Math.max(1, ...list.map((r) => r.ms));
+  const rows = list.map((r) => {
+    const kind = switchKind(r.key[0], r.key[1], A.place);
+    const pace = `${(r.ms / usual).toFixed(1)} times your usual gap`;
+    return barRow(pairCaps(r.key), r.ms / top, `${countOf(Math.round(r.ms))} ms`, [kind, pace].filter(Boolean).join(", "), "slow");
+  });
+  fillBars(el.anaSlow, rows, timed.length ? "None of your switches stands out as slow. Your rhythm is even." : "Not enough timed switches yet.");
+}
+
+function renderAnaRush(A) {
+  const min = ANALYSIS_MIN.group;
+  const kinds = [
+    ["rushed", "Much faster", "Under half your usual gap"],
+    ["quick", "A little faster", "Half to four fifths of it"],
+    ["usual", "Usual pace", "Close to your usual gap"],
+    ["slow", "Slower", "A quarter longer or more"],
+  ];
+  const list = kinds
+    .map(([id, name, note]) => ({ id, name, note, ...(A.pace.get(id) || { n: 0, x: 0 }) }))
+    .filter((r) => r.n >= min)
+    .map((r) => ({ ...r, rate: r.x / r.n }));
+  fillBars(el.anaRush, rateRows(list, (r) => r.name, (r) => `${r.note}, ${missedText(r)}`), "Not enough timed keys yet.");
+  const parts = [];
+  if (A.usualMs) parts.push(`Your usual gap between keys is about ${countOf(Math.round(A.usualMs))} ms.`);
+  const fast = A.after.get("fast");
+  const calm = A.after.get("usual");
+  if (fast && calm && fast.n >= min && calm.n >= min) {
+    parts.push(`Right after a key that came much faster, ${fmtPct(rateOf(fast))} of keys go wrong, against ${fmtPct(rateOf(calm))} after one at your usual pace.`);
+  }
+  const rushed = list.find((r) => r.id === "rushed");
+  const usual = list.find((r) => r.id === "usual");
+  if (rushed && usual) {
+    if (rushed.rate > usual.rate * 1.5 && rushed.x >= 3) parts.push("You miss far more when you rush, so a steady rhythm should help more than raw speed.");
+    else if (rushed.rate <= usual.rate * 1.1) parts.push("Speed isn't what trips you up, so you can push the pace.");
+  }
+  el.anaRushNote.textContent = parts.join(" ");
+  el.anaRushNote.hidden = !parts.length;
+}
+
+function renderAnaWord(A) {
+  const kinds = [
+    ["first", "First letter", "Right after a space"],
+    ["inside", "Inside a word", ""],
+    ["last", "Last letter", "Just before the space"],
+    ["space", "Space", "Between words"],
+  ];
+  const list = kinds
+    .map(([id, name, note]) => ({ id, name, note, ...(A.word.get(id) || { n: 0, x: 0 }) }))
+    .filter((r) => r.n >= ANALYSIS_MIN.group)
+    .map((r) => ({ ...r, rate: r.x / r.n }));
+  fillBars(el.anaWord, rateRows(list, (r) => r.name, (r) => [r.note, missedText(r)].filter(Boolean).join(", ")), "Not enough keys yet.");
+}
+
+// Each slip shows in its word, with the key that went wrong marked. A missed space shows
+// the words on both sides of it.
+function renderAnaRecent(A) {
+  const gap = (c) => c === " " || c === "\n";
+  const chips = A.recent.slice(-20).reverse().map(({ t, i, got }) => {
+    const tx = t.tx;
+    let a = i;
+    let b = i + 1;
+    while (a > 0 && !gap(tx[a - 1]) && i - a < 14) a -= 1;
+    while (b < tx.length && !gap(tx[b]) && b - i < 15) b += 1;
+    const chip = node("span", "slip");
+    const word = node("span", "slip-word");
+    word.append(tx.slice(a, i), node("mark", null, tx[i] === " " ? "\u00b7" : tx[i]), tx.slice(i + 1, b));
+    const typed = node("span", "slip-got", "typed ");
+    typed.append(keyCap(got));
+    chip.append(word, typed);
+    chip.title = fmtDate(t.ts);
+    return chip;
+  });
+  el.anaRecent.replaceChildren(...(chips.length ? chips : [node("p", "ana-none", "No mistakes in your detailed tests. Well done.")]));
+}
+
+// Practice these starts a test built from the analysis on screen, back on the Practice tab.
+function startDrill() {
+  if (!ready) return;
+  const A = analysisNow || analyze(profile().history, state.settings);
+  const plan = drillPlan(A);
+  if (!plan.keys.length && !plan.pairs.length) return;
+  showView("practice");
+  startLesson(drillText(plan, state.settings), 1, plan);
+  renderFocus();
+  checkGoals();
+}
+
 /* 11. Settings ------------------------------------------------------------- */
 
 // What each setting needs to refresh when it changes.
@@ -6789,7 +7838,7 @@ function setSetting(key, value) {
     if (key === "stepStart" && s.stepTop < value) s.stepTop = value;
     if (fx.includes("build")) buildKeyboard();
     if (fx.includes("lesson")) newLesson();
-    if (fx.includes("restart") && lesson) startLesson(lesson.text, 1);
+    if (fx.includes("restart") && lesson) startLesson(lesson.text, 1, lesson.drill);
     if (fx.includes("keyboard")) refreshKeyboard();
     if (fx.includes("practice")) renderPractice();
     if (fx.includes("live")) updateLive();
@@ -7022,6 +8071,7 @@ function afterMerge() {
   renderPractice();
   syncSettingsUI();
   if (view === "progress") renderProgress();
+  if (view === "analysis") renderAnalysis();
   if (view === "settings") renderLibrary();
 }
 
@@ -7198,6 +8248,7 @@ function onResetClick() {
   renderPractice();
   syncSettingsUI();
   newLesson();
+  unfinished = null; // keys from before the reset stay out of the fresh record
   scheduleSave(0);
   showToast("Progress reset");
 }
@@ -7216,6 +8267,7 @@ function showView(name) {
   applyZoom();
   hideTip();
   if (name === "progress") renderProgress();
+  if (name === "analysis") renderAnalysis();
   if (name === "settings") {
     syncSettingsUI(true);
     renderLibrary();
@@ -7376,6 +8428,7 @@ function bindEvents() {
     if (view === "settings") renderCloudStatus();
   }, 30000);
   el.unlockNext.addEventListener("click", unlockNextKey);
+  el.anaDrill.addEventListener("click", startDrill);
   el.calPrev.addEventListener("click", () => {
     calOffset = Math.min(calOffset + 1, 60);
     renderCalendar();
