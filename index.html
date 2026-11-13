@@ -230,6 +230,7 @@ h2, h3, p { margin: 0; }
 /* Small controls ----------------------------------------------------- */
 
 .tool { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; }
+.step-num { display: inline-flex; align-items: center; gap: 8px; color: var(--ink-2); font-size: 13.5px; }
 
 .seg { display: inline-flex; flex-wrap: wrap; gap: 2px; }
 
@@ -1674,9 +1675,21 @@ label.row { cursor: pointer; }
         <div class="row">
           <div class="row-text"><span class="row-label">Text to type</span></div>
           <div class="seg" data-setting="mode" role="group" aria-label="Text to type">
+            <button type="button" data-value="step">Step up</button>
             <button type="button" data-value="words">Words</button>
             <button type="button" data-value="adaptive">Adaptive</button>
             <button type="button" data-value="custom">My text</button>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="row-text">
+            <span class="row-label">Step up</span>
+            <span class="row-hint">Each day starts short, and every perfect test adds a word until it reaches the top. A test with a mistake keeps the same length.</span>
+          </div>
+          <div class="tool">
+            <label class="step-num">Start <input class="num" id="set-step-start" type="number" min="1" max="1000" step="1" inputmode="numeric" data-setting="stepStart" aria-label="Words in the first Step up test of the day"></label>
+            <label class="step-num">Top <input class="num" id="set-step-top" type="number" min="1" max="1000" step="1" inputmode="numeric" data-setting="stepTop" aria-label="The most words a Step up test grows to"></label>
           </div>
         </div>
 
@@ -1694,7 +1707,7 @@ label.row { cursor: pointer; }
         <div class="row">
           <div class="row-text">
             <span class="row-label">Words per test</span>
-            <span class="row-hint">Any number from 1 to 1,000.</span>
+            <span class="row-hint">Any number from 1 to 1,000. Step up sets its own length.</span>
           </div>
           <div class="tool">
             <div class="seg" data-setting="lessonWords" role="group" aria-label="Words per test">
@@ -2262,11 +2275,13 @@ const APP = {
   pdfWorker: "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js",
   cheerHold: 2000,     // ms at the start of a goal celebration when keys wait, so it can't vanish unseen
   chargeFrom: 0.75,    // share of the daily typing goal where the build up toward it begins
-  version: 7,
+  version: 8,
 };
 
 const DEFAULTS = {
-  mode: "words",        // "words", "adaptive" or "custom"
+  mode: "step",         // "step", "words", "adaptive" or "custom"
+  stepStart: 4,         // words in the first Step up test of each day
+  stepTop: 25,          // the most words a Step up test grows to
   lessonWords: 25,      // words per test
   wordPool: "literary", // which word list Words tests use, see POOLS
   suddenDeath: false,   // one wrong key restarts the test
@@ -2425,6 +2440,7 @@ let state = {
   docs: [],
   docId: "",
   removed: [],
+  step: { day: "", words: 0 }, // how far Step up has grown today
   restoredAt: 0, // when this progress was last restored from a copy, which then wins over anything older
   devices: [],   // browsers that save to the cloud, see Cloud save
   savedAt: 0,
@@ -2747,6 +2763,11 @@ function mergeSaves(mine, theirs, keepMine) {
     const b = theirs.cheered || {};
     out.cheered = { total: later(a.total, b.total), clean: later(a.clean, b.clean) };
   }
+  // Step up keeps the furthest step either copy reached on the later day.
+  const sa = mine.step || {};
+  const sb = theirs.step || {};
+  if ((sa.day || "") === (sb.day || "")) out.step = { day: sa.day || "", words: Math.max(sa.words || 0, sb.words || 0) };
+  else out.step = (sa.day || "") > (sb.day || "") ? { ...sa } : { ...sb };
   out.restoredAt = restoredAt;
   out.devices = mergeDevices(mine.devices, theirs.devices);
   out.savedAt = Math.max(mine.savedAt || 0, theirs.savedAt || 0);
@@ -2924,7 +2945,7 @@ function hydrate(saved) {
     if (typeof s[key] !== typeof DEFAULTS[key]) s[key] = DEFAULTS[key];
   }
   if (!LAYOUTS[s.layout]) s.layout = DEFAULTS.layout;
-  if (!["words", "adaptive", "custom"].includes(s.mode)) s.mode = DEFAULTS.mode;
+  if (!["step", "words", "adaptive", "custom"].includes(s.mode)) s.mode = DEFAULTS.mode;
   if (!["wpm", "cpm"].includes(s.unit)) s.unit = DEFAULTS.unit;
   if (!POOLS[s.wordPool]) s.wordPool = DEFAULTS.wordPool;
   if (!["system", "light", "dark"].includes(s.theme)) s.theme = DEFAULTS.theme;
@@ -2964,10 +2985,16 @@ function hydrate(saved) {
     // Version 6 completes a day with 30 minutes of typing or 5 minutes of clean typing.
     s.dailyGoal = 30;
   }
+  if (from < 8 && s.mode === "words") {
+    // Version 8 starts on Step up, which grows a word with each perfect test.
+    s.mode = "step";
+  }
   s.marks = [...new Set(s.marks)].filter((m) => MARK_IDS.includes(m)).join("");
   s.dailyGoal = clamp(Math.round(s.dailyGoal) || 0, 0, 600);
   s.cleanGoal = clamp(Math.round(s.cleanGoal) || 0, 0, 600);
   s.lessonWords = clamp(Math.round(s.lessonWords) || DEFAULTS.lessonWords, 1, APP.maxWords);
+  s.stepTop = clamp(Math.round(s.stepTop) || DEFAULTS.stepTop, 1, APP.maxWords);
+  s.stepStart = clamp(Math.round(s.stepStart) || DEFAULTS.stepStart, 1, s.stepTop);
   s.targetWpm = clamp(Math.round(s.targetWpm) || DEFAULTS.targetWpm, 10, 200);
   s.startKeys = clamp(Math.round(s.startKeys) || DEFAULTS.startKeys, 3, APP.letterOrder.length);
   state.settings = s;
@@ -3024,6 +3051,8 @@ function hydrate(saved) {
   }
   state.docs = state.docs.filter((d) => !state.removed.includes(d.id));
   state.docId = state.docs.some((d) => d.id === saved.docId) ? saved.docId : "";
+  const st = saved.step;
+  state.step = st && typeof st.day === "string" ? { day: st.day, words: Math.max(0, Math.round(st.words) || 0) } : { day: "", words: 0 };
   state.restoredAt = Number(saved.restoredAt) || 0;
   state.devices = [];
   for (const d of Array.isArray(saved.devices) ? saved.devices : []) {
@@ -3664,6 +3693,15 @@ function keepPartial(L) {
   scheduleSave();
 }
 
+// Step up starts each day at stepStart words and grows by a word with every perfect test,
+// up to stepTop. A test with a mistake keeps the same length.
+function stepWords() {
+  const s = state.settings;
+  const today = state.step.day === dayKey() ? state.step.words : 0;
+  const start = Math.min(s.stepStart, s.stepTop);
+  return clamp(today || start, start, s.stepTop);
+}
+
 function newLesson(attempt = 1) {
   if (!ready) return;
   const s = state.settings;
@@ -3677,7 +3715,8 @@ function newLesson(attempt = 1) {
     if (doc.at >= data.passages.length) doc.at = 0;
     startLesson(data.passages[doc.at]);
   } else {
-    startLesson(s.mode === "adaptive" ? adaptiveText(profile(), s) : wordsText(s), attempt);
+    const text = s.mode === "adaptive" ? adaptiveText(profile(), s) : wordsText(s.mode === "step" ? { ...s, lessonWords: stepWords() } : s);
+    startLesson(text, attempt);
   }
   renderFocus();
 }
@@ -3926,11 +3965,18 @@ function finishLesson() {
   if (unlocked) celebrateUnlock(unlocked);
   else if (finishedDoc) showToast(`You typed all of ${finishedDoc.title}. Starting again from the top.`);
   if (view === "progress") renderProgress();
-  newLesson();
   const perfect = L.errors === 0 && L.text.length > 1;
   perfectRun = perfect ? perfectRun + 1 : 0;
+  let step = 0;
+  if (perfect && L.mode === "step") {
+    const was = stepWords();
+    state.step = { day: dayKey(), words: Math.min(s.stepTop, was + 1) };
+    step = was < s.stepTop ? stepWords() : -1; // -1 means it was already at the top
+    scheduleSave();
+  }
+  newLesson();
   // A goal celebration says more than a perfect test, so a test that reaches a goal shows that.
-  if (!checkGoals().length && perfect) flourishPerfect(perfectRun);
+  if (!checkGoals().length && perfect) flourishPerfect(perfectRun, step);
 }
 /* 8. Practice screen ------------------------------------------------------- */
 
@@ -4057,7 +4103,8 @@ function renderSequence() {
   const p = profile();
   const adaptive = s.mode === "adaptive";
   const order = adaptive ? APP.letterOrder : "abcdefghijklmnopqrstuvwxyz";
-  const extra = adaptive ? [focusKey(p, s)] : s.mode === "words" && s.weakBoost ? weakLetters(p, s).map(([ch]) => ch) : [];
+  const plain = s.mode === "words" || s.mode === "step";
+  const extra = adaptive ? [focusKey(p, s)] : plain && s.weakBoost ? weakLetters(p, s).map(([ch]) => ch) : [];
   const focus = new Set(extra);
   const items = [...order].map((ch, i) => {
     const rank = APP.letterOrder.indexOf(ch);
@@ -4094,6 +4141,14 @@ function renderFocus() {
   el.focusMeter.hidden = !adaptive;
   el.focusDetail.hidden = false;
   if (s.mode === "words") return;
+  if (s.mode === "step") {
+    const n = stepWords();
+    el.focusTitle.replaceChildren("Step up, ", node("strong", null, `${n.toLocaleString("en-US")} ${n === 1 ? "word" : "words"}`));
+    el.focusDetail.textContent = n < s.stepTop
+      ? `Each perfect test adds a word, up to ${s.stepTop.toLocaleString("en-US")}.`
+      : "At the top. Tomorrow starts short again.";
+    return;
+  }
   if (s.mode === "custom") {
     const doc = activeDoc();
     el.focusTitle.textContent = doc ? doc.title : "My text";
@@ -4254,8 +4309,12 @@ let perfectRun = 0;   // perfect tests in a row
 let flourishTimer = 0;
 
 // A test with no mistakes gets a small celebration, quiet enough to happen often.
-function flourishPerfect(run) {
-  showFlourish(run > 1 ? `Perfect, ${run.toLocaleString("en-US")} in a row` : "Perfect", false);
+function flourishPerfect(run, step = 0) {
+  const parts = ["Perfect"];
+  if (run > 1) parts.push(`${run.toLocaleString("en-US")} in a row`);
+  if (step > 0) parts.push(`now ${step.toLocaleString("en-US")} words`);
+  else if (step < 0) parts.push(`at the top with ${state.settings.stepTop.toLocaleString("en-US")} words`);
+  showFlourish(parts.join(", "), false);
   el.sequence.classList.remove("shine");
   void el.sequence.offsetWidth;
   el.sequence.classList.add("shine");
@@ -6679,6 +6738,8 @@ function renderCalendar() {
 const EFFECTS = {
   mode: ["lesson", "keyboard", "practice"],
   lessonWords: ["lesson"],
+  stepStart: ["lesson"],
+  stepTop: ["lesson"],
   wordPool: ["lesson", "practice"],
   suddenDeath: ["restart"],
   targetWpm: ["keyboard", "practice"],
@@ -6733,6 +6794,8 @@ function setSetting(key, value) {
       const p = profile();
       if (p.unlocked < value) p.unlocked = value;
     }
+    // Step up can't start above its top, so a start set past the top takes the top with it.
+    if (key === "stepStart" && s.stepTop < value) s.stepTop = value;
     if (fx.includes("build")) buildKeyboard();
     if (fx.includes("lesson")) newLesson();
     if (fx.includes("restart") && lesson) startLesson(lesson.text, 1);

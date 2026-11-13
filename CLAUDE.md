@@ -1,6 +1,6 @@
 # Keyprint
 
-Keyprint is a browser typing trainer that lives in one file, `index.html`, with no build step, no dependencies and no tests. It has three kinds of test. Words, Adaptive (letters unlock one at a time as you learn them) and My text (your own pasted text, text files or PDFs). It also has an on-screen keyboard with finger colors and hand outlines, daily goals, and a Progress page of canvas charts. Progress saves in the browser, or in Claude artifact storage when it runs as an artifact, and optionally to a Cloudflare Worker that the user runs.
+Keyprint is a browser typing trainer that lives in one file, `index.html`, with no build step, no dependencies and no tests. It has four kinds of test. Step up (the default, where each day starts short and every perfect test adds a word), Words, Adaptive (letters unlock one at a time as you learn them) and My text (your own pasted text, text files or PDFs). It also has an on-screen keyboard with finger colors and hand outlines, daily goals, and a Progress page of canvas charts. Progress saves in the browser, or in Claude artifact storage when it runs as an artifact, and optionally to a Cloudflare Worker that the user runs.
 
 ## Files
 
@@ -69,7 +69,7 @@ The script changes the look mostly through root attributes (`data-theme`, `data-
 
 ## State, storage and versioning
 
-- **The `state` object.** It holds `version, settings, profiles, daily, clean, goalMetOn, cheered, docs, docId, removed, restoredAt, devices, savedAt`. Each `profiles[layout]` is `{unlocked, keys, history, customPos, resetAt}`, so letter stats, unlocks and history are kept per layout. `daily` and `clean` (ms per local `YYYY-MM-DD`) are shared by all layouts.
+- **The `state` object.** It holds `version, settings, profiles, daily, clean, goalMetOn, cheered, docs, docId, removed, step, restoredAt, devices, savedAt`. `step` is `{day, words}`, how far Step up has grown on that local day, and `mergeSaves` keeps the larger on the same day or the later day's. Each `profiles[layout]` is `{unlocked, keys, history, customPos, resetAt}`, so letter stats, unlocks and history are kept per layout. `daily` and `clean` (ms per local `YYYY-MM-DD`) are shared by all layouts.
 - **Saved shapes are fixed.**
   - Letter stats are `{t, n, e, m, x}`.
   - History entries are `{ts, wpm, acc, dur, words, mode, tries, nk, k}`, with `k[ch] = [avgMs, timed, typed, missed]`. Older entries have no `k` or `nk` and must keep working.
@@ -92,7 +92,7 @@ The script changes the look mostly through root attributes (`data-theme`, `data-
   - Known limit. KV's delay between locations can drop a browser from the main copy's list (last write wins), and then its newest left copy waits until that browser opens again.
   - `ready` stays false until `init` has hydrated, so nothing can write DEFAULTS over a real save. Keep it that way.
 - **`hydrate` is the one gate for every load.** That covers init, cloud connect, the merge inside `pushCloud`, backup restore and daily cloud copy restore. It rebuilds state field by field and resets any setting whose `typeof` differs from DEFAULTS. It checks enums against include lists or lookup tables and clamps numbers. It caps history at `APP.historyLimit`, `daily` and `clean` at 400 days and `removed` at 200. It never updates `state.version`.
-- **Migrations.** To change the schema, bump `APP.version` (currently 7) and add an `if (from < N)` block in `hydrate`.
+- **Migrations.** To change the schema, bump `APP.version` (currently 8) and add an `if (from < N)` block in `hydrate`. Version 8 moves saves that were on Words to Step up.
   - `from` is `Number(saved.version) || 1`. An object without `version` therefore runs every migration and has its unit, capitals, punctuation, word pool, theme and finger colors forced.
   - Always pass `hydrate` a parsed or `snapshot()` copy that still has `version`. Never pass live state, because `hydrate` clears each state field before reading the same field from its argument, which would wipe profiles, daily, clean and docs. It also keeps the argument's `keys` objects by reference (`cleanKeys` mutates and returns them).
 - **New top-level fields.** A new state field goes in the initial `state` and in `hydrate`. If you miss `hydrate`, the saved value is silently dropped on every reload. `mergeSaves` starts from a copy of the newer save, so it only needs code if both copies' values should be combined.
@@ -147,7 +147,7 @@ The script changes the look mostly through root attributes (`data-theme`, `data-
   - Join a label and its value with a comma ("Speed now, 80% of target").
 - **Punctuation.** No colons, no double dashes and no em or en dashes in UI copy or comments. The only runs of dashes are the section header rules. Use periods, commas or parentheses instead. The owner dislikes colons and double dashes in prose generally, so follow the same rule in docs and commit messages.
 - **Internal ids differ from UI names.**
-  - `custom` is My text, `suddenDeath` is One mistake restarts, `emulate` is Follow key positions, and `weakBoost` is Extra practice for weak letters.
+  - `step` is Step up (`stepWords()` gives today's length from `stepStart` and `stepTop`, and `finishLesson` grows it before making the next test), `custom` is My text, `suddenDeath` is One mistake restarts, `emulate` is Follow key positions, and `weakBoost` is Extra practice for weak letters.
   - `mistakes` values `clear`, `delete` and `move` are Right key clears, Backspace to delete and Move on.
   - Speeds are always stored in wpm, and a letter's speed is `12000 / ms`. cpm is for display only (x5).
 
