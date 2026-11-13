@@ -1032,6 +1032,8 @@ label.row { cursor: pointer; }
 .field::placeholder { color: var(--ink-3); }
 
 .marks { display: flex; flex-wrap: wrap; gap: 6px; }
+.marks-group { flex-basis: 100%; margin-top: 8px; color: var(--ink-2); font-size: 12.5px; }
+.marks-group:first-child { margin-top: 0; }
 
 .mark {
   display: inline-flex;
@@ -1711,13 +1713,13 @@ label.row { cursor: pointer; }
         </label>
 
         <label class="row" for="set-punct">
-          <span class="row-text"><span class="row-label">Punctuation</span></span>
+          <span class="row-text"><span class="row-label">Punctuation and symbols</span></span>
           <input class="switch" id="set-punct" type="checkbox" data-setting="punctuation">
         </label>
 
         <div class="row stack">
           <div class="row-text"><span class="row-label">Marks to include</span></div>
-          <div class="marks" id="marks" role="group" aria-label="Punctuation marks to include"></div>
+          <div class="marks" id="marks" role="group" aria-label="Punctuation and symbols to include"></div>
         </div>
 
         <label class="row" for="sdSettings">
@@ -3324,6 +3326,24 @@ const MARKS = [
   { id: ":", label: ":", name: "Colon" },
   { id: "(", label: "( )", name: "Parentheses" },
   { id: "/", label: "/", name: "Slash" },
+  { id: "[", label: "[ ]", name: "Square brackets", group: "symbols" },
+  { id: "{", label: "{ }", name: "Braces", group: "symbols" },
+  { id: "<", label: "< >", name: "Angle brackets", group: "symbols" },
+  { id: "*", label: "*", name: "Asterisk", group: "symbols" },
+  { id: "&", label: "&", name: "Ampersand", group: "symbols" },
+  { id: "%", label: "%", name: "Percent", group: "symbols" },
+  { id: "$", label: "$", name: "Dollar", group: "symbols" },
+  { id: "#", label: "#", name: "Hash", group: "symbols" },
+  { id: "@", label: "@", name: "At sign", group: "symbols" },
+  { id: "+", label: "+", name: "Plus", group: "symbols" },
+  { id: "=", label: "=", name: "Equals", group: "symbols" },
+  { id: "_", label: "_", name: "Underscore", group: "symbols" },
+  { id: "~", label: "~", name: "Tilde", group: "symbols" },
+  { id: "`", label: "`", name: "Backtick", group: "symbols" },
+  { id: "^", label: "^", name: "Caret", group: "symbols" },
+  { id: "|", label: "|", name: "Pipe", group: "symbols" },
+  { id: "\\", label: "\\", name: "Backslash", group: "symbols" },
+  { id: "1", label: "123", name: "Numbers", group: "symbols" },
 ];
 const MARK_IDS = MARKS.map((m) => m.id).join("");
 
@@ -3371,6 +3391,42 @@ function decorate(words, s, more, adaptive) {
     else if (has("/") && Math.random() < 0.03) out[i] = `${out[i]}/${more()}`;
   }
 
+  // Symbols show up the way they do in real writing. Some join two words, some stand in for
+  // a word (a number, a price, a sum, an ampersand), and some mark one (a tag or a mention).
+  for (let i = 0; i < out.length; i++) {
+    if (/[-/]/.test(out[i])) continue; // already a pair
+    const r = Math.random();
+    if (has("_") && r < 0.03) out[i] = `${out[i]}_${more()}`;
+    else if (has("|") && r < 0.045) out[i] = `${out[i]}|${more()}`;
+    else if (has("\\") && r < 0.06) out[i] = `${out[i]}\\${more()}`;
+  }
+  const num = (max) => String(1 + Math.floor(Math.random() * max));
+  const tokens = [];
+  if (has("1")) tokens.push(() => num(Math.random() < 0.7 ? 99 : 2026));
+  if (has("%")) tokens.push(() => `${num(100)}%`);
+  if (has("$")) tokens.push(() => `$${num(Math.random() < 0.7 ? 99 : 999)}`);
+  if (has("+") && has("=")) {
+    tokens.push(() => {
+      const a = Number(num(9));
+      const b = Number(num(9));
+      return `${a}+${b}=${a + b}`;
+    });
+  } else if (has("+")) tokens.push(() => `${num(9)}+${num(9)}`);
+  else if (has("=")) tokens.push(() => `${pickFrom(["x", "y", "n", "a", "b"])}=${num(20)}`);
+  if (has("^")) tokens.push(() => `${num(9)}^${num(3)}`);
+  if (has("&")) tokens.push(() => "&");
+  for (let i = 1; i < out.length - 1; i++) {
+    if (tokens.length && Math.random() < 0.04 * Math.min(3, tokens.length)) out[i] = pickFrom(tokens)();
+  }
+  if (has("&")) out = out.map((w) => (w === "and" && Math.random() < 0.6 ? "&" : w));
+  for (let i = 0; i < out.length; i++) {
+    if (!/^[a-z]/i.test(out[i])) continue;
+    const r = Math.random();
+    if (has("#") && r < 0.03) out[i] = `#${out[i]}`;
+    else if (has("@") && r < 0.06) out[i] = `@${out[i]}`;
+    else if (has("~") && r < 0.075) out[i] = `~${out[i]}`;
+  }
+
   const inside = new Uint8Array(out.length);
   const wrap = (open, close, chance) => {
     for (let i = 0; i < out.length; i++) {
@@ -3387,6 +3443,11 @@ function decorate(words, s, more, adaptive) {
   };
   if (has("\"")) wrap("\"", "\"", 0.05);
   if (has("(")) wrap("(", ")", 0.035);
+  if (has("[")) wrap("[", "]", 0.03);
+  if (has("{")) wrap("{", "}", 0.02);
+  if (has("<")) wrap("<", ">", 0.02);
+  if (has("*")) wrap("*", "*", 0.025);
+  if (has("`")) wrap("`", "`", 0.02);
 
   const ends = [[".", 0.7], ["?", 0.2], ["!", 0.1]].filter(([m]) => has(m));
   for (let i = 0; i < out.length; i++) {
@@ -3405,7 +3466,7 @@ function decorate(words, s, more, adaptive) {
     // With sentence endings on, capitals mostly start sentences. Without them, they are sprinkled in.
     const extraCaps = ends.length ? 0.04 : 0.12;
     for (let i = 0; i < out.length; i++) {
-      const sentenceStart = i === 0 || /[.?!]["')]?$/.test(out[i - 1]);
+      const sentenceStart = i === 0 || /[.?!]["')\]}>*`]?$/.test(out[i - 1]);
       if (sentenceStart || Math.random() < extraCaps) out[i] = capitalize(out[i]);
     }
   }
@@ -6775,13 +6836,20 @@ function bindSettings() {
 }
 
 function buildMarks() {
-  const chips = MARKS.map((m) => {
+  const chips = [];
+  let group = "";
+  for (const m of MARKS) {
+    const g = m.group || "punctuation";
+    if (g !== group) {
+      group = g;
+      chips.push(node("span", "marks-group", g === "symbols" ? "Symbols" : "Punctuation"));
+    }
     const btn = node("button", "mark");
     btn.type = "button";
     btn.dataset.mark = m.id;
     btn.append(node("span", "mk", m.label), m.name);
-    return btn;
-  });
+    chips.push(btn);
+  }
   el.marks.replaceChildren(...chips);
 }
 

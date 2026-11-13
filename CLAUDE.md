@@ -159,7 +159,7 @@ The script changes the look mostly through root attributes (`data-theme`, `data-
   - Markup with `data-setting`. Seg buttons also need a `data-value` exactly equal to `String(value)`.
   - An `EFFECTS` entry, or changing the setting only saves it. The order of the effect checks in `setSetting` matters.
 - **Adding a word pool** needs a `POOLS` entry and an `<option>` in `#set-pool`.
-- **Adding a punctuation mark** needs a `MARKS` entry and handling in `decorate`. Keep `decorate`'s step order, which is apostrophes, then pairs, then wraps, then end marks, with capitals last.
+- **Adding a punctuation mark or symbol** needs a `MARKS` entry (ids are single characters, and `group: "symbols"` puts it under Symbols in Settings) and handling in `decorate`. Keep `decorate`'s step order, which is apostrophes, then pairs, then symbol joins, stand-in tokens and prefixes, then wraps, then end marks, with capitals last. Numbers use the id `1`. All of them only apply while the Punctuation and symbols switch is on.
 - **Word tiers.** `POOLS` slices `COMMON_WORDS` at 200 and 500, so the `WORD_TIERS` sizes (100, 100, 300, 500) and their order matter. A duplicated word shifts every later boundary. Keep the word list `<script>` before the main one.
 - **Load order.**
   - Many functions use names that are declared later, such as `el`, `view`, `ZOOMS`, `POOLS`, `MARK_IDS` and `shiftX`. This only works because they first run inside `init()`, so don't add top-level calls into code that touches later names. Put new startup work in `init()`.
