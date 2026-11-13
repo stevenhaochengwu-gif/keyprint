@@ -1,0 +1,13 @@
+// How Cloudflare deploys this site. Once the site's Worker is connected to this repo
+// (Workers & Pages, the Worker, Settings, Build), every push to the production branch
+// runs "npx wrangler deploy", which publishes index.html as a static file.
+{
+  // Must match the Worker's name in the Cloudflare dashboard exactly, or the build fails.
+  "name": "typing",
+  "compatibility_date": "2026-11-01",
+  // The site is the repo itself, and .assetsignore keeps everything but index.html off it.
+  "assets": { "directory": "." },
+  // Keep the workers.dev address and the custom domain, which the save Worker lists in SITES.
+  "workers_dev": true,
+  "routes": [{ "pattern": "type.stevenwu.org", "custom_domain": true }]
+}

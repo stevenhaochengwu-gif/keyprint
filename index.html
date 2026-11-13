@@ -230,6 +230,7 @@ h2, h3, p { margin: 0; }
 /* Small controls ----------------------------------------------------- */
 
 .tool { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; }
+.step-num { display: inline-flex; align-items: center; gap: 8px; color: var(--ink-2); font-size: 13.5px; }
 
 .seg { display: inline-flex; flex-wrap: wrap; gap: 2px; }
 
@@ -389,7 +390,7 @@ h2, h3, p { margin: 0; }
 
 /* Text to type -------------------------------------------------------- */
 
-.board { position: relative; margin: 34px 0 36px; }
+.board { position: relative; isolation: isolate; margin: 34px 0 36px; }
 
 .text-window {
   position: relative;
@@ -505,6 +506,39 @@ h2, h3, p { margin: 0; }
 .zoom button:hover { background: var(--surface); color: var(--ink); }
 .zoom button:disabled { background: none; color: var(--ink-3); opacity: 0.45; cursor: default; }
 .zoom svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; }
+
+/* Chinese ------------------------------------------------------------------ */
+
+/* Chinese tests leave room above each character for its pinyin, and a little space between
+   words, since Chinese text has none. */
+.board.zh .text-window { line-height: 2.4; height: calc(2.4em * 3); }
+.board.zh.full .text-window { height: auto; min-height: 2.4em; }
+.board.zh .w { margin-right: 0.45em; }
+.board.zh .c { padding: 0 0.08em; }
+
+.py {
+  position: absolute;
+  top: 0.22em;
+  left: 50%;
+  transform: translateX(-50%);
+  color: var(--ink-2);
+  font-size: 0.36em;
+  line-height: 1;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.c.ok .py { opacity: 0.55; }
+.py b { color: var(--cue); font-weight: inherit; }
+.py.off { color: var(--miss); }
+
+/* With Show pinyin off, only the letters the input method has taken show. */
+.board.nopy .py { color: transparent; }
+.board.nopy .py b { color: var(--cue); }
+.board.nopy .py.off { color: var(--miss); }
+
+.lang button { padding: 2px 7px; font-size: 12.5px; }
+#view-progress.zh .en-only { display: none; }
 
 /* Zoom changes size in one step, and a quick scale shows which way it went. */
 .board.zoom-in .text-window { animation: zoom-in 0.32s cubic-bezier(0.2, 0.8, 0.25, 1); }
@@ -996,6 +1030,92 @@ button.cal-day:not(:disabled):not(.picked):hover { box-shadow: 0 0 0 1.5px var(-
   .card { padding: 18px 12px 16px; }
 }
 
+/* Analysis ------------------------------------------------------------ */
+
+/* The cards are the Progress page's, filled with plain bars instead of charts. */
+.stats.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.stats .miss dd { color: var(--c-miss); }
+
+.trend { display: flex; align-items: flex-end; justify-content: center; gap: 4px; max-width: 560px; height: 104px; margin: 22px auto 0; }
+.tcol { display: flex; flex: 1 1 0; flex-direction: column; align-items: center; justify-content: flex-end; gap: 4px; min-width: 0; max-width: 34px; height: 100%; }
+.tbar { width: 100%; height: calc(var(--v, 0) * 84px); min-height: 2px; border-radius: 3px 3px 0 0; background: var(--c-miss); }
+.tlab { color: var(--ink-3); font-size: 11px; line-height: 1; font-variant-numeric: tabular-nums; }
+
+.bars {
+  display: grid;
+  grid-template-columns: max-content minmax(60px, 1fr) max-content;
+  align-items: center;
+  gap: 6px 14px;
+  max-width: 620px;
+  margin: 18px auto 0;
+}
+
+.bar-row { display: contents; }
+.bl { display: inline-flex; align-items: center; gap: 5px; font-size: 13.5px; }
+.bt { height: 6px; border-radius: 3px; background: var(--track); overflow: hidden; }
+.bt i { display: block; width: calc(var(--v, 0) * 100%); min-width: 2px; height: 100%; border-radius: 3px; background: var(--c-miss); }
+.bt i.slip { background: var(--c-ratio); }
+.bt i.slow { background: var(--c-hit); }
+.bv { font-size: 13.5px; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.bn { grid-column: 2 / -1; margin: -4px 0 4px; color: var(--ink-2); font-size: 12.5px; line-height: 1.35; }
+.ana-none { grid-column: 1 / -1; color: var(--ink-3); font-size: 13.5px; text-align: center; }
+.ana-none .kc { margin: 2px; }
+.bars + .card-note { margin-top: 16px; }
+
+.kc {
+  display: inline-grid;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 5px;
+  border-radius: 4px;
+  background: var(--key);
+  color: var(--key-ink);
+  font-family: var(--font-text);
+  font-size: 14px;
+  line-height: 1;
+  white-space: pre;
+}
+
+.kc.sp { color: var(--ink-2); font-family: var(--font-ui); font-size: 11.5px; }
+.kto { color: var(--ink-3); font-size: 12px; }
+.fsw { flex: none; width: 12px; height: 12px; border-radius: 3px; background: var(--f-thumb); box-shadow: inset 0 0 0 1px var(--line); }
+.fsw[data-f="0"], .fsw[data-f="7"] { background: var(--f-pinky); }
+.fsw[data-f="1"], .fsw[data-f="6"] { background: var(--f-ring); }
+.fsw[data-f="2"], .fsw[data-f="5"] { background: var(--f-middle); }
+.fsw[data-f="3"] { background: var(--f-index); }
+.fsw[data-f="4"] { background: var(--f-index-2); }
+
+.ana-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 14px; margin-top: 18px; }
+.ana-pair { display: inline-flex; align-items: center; gap: 4px; }
+.ana-center { text-align: center; }
+.focus-detail.chips { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 3px; }
+.focus-detail.chips .kc { min-width: 20px; height: 20px; font-size: 12.5px; }
+.bn .kc,
+.slip-got .kc { min-width: 17px; height: 17px; padding: 0 4px; font-size: 12px; vertical-align: -3px; }
+.bn .kc.sp,
+.slip-got .kc.sp { font-size: 10.5px; }
+.slip .kc { background: var(--bg); }
+
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; max-width: 720px; margin: 18px auto 0; }
+.tile { display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 10px 8px 8px; border-radius: 6px; background: var(--surface); }
+.tile .kc { background: var(--bg); }
+.tile b { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.tile .bt { align-self: stretch; height: 4px; }
+.tile small { color: var(--ink-2); font-size: 11.5px; font-variant-numeric: tabular-nums; text-align: center; }
+.tiles .ana-none { margin-top: 4px; }
+
+.slips { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; max-width: 720px; margin: 18px auto 0; }
+.slip { display: inline-flex; align-items: baseline; gap: 8px; padding: 5px 10px; border-radius: 6px; background: var(--surface); }
+.slip-word { font-family: var(--font-text); font-size: 15px; white-space: pre; }
+.slip-word mark { border-radius: 2px; background: var(--miss-soft); color: var(--miss); }
+.slip-got { color: var(--ink-2); font-size: 12.5px; white-space: nowrap; }
+
+@media (max-width: 720px) {
+  .stats.four { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .bars { gap: 6px 10px; }
+}
+
 /* Settings ------------------------------------------------------------ */
 
 .group { padding: 14px 0 6px; border-top: 1px solid var(--line); }
@@ -1032,6 +1152,8 @@ label.row { cursor: pointer; }
 .field::placeholder { color: var(--ink-3); }
 
 .marks { display: flex; flex-wrap: wrap; gap: 6px; }
+.marks-group { flex-basis: 100%; margin-top: 8px; color: var(--ink-2); font-size: 12.5px; }
+.marks-group:first-child { margin-top: 0; }
 
 .mark {
   display: inline-flex;
@@ -1104,7 +1226,8 @@ label.row { cursor: pointer; }
 /* Zoom --------------------------------------------------------------- */
 
 /* No keyboard makes the text bigger and hides the keyboard. Text only also hides
-   everything around the text and centers it on the screen. Esc brings it all back. */
+   everything around the text and centers it on the screen. Esc brings it all back,
+   and so does the button at the top on a touch screen. */
 :root[data-zoom="nokeys"] { --zoom: 1.32; }
 :root[data-zoom="text"] { --zoom: 1.62; }
 :root[data-zoom] .shell { max-width: 1140px; }
@@ -1144,6 +1267,9 @@ label.row { cursor: pointer; }
   bottom: 28px;
   z-index: 5;
   margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
   color: var(--ink-2);
   font-size: 13px;
   white-space: nowrap;
@@ -1154,12 +1280,117 @@ label.row { cursor: pointer; }
 }
 
 .zen-hint.show { opacity: 1; transform: translate(-50%, 0); transition-duration: 0.35s; }
+.zen-tap { display: none; }
 :root:not([data-zoom="text"]) .zen-hint { display: none; }
+
+/* A touch screen has no Esc key, so there the way out stays on screen as a button. It sits
+   in the space above the text, where it never covers words still to be typed, and where
+   a phone's on-screen keyboard can't hide it. */
+@media (pointer: coarse) {
+  :root[data-zoom="text"] .shell { padding-top: 68px; }
+  .zen-hint {
+    top: 10px;
+    bottom: auto;
+    min-height: 44px;
+    padding: 0 18px;
+    border: 1px solid var(--line);
+    border-radius: 22px;
+    background: var(--bg);
+    cursor: pointer;
+    opacity: 1;
+    pointer-events: auto;
+    transform: translate(-50%, 0);
+  }
+  .zen-key { display: none; }
+  .zen-tap { display: inline; }
+}
+
+/* Build up ------------------------------------------------------------ */
+
+/* The last stretch toward the daily typing goal slowly charges the page. The Typing today
+   ring warms and starts to breathe, a little faster as the goal gets close, and a faint
+   warmth gathers behind the text. --charge goes from 0 to 1 and --breath is one breath. */
+.goal.charging .ring {
+  filter: drop-shadow(0 0 calc(var(--charge) * 4px) var(--mark-4));
+  animation: breathe var(--breath) ease-in-out infinite;
+}
+
+.goal.charging .ring-fill { stroke: color-mix(in oklab, var(--ink), var(--mark-4) calc(var(--charge) * 100%)); }
+
+.board::before {
+  content: "";
+  position: absolute;
+  inset: -60px -80px;
+  z-index: -1;
+  background: radial-gradient(closest-side, var(--mark-4), transparent);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 2s ease;
+}
+
+.board.charging::before { opacity: calc(var(--charge) * 0.09); animation: aura var(--breath) ease-in-out infinite; }
+
+@keyframes breathe { 50% { transform: rotate(-90deg) scale(1.1); } }
+@keyframes aura { 50% { transform: scale(1.04); filter: brightness(1.15); } }
+
+/* A perfect test ------------------------------------------------------ */
+
+/* A test with no mistakes gets a small, quiet moment. A light runs along the letters, and a
+   Perfect tag rises above the text and fades, without holding up the next test. */
+.flourish {
+  position: absolute;
+  top: -27px;
+  right: 0;
+  z-index: 1;
+  margin: 0;
+  padding: 2px 10px;
+  border-radius: 999px;
+  color: var(--good);
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.flourish::after { content: ""; position: absolute; inset: 0; border: 1.5px solid var(--good); border-radius: inherit; opacity: 0; }
+.flourish.show { animation: flourish 2.6s ease both; }
+.flourish.show::after { animation: flourish-ring 1.1s cubic-bezier(0.2, 0.7, 0.3, 1) 0.1s both; }
+.flourish.clean { background: var(--bg); } /* sits on the traced line like a label, which passes behind it */
+.flourish.clean.show { animation-duration: 3.6s; }
+.sequence.shine .seq-key { animation: seq-shine 0.6s ease calc(var(--i, 0) * 16ms) both; }
+
+@keyframes flourish {
+  0% { opacity: 0; transform: translateY(5px) scale(0.94); }
+  14% { opacity: 1; transform: none; }
+  78% { opacity: 1; transform: none; }
+  100% { opacity: 0; transform: translateY(-5px); }
+}
+
+@keyframes flourish-ring { 0% { opacity: 0.8; transform: scale(1); } 100% { opacity: 0; transform: scale(1.5, 1.9); } }
+@keyframes seq-shine { 40% { transform: translateY(-3px); filter: brightness(1.25); } }
+
+/* The clean typing goal ----------------------------------------------- */
+
+/* Reaching the clean typing goal draws one fine line all the way around the text, like a
+   single careful stroke, then lets it glow once and fade. */
+.trace { position: absolute; top: 0; left: 0; overflow: visible; pointer-events: none; }
+.trace rect { fill: none; stroke: var(--good); stroke-width: 1.5; stroke-linecap: round; opacity: 0; }
+.trace.play rect { animation: trace 3.4s cubic-bezier(0.45, 0, 0.2, 1) both; }
+
+@keyframes trace {
+  0% { opacity: 1; stroke-dasharray: 0 100; }
+  55% { opacity: 1; stroke-dasharray: 100 0; filter: none; }
+  70% { opacity: 1; stroke-dasharray: 100 0; filter: drop-shadow(0 0 5px var(--good)); }
+  100% { opacity: 0; stroke-dasharray: 100 0; }
+}
 
 /* Goal celebration ---------------------------------------------------- */
 
-/* The mark presses into the page like a fingerprint, ripples spread out in the four
-   finger colors, keycaps fly, and the message types itself out. */
+/* Reaching the daily typing goal releases what the build up gathered. The page slowly goes
+   quiet, a soft wave of warm light spreads out, the mark settles into place with ripples in
+   the four finger colors, keycaps drift up and away, and the message writes itself out
+   slowly before it all fades. */
 .cheer {
   position: fixed;
   inset: 0;
@@ -1168,17 +1399,32 @@ label.row { cursor: pointer; }
   place-items: center;
   pointer-events: none;
   opacity: 0;
-  transition: opacity 0.3s ease;
+  transition: opacity 1.1s ease;
 }
 
 .cheer::before {
   content: "";
   position: absolute;
   inset: 0;
-  background: color-mix(in oklab, var(--bg) 86%, transparent);
-  -webkit-backdrop-filter: blur(3px);
-  backdrop-filter: blur(3px);
+  background: color-mix(in oklab, var(--bg) 92%, transparent);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
 }
+
+.cheer-wave {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 70vmax;
+  height: 70vmax;
+  margin: -35vmax 0 0 -35vmax;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, color-mix(in oklab, var(--mark-4) 55%, transparent), transparent);
+  opacity: 0;
+}
+
+.cheer.play .cheer-wave { animation: cheer-wave 3.4s cubic-bezier(0.15, 0.6, 0.3, 1) 0.5s both; }
+.cheer.play .cheer-wave + .cheer-wave { animation-delay: 1.5s; animation-duration: 4s; }
 
 .cheer.show { opacity: 1; }
 .cheer.leaving { opacity: 0; transition-duration: var(--leave, 0.5s); }
@@ -1245,28 +1491,27 @@ label.row { cursor: pointer; }
 
 .cheer.typed .cheer-detail { opacity: 1; transform: none; }
 
-.cheer.play .cheer-print { animation: cheer-press 0.95s cubic-bezier(0.2, 0.9, 0.25, 1) both; }
-.cheer.play .cheer-mark path { animation: cheer-ridge 0.62s cubic-bezier(0.3, 0.7, 0.2, 1) both; }
-.cheer.play .cheer-mark path:nth-child(2) { animation-delay: 0.07s; }
-.cheer.play .cheer-mark path:nth-child(3) { animation-delay: 0.14s; }
+.cheer.play .cheer-print { animation: cheer-settle 1.8s cubic-bezier(0.2, 0.7, 0.2, 1) 0.6s both; }
+.cheer.play .cheer-mark path { animation: cheer-ridge 1.3s cubic-bezier(0.3, 0.7, 0.2, 1) 0.8s both; }
+.cheer.play .cheer-mark path:nth-child(2) { animation-delay: 0.95s; }
+.cheer.play .cheer-mark path:nth-child(3) { animation-delay: 1.1s; }
 .cheer.play .cheer-mark path:nth-child(4) {
   transform-box: fill-box;
   transform-origin: center;
-  animation: cheer-core 0.5s cubic-bezier(0.3, 1.7, 0.5, 1) 0.3s both;
+  animation: cheer-core 0.9s cubic-bezier(0.3, 1.3, 0.5, 1) 1.5s both;
 }
 
-.cheer.play .cheer-ring { animation: cheer-ring 1.15s cubic-bezier(0.1, 0.7, 0.3, 1) 0.42s both; }
-.cheer.play .cheer-ring:nth-child(2) { animation-delay: 0.52s; }
-.cheer.play .cheer-ring:nth-child(3) { animation-delay: 0.62s; }
-.cheer.play .cheer-ring:nth-child(4) { animation-delay: 0.72s; }
+.cheer.play .cheer-ring { animation: cheer-ring 2.6s cubic-bezier(0.1, 0.6, 0.3, 1) 1.2s both; }
+.cheer.play .cheer-ring:nth-child(2) { animation-delay: 1.45s; }
+.cheer.play .cheer-ring:nth-child(3) { animation-delay: 1.7s; }
+.cheer.play .cheer-ring:nth-child(4) { animation-delay: 1.95s; }
 
-@keyframes cheer-press {
-  0% { opacity: 0; transform: scale(0.35) rotate(-28deg); }
-  40% { opacity: 1; transform: scale(1.1) rotate(4deg); }
-  52% { transform: scale(0.9) rotate(0deg); }
-  70% { transform: scale(1.04); }
-  100% { transform: scale(1); }
+@keyframes cheer-settle {
+  0% { opacity: 0; transform: scale(0.9); }
+  100% { opacity: 1; transform: scale(1); }
 }
+
+@keyframes cheer-wave { 0% { opacity: 0.6; transform: scale(0.08); } 100% { opacity: 0; transform: scale(2.4); } }
 
 @keyframes cheer-ridge { from { stroke-dasharray: 0 100; } }
 @keyframes cheer-core { from { opacity: 0; transform: scaleX(0); } }
@@ -1293,6 +1538,20 @@ label.row { cursor: pointer; }
   .key-list { columns: 1; }
 }
 
+/* Four tabs and the name don't fit across a phone, so there the logo stands in for the
+   name, which screen readers still hear. */
+@media (max-width: 480px) {
+  .tabs { gap: 16px; }
+  .brand span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -1303,6 +1562,9 @@ label.row { cursor: pointer; }
   }
 
   .caret { transition: none !important; }
+  .goal.charging .ring, .board.charging::before { animation: none !important; }
+  .flourish.show { animation: none !important; opacity: 1; }
+  .trace.play rect { animation: none !important; opacity: 1; }
 }
 </style>
 </head>
@@ -1323,6 +1585,7 @@ label.row { cursor: pointer; }
     <nav class="tabs" aria-label="Sections">
       <button class="tab" type="button" data-view="practice" aria-current="page">Practice</button>
       <button class="tab" type="button" data-view="progress">Progress</button>
+      <button class="tab" type="button" data-view="analysis">Analysis</button>
       <button class="tab" type="button" data-view="settings">Settings</button>
     </nav>
   </header>
@@ -1368,10 +1631,15 @@ label.row { cursor: pointer; }
       </div>
 
       <div class="board" id="board">
+        <p class="flourish" id="flourish" aria-hidden="true"></p>
         <div class="text-window" id="textWindow"><div class="text" id="text"></div></div>
         <div class="board-foot" id="boardFoot">
           <div class="track" aria-hidden="true"><span id="lessonBar"></span></div>
           <span class="count" id="wordCount"></span>
+          <div class="seg lang" data-setting="language" role="group" aria-label="Language">
+            <button type="button" data-value="en">EN</button>
+            <button type="button" data-value="zh" lang="zh-Hans">中文</button>
+          </div>
           <div class="zoom" role="group" aria-label="Zoom">
             <button type="button" id="zoomOut" aria-label="Zoom out"><svg viewBox="0 0 18 18" aria-hidden="true"><circle cx="7.75" cy="7.75" r="5.25"/><path d="M11.6 11.6 15.6 15.6M5.25 7.75h5"/></svg></button>
             <button type="button" id="zoomIn" aria-label="Zoom in"><svg viewBox="0 0 18 18" aria-hidden="true"><circle cx="7.75" cy="7.75" r="5.25"/><path d="M11.6 11.6 15.6 15.6M5.25 7.75h5M7.75 5.25v5"/></svg></button>
@@ -1451,7 +1719,7 @@ label.row { cursor: pointer; }
           <div class="streak-list" id="streakList"></div>
         </div>
 
-        <div class="card">
+        <div class="card en-only">
           <h3 class="card-title">Where you stand</h3>
           <p class="card-lede">Your all time averages against typists everywhere, estimated from the charts keybr.com shows of all its users. Your own tests never change these typists.</p>
           <div class="rel">
@@ -1488,7 +1756,7 @@ label.row { cursor: pointer; }
           </div>
         </div>
 
-        <div class="card">
+        <div class="card en-only">
           <h3 class="card-title">Letters over time</h3>
           <p class="card-lede">Each row is one letter and each column one test, lined up with the chart above. Red is slow and green is fast for you, so rows turn greener as you improve.</p>
           <canvas id="overview" role="img" aria-label="Chart of each letter's speed in every test"></canvas>
@@ -1496,7 +1764,7 @@ label.row { cursor: pointer; }
           <p class="card-note" id="overviewNote" hidden></p>
         </div>
 
-        <div class="card">
+        <div class="card en-only">
           <h3 class="card-title">One letter</h3>
           <p class="card-lede">How your speed on one letter changes from test to test. Pick a letter here, or click one in any letter chart on this page.</p>
           <div class="picker" id="keyPicker" role="group" aria-label="Letter to show"></div>
@@ -1510,25 +1778,119 @@ label.row { cursor: pointer; }
           </div>
         </div>
 
-        <div class="card">
+        <div class="card en-only">
           <h3 class="card-title">Letter speeds</h3>
           <p class="card-lede">Your speed on each letter right now. Green ones are your fastest, and red ones need the most work.</p>
           <canvas id="keyBars" role="img" aria-label="Chart of your speed on each letter"></canvas>
           <div class="legend"><span>Slow</span><span class="ramp"></span><span>Fast for you</span><span><i class="sw line target"></i>Target speed</span></div>
         </div>
 
-        <div class="card">
+        <div class="card en-only">
           <h3 class="card-title">Letter frequency</h3>
           <p class="card-lede">How many times you typed each letter, how many of those had a mistake, and how often each letter goes wrong.</p>
           <canvas id="freqChart" role="img" aria-label="Chart of how often you type and miss each letter"></canvas>
           <div class="legend"><span><i class="sw hit"></i>Typed</span><span><i class="sw miss"></i>Mistakes</span><span><i class="sw ratio"></i>Mistakes for each time typed</span></div>
         </div>
 
-        <div class="card">
+        <div class="card en-only">
           <h3 class="card-title">Keyboard heatmap</h3>
           <p class="card-lede">The same counts on your keyboard. The blue half of each circle grows with how often you type the key, and the red half with how often you miss it.</p>
           <canvas id="heatmap" role="img" aria-label="Keyboard heatmap of the letters you type and miss"></canvas>
           <div class="legend"><span><i class="sw hit"></i>Typed</span><span><i class="sw miss"></i>Mistakes</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Analysis, every mistake and where it comes from ============== -->
+    <section class="view" id="view-analysis" aria-labelledby="anaTitle" hidden>
+      <div class="view-head">
+        <h2 id="anaTitle">Analysis</h2>
+        <p id="anaSub"></p>
+      </div>
+
+      <div class="card empty" id="anaEmpty">
+        <p class="card-lede" id="anaEmptyText"></p>
+        <p class="empty-action"><button class="btn" type="button" data-goto="practice">Start practicing</button></p>
+      </div>
+
+      <div id="anaBody" hidden>
+        <div class="card">
+          <h3 class="card-title">Overview</h3>
+          <p class="card-lede">Every test you finish keeps each key you pressed, so this page can show where your mistakes come from. A key counts as missed when your first try at it was wrong.</p>
+          <dl class="stats four" id="anaStats"></dl>
+          <div class="trend" id="anaTrend" role="img" aria-label="Your error rate over time"></div>
+          <p class="card-note" id="anaTrendNote"></p>
+        </div>
+
+        <div class="card">
+          <h3 class="card-title">Practice these</h3>
+          <p class="card-lede">A test made of words full of your most missed keys and trickiest key switches, picked from the cards below. It changes as you improve.</p>
+          <div class="ana-chips" id="anaDrillKeys"></div>
+          <p class="empty-action ana-center"><button class="btn" type="button" id="anaDrill">Practice these keys</button></p>
+        </div>
+
+        <div class="card">
+          <h3 class="card-title">Most missed keys</h3>
+          <p class="card-lede">How often each key goes wrong when it's the one to type, most missed first. Spaces, numbers and symbols count too. A key you've typed only a few times ranks a little lower until there's more to go on.</p>
+          <div class="bars" id="anaKeys"></div>
+        </div>
+
+        <div class="card">
+          <h3 class="card-title">What you type instead</h3>
+          <p class="card-lede">The key you meant, then the key you hit, most common first. Each one has the likely reason, worked out from your layout and fingers.</p>
+          <div class="bars" id="anaSwaps"></div>
+        </div>
+
+        <div class="card">
+          <h3 class="card-title">Tricky key switches</h3>
+          <p class="card-lede">Many mistakes start in the move from one key to the next. These are the switches that go wrong more often than the key they land on usually does, with how your fingers travel for each.</p>
+          <div class="bars" id="anaPairs"></div>
+        </div>
+
+        <div class="card">
+          <h3 class="card-title">Shift and combinations</h3>
+          <p class="card-lede">Capitals and shifted symbols take two keys at once. Here's how they compare with keys that need no Shift, and which Shift slips you make.</p>
+          <dl class="key-figs" id="anaShift"></dl>
+          <div class="bars" id="anaShiftSlips"></div>
+          <p class="card-note" id="anaShiftNote"></p>
+        </div>
+
+        <div class="card">
+          <h3 class="card-title">Punctuation and symbols</h3>
+          <p class="card-lede">Every mark, number and symbol you've typed, with how often it goes wrong. Pick more of them under Marks to include in Settings to practice them.</p>
+          <div class="tiles" id="anaSymbols"></div>
+        </div>
+
+        <div class="card">
+          <h3 class="card-title">Fingers and hands</h3>
+          <p class="card-lede">Mistakes by the finger that should press each key, from your keyboard layout and finger pattern in Settings.</p>
+          <dl class="key-figs" id="anaHands"></dl>
+          <div class="bars" id="anaFingers"></div>
+        </div>
+
+        <div class="card">
+          <h3 class="card-title">Slow switches</h3>
+          <p class="card-lede">The switches where you hesitate, by your typical time from the first key to the second. Mistakes and long pauses are left out.</p>
+          <div class="bars" id="anaSlow"></div>
+        </div>
+
+        <div class="card">
+          <h3 class="card-title">Rushing</h3>
+          <p class="card-lede">How often a key goes wrong at different speeds. Each key is measured against your usual time between keys in the same test.</p>
+          <div class="bars" id="anaRush"></div>
+          <p class="card-note" id="anaRushNote"></p>
+        </div>
+
+        <div class="card">
+          <h3 class="card-title">Where in a word</h3>
+          <p class="card-lede">Mistakes by where the key sits in its word. A high first letter usually means the jump from the space bar into the next word.</p>
+          <div class="bars" id="anaWord"></div>
+        </div>
+
+        <div class="card">
+          <h3 class="card-title">Recent mistakes</h3>
+          <p class="card-lede">Your latest slips, newest first, each in the word where it happened.</p>
+          <div class="slips" id="anaRecent"></div>
         </div>
       </div>
     </section>
@@ -1541,13 +1903,55 @@ label.row { cursor: pointer; }
       </div>
 
       <div class="group">
+        <h3>Language</h3>
+        <div class="row">
+          <div class="row-text">
+            <span class="row-label">Language</span>
+            <span class="row-hint">Chinese tests are everyday words in Simplified Chinese, typed with a pinyin input method like the one on your computer or phone. Their speeds are in characters per minute.</span>
+          </div>
+          <div class="seg" data-setting="language" role="group" aria-label="Language">
+            <button type="button" data-value="en">English</button>
+            <button type="button" data-value="zh">Chinese</button>
+          </div>
+        </div>
+
+        <label class="row" for="set-follow">
+          <span class="row-text">
+            <span class="row-label">Follow your input method</span>
+            <span class="row-hint">Switches to Chinese when your input method types Chinese, and back to English when it types letters.</span>
+          </span>
+          <input class="switch" id="set-follow" type="checkbox" data-setting="followInput">
+        </label>
+
+        <label class="row" for="set-pinyin">
+          <span class="row-text">
+            <span class="row-label">Show pinyin</span>
+            <span class="row-hint">Pinyin above each Chinese character. With it off, only the letters you've typed show.</span>
+          </span>
+          <input class="switch" id="set-pinyin" type="checkbox" data-setting="pinyin">
+        </label>
+      </div>
+
+      <div class="group">
         <h3>Test</h3>
         <div class="row">
           <div class="row-text"><span class="row-label">Text to type</span></div>
           <div class="seg" data-setting="mode" role="group" aria-label="Text to type">
+            <button type="button" data-value="step">Step up</button>
             <button type="button" data-value="words">Words</button>
             <button type="button" data-value="adaptive">Adaptive</button>
             <button type="button" data-value="custom">My text</button>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="row-text">
+            <span class="row-label">Step up</span>
+            <span class="row-hint">Each day starts short, and every perfect test adds a word until it reaches the top. A test with a mistake keeps the same length.</span>
+          </div>
+          <div class="tool">
+            <label class="step-num">Start <input class="num" id="set-step-start" type="number" min="1" max="1000" step="1" inputmode="numeric" data-setting="stepStart" aria-label="Words in the first Step up test of the day"></label>
+            <label class="step-num">Top <input class="num" id="set-step-top" type="number" min="1" max="1000" step="1" inputmode="numeric" data-setting="stepTop" aria-label="The most words a Step up test grows to"></label>
           </div>
         </div>
 
@@ -1565,7 +1969,7 @@ label.row { cursor: pointer; }
         <div class="row">
           <div class="row-text">
             <span class="row-label">Words per test</span>
-            <span class="row-hint">Any number from 1 to 1,000.</span>
+            <span class="row-hint">Any number from 1 to 1,000. Step up sets its own length.</span>
           </div>
           <div class="tool">
             <div class="seg" data-setting="lessonWords" role="group" aria-label="Words per test">
@@ -1584,13 +1988,13 @@ label.row { cursor: pointer; }
         </label>
 
         <label class="row" for="set-punct">
-          <span class="row-text"><span class="row-label">Punctuation</span></span>
+          <span class="row-text"><span class="row-label">Punctuation and symbols</span></span>
           <input class="switch" id="set-punct" type="checkbox" data-setting="punctuation">
         </label>
 
         <div class="row stack">
           <div class="row-text"><span class="row-label">Marks to include</span></div>
-          <div class="marks" id="marks" role="group" aria-label="Punctuation marks to include"></div>
+          <div class="marks" id="marks" role="group" aria-label="Punctuation and symbols to include"></div>
         </div>
 
         <label class="row" for="sdSettings">
@@ -1787,7 +2191,7 @@ label.row { cursor: pointer; }
         <div class="row">
           <div class="row-text">
             <span class="row-label">Zoom</span>
-            <span class="row-hint">No keyboard hides the keyboard and makes the text bigger. Text only hides everything but the text, and <kbd>Esc</kbd> brings the rest back.</span>
+            <span class="row-hint">No keyboard hides the keyboard and makes the text bigger. Text only hides everything but the text, and <kbd>Esc</kbd> brings the rest back. On a touch screen, tap Leave Text only at the top instead.</span>
           </div>
           <div class="seg" data-setting="zoom" role="group" aria-label="Zoom">
             <button type="button" data-value="normal">Normal</button>
@@ -1883,7 +2287,7 @@ label.row { cursor: pointer; }
         <div class="row" id="cloudDaysRow" hidden>
           <div class="row-text">
             <span class="row-label">Daily copies</span>
-            <span class="row-hint">Your Cloudflare account keeps the first copy of each day. Restoring one undoes everything after it.</span>
+            <span class="row-hint">Your Cloudflare account keeps the first copy of each day. Restoring one brings back the progress it had, and undoes a Reset progress made since, on every device.</span>
           </div>
           <div class="tool">
             <select id="cloudDays"></select>
@@ -1905,7 +2309,7 @@ label.row { cursor: pointer; }
         <div class="row">
           <div class="row-text">
             <span class="row-label">Restore from a backup</span>
-            <span class="row-hint">Replaces everything here with what's in the backup file.</span>
+            <span class="row-hint">Brings back everything in the backup file and keeps what's here too. Its settings take over, and a Reset progress made since is undone.</span>
           </div>
           <button class="btn" type="button" id="restoreBtn">Choose backup file</button>
           <input type="file" id="restoreInput" accept=".json,application/json" hidden>
@@ -1924,7 +2328,7 @@ label.row { cursor: pointer; }
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <div class="chart-tip" id="chartTip" hidden></div>
-<p class="zen-hint" id="zenHint" aria-hidden="true">Press <kbd>Esc</kbd> to leave Text only</p>
+<button class="zen-hint" id="zenHint" type="button" tabindex="-1"><span class="zen-key">Press <kbd>Esc</kbd> to leave Text only</span><span class="zen-tap">Leave Text only</span></button>
 <p class="sr-only" id="announce" role="status" aria-live="polite"></p>
 <script>
 /* Common English words for typing tests, grouped by how often they show up in everyday
@@ -2086,6 +2490,44 @@ wary wasteland wayfarer wayward weary wharf whimsical whirlwind whisper whistle 
 wistful withered woebegone wonder wondrous woodland wraith wrath wreath wretched writhe yearning yesteryear yonder
 youthful yuletide zealous zenith zephyr zest zither
 `.trim().split(/\s+/))];
+
+/* Everyday words in Simplified Chinese for Chinese tests. Each word is followed by the
+   pinyin of its characters, one syllable for each, without tones, the way a pinyin input
+   method takes them. v stands for ü, as it does on the keyboard. */
+const ZH_WORDS = `
+我们 wo men,你们 ni men,他们 ta men,大家 da jia,自己 zi ji,朋友 peng you,家人 jia ren,父母 fu mu,爸爸 ba ba,妈妈 ma ma,
+哥哥 ge ge,姐姐 jie jie,弟弟 di di,妹妹 mei mei,孩子 hai zi,女儿 nv er,儿子 er zi,老师 lao shi,学生 xue sheng,同学 tong xue,
+医生 yi sheng,邻居 lin ju,客人 ke ren,今天 jin tian,明天 ming tian,昨天 zuo tian,现在 xian zai,时间 shi jian,早上 zao shang,中午 zhong wu,
+下午 xia wu,晚上 wan shang,周末 zhou mo,星期 xing qi,去年 qu nian,今年 jin nian,明年 ming nian,以前 yi qian,以后 yi hou,最近 zui jin,
+马上 ma shang,刚才 gang cai,每天 mei tian,有时 you shi,经常 jing chang,一直 yi zhi,已经 yi jing,春天 chun tian,夏天 xia tian,秋天 qiu tian,
+冬天 dong tian,生日 sheng ri,假期 jia qi,小时 xiao shi,分钟 fen zhong,学校 xue xiao,教室 jiao shi,图书馆 tu shu guan,公园 gong yuan,商店 shang dian,
+超市 chao shi,饭馆 fan guan,银行 yin hang,医院 yi yuan,车站 che zhan,机场 ji chang,城市 cheng shi,农村 nong cun,房间 fang jian,厨房 chu fang,
+窗户 chuang hu,桌子 zhuo zi,椅子 yi zi,电脑 dian nao,手机 shou ji,电话 dian hua,电视 dian shi,衣服 yi fu,鞋子 xie zi,书包 shu bao,
+铅笔 qian bi,本子 ben zi,杯子 bei zi,雨伞 yu san,钥匙 yao shi,米饭 mi fan,面条 mian tiao,饺子 jiao zi,包子 bao zi,鸡蛋 ji dan,
+牛奶 niu nai,面包 mian bao,水果 shui guo,苹果 ping guo,香蕉 xiang jiao,西瓜 xi gua,葡萄 pu tao,蔬菜 shu cai,茶叶 cha ye,咖啡 ka fei,
+早饭 zao fan,午饭 wu fan,晚饭 wan fan,菜单 cai dan,味道 wei dao,东西 dong xi,地方 di fang,路口 lu kou,门口 men kou,楼上 lou shang,
+附近 fu jin,旁边 pang bian,外面 wai mian,里面 li mian,
+学习 xue xi,工作 gong zuo,休息 xiu xi,睡觉 shui jiao,起床 qi chuang,吃饭 chi fan,喝水 he shui,做饭 zuo fan,洗澡 xi zao,打扫 da sao,
+散步 san bu,跑步 pao bu,游泳 you yong,唱歌 chang ge,跳舞 tiao wu,画画 hua hua,看书 kan shu,写字 xie zi,读书 du shu,听说 ting shuo,
+说话 shuo hua,聊天 liao tian,见面 jian mian,认识 ren shi,知道 zhi dao,觉得 jue de,喜欢 xi huan,希望 xi wang,准备 zhun bei,开始 kai shi,
+结束 jie shu,完成 wan cheng,帮助 bang zhu,告诉 gao su,回答 hui da,问题 wen ti,练习 lian xi,记得 ji de,忘记 wang ji,打开 da kai,
+关上 guan shang,出发 chu fa,到达 dao da,回家 hui jia,旅游 lv you,参加 can jia,欢迎 huan ying,介绍 jie shao,讨论 tao lun,决定 jue ding,
+发现 fa xian,选择 xuan ze,需要 xu yao,可以 ke yi,应该 ying gai,能够 neng gou,打算 da suan,等待 deng dai,照顾 zhao gu,购物 gou wu,
+高兴 gao xing,快乐 kuai le,漂亮 piao liang,干净 gan jing,舒服 shu fu,安静 an jing,热闹 re nao,容易 rong yi,简单 jian dan,重要 zhong yao,
+有趣 you qu,认真 ren zhen,聪明 cong ming,努力 nu li,方便 fang bian,便宜 pian yi,新鲜 xin xian,好吃 hao chi,好看 hao kan,可爱 ke ai,
+温暖 wen nuan,凉快 liang kuai,明白 ming bai,清楚 qing chu,一样 yi yang,不同 bu tong,特别 te bie,非常 fei chang,真的 zhen de,一起 yi qi,
+一定 yi ding,也许 ye xu,因为 yin wei,所以 suo yi,但是 dan shi,如果 ru guo,虽然 sui ran,还是 hai shi,或者 huo zhe,然后 ran hou,
+天气 tian qi,太阳 tai yang,月亮 yue liang,星星 xing xing,下雨 xia yu,下雪 xia xue,白云 bai yun,大海 da hai,花园 hua yuan,树叶 shu ye,
+小狗 xiao gou,小猫 xiao mao,音乐 yin yue,电影 dian ying,故事 gu shi,礼物 li wu,颜色 yan se,红色 hong se,绿色 lv se,蓝色 lan se,
+白色 bai se,黑色 hei se,中文 zhong wen,汉字 han zi,拼音 pin yin,句子 ju zi,词语 ci yu,意思 yi si,办法 ban fa,机会 ji hui,
+习惯 xi guan,生活 sheng huo,健康 jian kang,身体 shen ti,眼睛 yan jing,耳朵 er duo,头发 tou fa,名字 ming zi,世界 shi jie,自然 zi ran,
+运动 yun dong,比赛 bi sai,足球 zu qiu,篮球 lan qiu,早安 zao an,晚安 wan an,谢谢 xie xie,再见 zai jian,你好 ni hao,没关系 mei guan xi,
+对不起 dui bu qi,不客气 bu ke qi,星期天 xing qi tian,好朋友 hao peng you,火车站 huo che zhan,自行车 zi xing che,动物园 dong wu yuan,咖啡馆 ka fei guan,西红柿 xi hong shi,一路平安 yi lu ping an,
+新年快乐 xin nian kuai le,生日快乐 sheng ri kuai le,好好学习 hao hao xue xi,我 wo,你 ni,他 ta,她 ta,好 hao,是 shi,在 zai,
+有 you,和 he,很 hen,大 da,小 xiao,多 duo,少 shao,水 shui,书 shu,人 ren,
+天 tian,去 qu,来 lai,看 kan,想 xiang,说 shuo,走 zou,写 xie,买 mai,吃 chi,
+喝 he,家 jia,车 che,茶 cha,花 hua,雨 yu,山 shan,风 feng,猫 mao,狗 gou
+`;
 </script>
 <script>
 "use strict";
@@ -2109,6 +2551,10 @@ const APP = {
   storageKey: "keyprint-state-v1",
   cloudConfig: "keyprint-cloud", // where this browser remembers the cloud save address and key
   cloudDelay: 20000,   // ms between saves to your Cloudflare account while you practice
+  cloudPending: "keyprint-pending", // cloud names for the copy a hidden or closing page sends at once, one per browser
+  cloudDevices: 12,    // browsers whose left copies a cloud save reads, the ones seen most recently
+  pendingTests: 30,    // newest tests per layout in that copy, so it stays small enough to send while closing
+  cloudTimeout: 20000, // ms a cloud request may wait for an answer to start, plus 1 s per 10,000 characters it uploads
   letterOrder: "etaoinshrdlcumwfgypbvkjxqz", // adaptive tests unlock letters in this order
   minSamples: 12,      // timed keystrokes a letter needs before it can count as learned
   minInterval: 25,     // ms. Faster gaps between keys are ignored as noise
@@ -2116,6 +2562,10 @@ const APP = {
   focusShare: 0.7,     // share of adaptive words that include the focus letter
   maxWords: 1000,      // longest test allowed
   historyLimit: 1000,  // tests kept per layout
+  detailTests: 300,    // newest tests per layout that keep every keystroke for the Analysis tab
+  detailChars: 120000, // characters of text those tests may keep per layout, newest first
+  leftDetail: 15000,   // characters of keystroke detail a left copy may carry, newest tests first
+  unfinishedChars: 3000, // characters of unfinished attempts held for the next finished test's detail
   chartPoints: 200,    // tests drawn on the progress chart
   idleGap: 3000,       // ms. Longer pauses between keys don't count as practice time
   coolDowns: { short: 600, medium: 1200, long: 2000 }, // ms of fading pause after a mistake in One mistake restarts
@@ -2127,12 +2577,15 @@ const APP = {
   docLimit: 4000000,   // characters kept from one document
   pdfScript: "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js",
   pdfWorker: "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js",
-  cheerHold: 1100,     // ms at the start of a goal celebration when keys wait, so it can't vanish unseen
-  version: 7,
+  cheerHold: 2000,     // ms at the start of a goal celebration when keys wait, so it can't vanish unseen
+  chargeFrom: 0.75,    // share of the daily typing goal where the build up toward it begins
+  version: 8,
 };
 
 const DEFAULTS = {
-  mode: "words",        // "words", "adaptive" or "custom"
+  mode: "step",         // "step", "words", "adaptive" or "custom"
+  stepStart: 4,         // words in the first Step up test of each day
+  stepTop: 25,          // the most words a Step up test grows to
   lessonWords: 25,      // words per test
   wordPool: "literary", // which word list Words tests use, see POOLS
   suddenDeath: false,   // one wrong key restarts the test
@@ -2160,6 +2613,9 @@ const DEFAULTS = {
   spaceDots: true,      // faint middle dots in place of spaces
   textView: "full",     // "full" shows the whole test, "three" shows three lines that scroll
   zoom: "normal",       // "normal", "nokeys" or "text", see ZOOMS
+  language: "en",       // "en" or "zh", Chinese tests typed with a pinyin input method
+  followInput: true,    // switch language to match the input method you type with
+  pinyin: true,         // pinyin above each Chinese character
 };
 
 /* 2. Keyboard data --------------------------------------------------------- */
@@ -2260,8 +2716,10 @@ function node(tag, cls, text) {
   return n;
 }
 
-const unitLabel = () => state.settings.unit;
-const speedValue = (wpm) => (state.settings.unit === "cpm" ? wpm * 5 : wpm);
+const zhOn = () => state.settings.language === "zh";
+// Chinese speeds are always in characters per minute, the way Chinese typing is measured.
+const unitLabel = () => (zhOn() ? "cpm" : state.settings.unit);
+const speedValue = (wpm) => (zhOn() || state.settings.unit === "cpm" ? wpm * 5 : wpm);
 const fmtSpeed = (wpm) => String(Math.round(speedValue(wpm)));
 
 function fmtPct(fraction) {
@@ -2291,6 +2749,9 @@ let state = {
   docs: [],
   docId: "",
   removed: [],
+  step: { day: "", words: 0 }, // how far Step up has grown today
+  restoredAt: 0, // when this progress was last restored from a copy, which then wins over anything older
+  devices: [],   // browsers that save to the cloud, see Cloud save
   savedAt: 0,
 };
 let ready = false;
@@ -2399,6 +2860,7 @@ function saveLocal() {
   localDirty = false;
   Store.save(state);
   cloudDirty = true;
+  leftCopy = false;
   scheduleCloud();
 }
 
@@ -2419,7 +2881,7 @@ function flushSaves() {
     saveTimer = 0;
     saveLocal();
   }
-  if (cloudDirty) pushCloud(true);
+  if (cloudDirty) sendLeaving();
 }
 
 const snapshot = () => JSON.parse(JSON.stringify(state));
@@ -2429,25 +2891,40 @@ const snapshot = () => JSON.parse(JSON.stringify(state));
 const Cloud = {
   url: "",
   key: "",
-  seen: 0,   // savedAt of the cloud copy the last time this browser read or wrote it
-  lastOk: 0, // when the last save to the cloud worked
+  seen: 0,      // savedAt of the cloud copy the last time this browser read or wrote it
+  lastOk: 0,    // when the last save to the cloud worked
+  putAt: -1e9,  // performance.now() of that save, for spacing writes without trusting the clock
+  device: "",   // this browser's id, which names the copy it leaves in the cloud
   error: "",
   get on() {
     return Boolean(this.url && this.key);
   },
+  // Cloud saves run one at a time, so a request that never answers would hold up every
+  // save after it. It gives up after APP.cloudTimeout instead, with more time for a bigger
+  // upload. Once the answer starts arriving it can take as long as it needs, and a closing
+  // page can't wait for an answer at all.
   async call(method, name, body, keepalive = false) {
-    const res = await fetch(`${this.url}/${encodeURIComponent(name)}`, {
-      method,
-      headers: { Authorization: `Bearer ${this.key}`, "Content-Type": "text/plain;charset=UTF-8" },
-      body,
-      cache: "no-store",
-      keepalive: keepalive && (!body || body.length < 60000),
-    });
-    if (method === "GET" && res.status === 404) return null;
-    if (res.status === 401) throw new Error("key");
-    if (res.status === 500) throw new Error("setup");
-    if (!res.ok) throw new Error("reach");
-    return method === "GET" ? res.text() : true;
+    const stop = keepalive ? null : new AbortController();
+    const limit = APP.cloudTimeout + (body ? body.length / 10 : 0);
+    const timer = stop ? setTimeout(() => stop.abort(), limit) : 0;
+    try {
+      const res = await fetch(`${this.url}/${encodeURIComponent(name)}`, {
+        method,
+        headers: { Authorization: `Bearer ${this.key}`, "Content-Type": "text/plain;charset=UTF-8" },
+        body,
+        cache: "no-store",
+        keepalive: keepalive && (!body || body.length < 60000),
+        signal: stop ? stop.signal : undefined,
+      });
+      clearTimeout(timer);
+      if (method === "GET" && res.status === 404) return null;
+      if (res.status === 401) throw new Error("key");
+      if (res.status === 500) throw new Error("setup");
+      if (!res.ok) throw new Error("reach");
+      return method === "GET" ? await res.text() : true;
+    } finally {
+      clearTimeout(timer);
+    }
   },
 };
 
@@ -2467,10 +2944,57 @@ async function loadCloudConfig() {
     if (cfg && typeof cfg.url === "string" && typeof cfg.key === "string") {
       Cloud.url = cfg.url;
       Cloud.key = cfg.key;
+      if (isDeviceId(cfg.device)) Cloud.device = cfg.device;
     }
   } catch (err) {
     // nothing remembered yet
   }
+  if (Cloud.on && !Cloud.device) {
+    Cloud.device = newDeviceId();
+    saveCloudConfig();
+  }
+}
+
+const saveCloudConfig = () => Store.write(APP.cloudConfig, JSON.stringify({ url: Cloud.url, key: Cloud.key, device: Cloud.device }));
+const isDeviceId = (id) => typeof id === "string" && /^[a-z0-9]{8,24}$/.test(id);
+const newDeviceId = () => (Math.random().toString(36).slice(2, 10) + Date.now().toString(36)).replace(/[^a-z0-9]/g, "").slice(0, 24);
+
+// A restore brings back what a saved copy had, and keeps everything here too. The copy is
+// stamped with the time of the restore, so this merge, and every later merge on any browser,
+// undoes the resets made before it (see undoResets). The copy's settings and open text take
+// over. Nothing is ever taken away, so a browser that connects later, or work done elsewhere
+// after the restore, is kept.
+function restoreFrom(copy) {
+  const at = Date.now();
+  hydrate(mergeSaves({ ...copy, restoredAt: at }, snapshot(), true));
+  state.restoredAt = at;
+  state.savedAt = at;
+}
+
+// A restore undoes every Reset progress made before it, on every browser, which is what lets
+// it undo a reset another browser had already synced. So in the copy restored less recently,
+// a reset from before the newer restore stops counting, and that copy's tests and letter
+// stats merge as if it never happened. Resets made after the restore still count.
+function undoResets(copy, at, restored) {
+  const out = JSON.parse(JSON.stringify(copy));
+  const kept = restored.profiles || {};
+  for (const [id, p] of Object.entries(out.profiles || {})) {
+    if (p && (p.resetAt || 0) < at) p.resetAt = kept[id] ? kept[id].resetAt || 0 : 0;
+  }
+  out.restoredAt = at;
+  return out;
+}
+
+// Browsers are matched by id. Each keeps the latest time it was seen and the latest copy it
+// left that has been merged.
+function mergeDevices(a, b) {
+  const all = new Map();
+  for (const d of [...(a || []), ...(b || [])]) {
+    if (!d || !isDeviceId(d.id)) continue;
+    const prev = all.get(d.id) || { id: d.id, seen: 0, left: 0 };
+    all.set(d.id, { id: d.id, seen: Math.max(prev.seen, Number(d.seen) || 0), left: Math.max(prev.left, Number(d.left) || 0) });
+  }
+  return [...all.values()];
 }
 
 // Combines two saved copies so progress from either one is kept. Tests are matched by when
@@ -2479,6 +3003,9 @@ async function loadCloudConfig() {
 function mergeSaves(mine, theirs, keepMine) {
   if (!mine) return theirs;
   if (!theirs) return mine;
+  const restoredAt = Math.min(Math.max(mine.restoredAt || 0, theirs.restoredAt || 0), Date.now() + 300000);
+  if ((mine.restoredAt || 0) > (theirs.restoredAt || 0)) theirs = undoResets(theirs, restoredAt, mine);
+  else if ((theirs.restoredAt || 0) > (mine.restoredAt || 0)) mine = undoResets(mine, restoredAt, theirs);
   const newer = (theirs.savedAt || 0) > (mine.savedAt || 0) ? theirs : mine;
   const out = JSON.parse(JSON.stringify(newer));
   if (keepMine) out.settings = JSON.parse(JSON.stringify(mine.settings || {}));
@@ -2493,7 +3020,11 @@ function mergeSaves(mine, theirs, keepMine) {
     const resetAt = Math.max(a.resetAt || 0, b.resetAt || 0);
     const tests = new Map();
     for (const e of [...(a.history || []), ...(b.history || [])]) {
-      if (e && e.ts >= resetAt) tests.set(`${e.ts}|${e.wpm}`, e);
+      if (!e || !(e.ts >= resetAt)) continue;
+      const id = `${e.ts}|${e.wpm}`;
+      const had = tests.get(id);
+      // A copy that left out a test's keystrokes, like a left copy, never takes them away.
+      if (!had || typeof e.tx === "string" || typeof had.tx !== "string") tests.set(id, e);
     }
     let keys;
     let unlocked;
@@ -2535,11 +3066,20 @@ function mergeSaves(mine, theirs, keepMine) {
     const b = theirs.cheered || {};
     out.cheered = { total: later(a.total, b.total), clean: later(a.clean, b.clean) };
   }
+  // Step up keeps the furthest step either copy reached on the later day.
+  const sa = mine.step || {};
+  const sb = theirs.step || {};
+  if ((sa.day || "") === (sb.day || "")) out.step = { day: sa.day || "", words: Math.max(sa.words || 0, sb.words || 0) };
+  else out.step = (sa.day || "") > (sb.day || "") ? { ...sa } : { ...sb };
+  out.restoredAt = restoredAt;
+  out.devices = mergeDevices(mine.devices, theirs.devices);
   out.savedAt = Math.max(mine.savedAt || 0, theirs.savedAt || 0);
   return out;
 }
 
 let cloudTimer = 0;
+let cloudRun = null;  // the cloud save running now
+let cloudNext = null; // one more cloud save, asked for while that one runs
 
 // Changes reach the cloud within APP.cloudDelay, and never more often than that.
 function scheduleCloud() {
@@ -2547,22 +3087,95 @@ function scheduleCloud() {
   cloudTimer = setTimeout(() => pushCloud(), APP.cloudDelay);
 }
 
-async function pushCloud(leaving = false) {
+// Cloud saves run one at a time, so two can't read the same copy and then both write it.
+// A save asked for while one runs waits for it, then runs once for everyone who asked.
+function pushCloud() {
+  if (!cloudRun) {
+    cloudRun = sendCloud().finally(() => {
+      cloudRun = null;
+    });
+    return cloudRun;
+  }
+  if (!cloudNext) {
+    cloudNext = cloudRun.then(() => {
+      cloudNext = null;
+      return pushCloud();
+    });
+  }
+  return cloudNext;
+}
+
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, Math.max(0, ms)));
+
+const slotName = (id) => `${APP.cloudPending}-${id}`;
+const deviceIds = (copy) => (copy && Array.isArray(copy.devices) ? copy.devices : []).map((d) => d && d.id).filter(isDeviceId);
+
+// Notes that a browser was seen, or that a copy it left has been merged.
+function markDevice(copy, id, { seen = 0, left = 0 } = {}) {
+  if (!copy || !isDeviceId(id)) return;
+  if (!Array.isArray(copy.devices)) copy.devices = [];
+  let d = copy.devices.find((x) => x && x.id === id);
+  if (!d) copy.devices.push((d = { id, seen: 0, left: 0 }));
+  d.seen = Math.max(d.seen || 0, seen);
+  d.left = Math.max(d.left || 0, left);
+}
+
+// Reads the main cloud copy and the copy each known browser left the last time it went away.
+async function readCloud(known) {
+  const ids = [...new Set([Cloud.device, ...deviceIds(known)])].filter(isDeviceId);
+  const got = await Promise.all([APP.storageKey, ...ids.map(slotName)].map((name) => Cloud.call("GET", name)));
+  const theirs = got[0] ? JSON.parse(got[0]) : null;
+  const left = ids.map((id, i) => [id, got[i + 1]]);
+  const more = deviceIds(theirs).filter((id) => !ids.includes(id));
+  if (more.length) {
+    const extra = await Promise.all(more.map((id) => Cloud.call("GET", slotName(id))));
+    more.forEach((id, i) => left.push([id, extra[i]]));
+  }
+  return { theirs, left: left.filter(([, raw]) => raw).map(([id, raw]) => [id, JSON.parse(raw)]) };
+}
+
+// Folds in each left copy that is newer than the last one merged from that browser, and
+// notes it, so a copy that stays in the cloud is only ever merged once.
+function foldLeft(base, left, keepMine) {
+  let out = base;
+  for (const [id, copy] of left) {
+    const d = ((out && out.devices) || []).find((x) => x && x.id === id);
+    if ((Number(copy.leftAt) || 0) <= (d ? d.left : 0)) continue;
+    out = mergeSaves(out, copy, keepMine);
+    markDevice(out, id, { left: Number(copy.leftAt) || 0 });
+  }
+  return out;
+}
+
+// The main cloud copy is only ever written after reading it and merging it in, so newer
+// progress from another browser is never replaced.
+async function sendCloud() {
   clearTimeout(cloudTimer);
   cloudTimer = 0;
   if (!Cloud.on) return false;
+  const { url, key } = Cloud;
+  const sameCloud = () => Cloud.url === url && Cloud.key === key; // Disconnect may come mid-save
   try {
-    if (!leaving) {
-      // Another browser may have saved since this one last looked, so fold that in first.
-      const remote = await Cloud.call("GET", APP.storageKey);
-      const theirs = remote ? JSON.parse(remote) : null;
-      if (theirs && (theirs.savedAt || 0) > Cloud.seen) {
-        hydrate(mergeSaves(snapshot(), theirs, true));
-        afterMerge();
-      }
+    // Workers KV takes only one write a second to the same name, so a save right after
+    // another one waits out the rest of that second. It waits before reading, so the copy
+    // it writes is never staler than it has to be.
+    await wait(Cloud.putAt + 1100 - performance.now());
+    if (!sameCloud()) return false;
+    // Another browser may have saved since this one last looked, and browsers that were
+    // hidden or closed may have left their copies, so fold all of that in first.
+    const { theirs, left } = await readCloud(state);
+    if (!sameCloud()) return false;
+    const base = snapshot();
+    let next = theirs && (theirs.savedAt || 0) > Cloud.seen ? mergeSaves(base, theirs, true) : base;
+    next = foldLeft(next, left, true);
+    if (next !== base) {
+      hydrate(next);
+      afterMerge();
     }
+    markDevice(state, Cloud.device, { seen: Date.now() });
     state.savedAt = Math.max(state.savedAt || 0, Date.now());
-    await Cloud.call("PUT", APP.storageKey, JSON.stringify(state), leaving);
+    await Cloud.call("PUT", APP.storageKey, JSON.stringify(state));
+    Cloud.putAt = performance.now();
     Store.save(state);
     Cloud.seen = state.savedAt;
     Cloud.lastOk = Date.now();
@@ -2570,12 +3183,50 @@ async function pushCloud(leaving = false) {
     cloudDirty = false;
     return true;
   } catch (err) {
+    if (!sameCloud()) return false;
     Cloud.error = cloudProblem(err);
-    if (!leaving) cloudTimer = setTimeout(() => pushCloud(), 60000); // try again in a minute
+    cloudTimer = setTimeout(() => pushCloud(), 60000); // try again in a minute
     return false;
   } finally {
     renderCloudStatus();
   }
+}
+
+let leftCopy = false; // this page already sent the cloud a copy of its latest changes as it left
+
+// A hidden page may never run again (phones often stop one right away), and a closing page
+// can't wait for answers, so either one sends its copy at once. It goes under this browser's
+// own name, so it never replaces the main copy or another browser's copy. The next cloud save
+// from any browser, or the next start, merges it in. Tabs of one browser share the name, and
+// each tab folds in what the others save in this browser, so the latest copy has them all.
+function sendLeaving() {
+  if (!Cloud.on || !isDeviceId(Cloud.device) || leftCopy) return;
+  leftCopy = true;
+  // Merging only ever adds, so the copy leaves out what the main copy already has, which keeps
+  // it small enough for the browser to finish sending after the page is gone. That's tests
+  // from before this browser's last cloud save, and all but the last few days of totals.
+  const copy = snapshot();
+  const since = Cloud.lastOk - 60000;
+  let room = APP.leftDetail; // the newest tests keep their keystrokes too, while they fit
+  for (const p of Object.values(copy.profiles || {})) {
+    if (!p || !Array.isArray(p.history)) continue;
+    p.history = p.history.filter((e) => e && e.ts > since).slice(-APP.pendingTests);
+    for (let i = p.history.length - 1; i >= 0; i--) {
+      const e = p.history[i];
+      if (typeof e.tx !== "string") continue;
+      const size = e.tx.length + String(e.tm || "").length + JSON.stringify(e.mx || []).length;
+      if (size <= room) room -= size;
+      else dropDetail(e);
+    }
+  }
+  for (const field of ["daily", "clean"]) {
+    copy[field] = Object.fromEntries(Object.entries(copy[field] || {}).sort().slice(-3));
+  }
+  copy.devices = (copy.devices || []).map((d) => ({ id: d.id, seen: d.seen, left: d.id === Cloud.device ? d.left : 0 }));
+  copy.leftAt = Date.now(); // this browser's clock, so its copies always count up
+  Cloud.call("PUT", slotName(Cloud.device), JSON.stringify(copy), true).catch(() => {
+    leftCopy = false; // the next hide tries again, and the regular cloud save brings these changes anyway
+  });
 }
 
 // Saved texts go to the cloud as soon as they are added, each under its own name.
@@ -2600,6 +3251,31 @@ function cleanKeys(raw) {
   return keys;
 }
 
+// Only the newest tests keep every keystroke (tx, mx and tm), so saves stay small. Older
+// tests keep their speed, accuracy and letter detail, and the Analysis tab skips them.
+const dropDetail = (e) => {
+  delete e.tx;
+  delete e.mx;
+  delete e.tm;
+};
+
+function trimDetail(history) {
+  let tests = 0;
+  let chars = 0;
+  for (let i = history.length - 1; i >= 0; i--) {
+    const e = history[i];
+    if (!e || typeof e !== "object") continue;
+    if (typeof e.tx !== "string") {
+      if ("mx" in e || "tm" in e) dropDetail(e);
+      continue;
+    }
+    tests += 1;
+    chars += e.tx.length;
+    if (tests > APP.detailTests || chars > APP.detailChars) dropDetail(e);
+  }
+  return history;
+}
+
 function hydrate(saved) {
   if (!saved || typeof saved !== "object") return;
   const s = { ...DEFAULTS, ...(saved.settings || {}) };
@@ -2607,13 +3283,14 @@ function hydrate(saved) {
     if (typeof s[key] !== typeof DEFAULTS[key]) s[key] = DEFAULTS[key];
   }
   if (!LAYOUTS[s.layout]) s.layout = DEFAULTS.layout;
-  if (!["words", "adaptive", "custom"].includes(s.mode)) s.mode = DEFAULTS.mode;
+  if (!["step", "words", "adaptive", "custom"].includes(s.mode)) s.mode = DEFAULTS.mode;
   if (!["wpm", "cpm"].includes(s.unit)) s.unit = DEFAULTS.unit;
   if (!POOLS[s.wordPool]) s.wordPool = DEFAULTS.wordPool;
   if (!["system", "light", "dark"].includes(s.theme)) s.theme = DEFAULTS.theme;
   if (!["all", "last10", "today"].includes(s.averageOver)) s.averageOver = DEFAULTS.averageOver;
   if (!["ubuntu", "verdana"].includes(s.textFont)) s.textFont = DEFAULTS.textFont;
   if (!["full", "three"].includes(s.textView)) s.textView = DEFAULTS.textView;
+  if (!["en", "zh"].includes(s.language)) s.language = DEFAULTS.language;
   if (!ZOOMS.includes(s.zoom)) s.zoom = DEFAULTS.zoom;
   if (!APP.coolDowns[s.coolDown]) s.coolDown = DEFAULTS.coolDown;
   if (!FINGER_PATTERNS[s.fingerPattern]) s.fingerPattern = DEFAULTS.fingerPattern;
@@ -2647,10 +3324,16 @@ function hydrate(saved) {
     // Version 6 completes a day with 30 minutes of typing or 5 minutes of clean typing.
     s.dailyGoal = 30;
   }
+  if (from < 8 && s.mode === "words") {
+    // Version 8 starts on Step up, which grows a word with each perfect test.
+    s.mode = "step";
+  }
   s.marks = [...new Set(s.marks)].filter((m) => MARK_IDS.includes(m)).join("");
   s.dailyGoal = clamp(Math.round(s.dailyGoal) || 0, 0, 600);
   s.cleanGoal = clamp(Math.round(s.cleanGoal) || 0, 0, 600);
   s.lessonWords = clamp(Math.round(s.lessonWords) || DEFAULTS.lessonWords, 1, APP.maxWords);
+  s.stepTop = clamp(Math.round(s.stepTop) || DEFAULTS.stepTop, 1, APP.maxWords);
+  s.stepStart = clamp(Math.round(s.stepStart) || DEFAULTS.stepStart, 1, s.stepTop);
   s.targetWpm = clamp(Math.round(s.targetWpm) || DEFAULTS.targetWpm, 10, 200);
   s.startKeys = clamp(Math.round(s.startKeys) || DEFAULTS.startKeys, 3, APP.letterOrder.length);
   state.settings = s;
@@ -2660,7 +3343,7 @@ function hydrate(saved) {
     state.profiles[id] = {
       unlocked: clamp(Math.round(p.unlocked) || s.startKeys, 1, APP.letterOrder.length),
       keys: cleanKeys(p.keys),
-      history: Array.isArray(p.history) ? p.history.slice(-APP.historyLimit) : [],
+      history: trimDetail(Array.isArray(p.history) ? p.history.slice(-APP.historyLimit) : []),
       customPos: Math.max(0, Math.round(p.customPos) || 0),
       resetAt: Number(p.resetAt) || 0,
     };
@@ -2707,6 +3390,15 @@ function hydrate(saved) {
   }
   state.docs = state.docs.filter((d) => !state.removed.includes(d.id));
   state.docId = state.docs.some((d) => d.id === saved.docId) ? saved.docId : "";
+  const st = saved.step;
+  state.step = st && typeof st.day === "string" ? { day: st.day, words: Math.max(0, Math.round(st.words) || 0) } : { day: "", words: 0 };
+  state.restoredAt = Number(saved.restoredAt) || 0;
+  state.devices = [];
+  for (const d of Array.isArray(saved.devices) ? saved.devices : []) {
+    if (!d || !isDeviceId(d.id) || state.devices.some((x) => x.id === d.id)) continue;
+    state.devices.push({ id: d.id, seen: Number(d.seen) || 0, left: Number(d.left) || 0 });
+  }
+  state.devices = state.devices.sort((a, b) => b.seen - a.seen).slice(0, APP.cloudDevices);
 }
 
 /* 5. Text generation ------------------------------------------------------- */
@@ -2852,6 +3544,124 @@ function wordsText(s) {
   const words = [];
   for (let i = 0; i < s.lessonWords; i++) words.push(next());
   return decorate(words, s, next, false);
+}
+
+// Practice these, from the Analysis tab. Words holding your most missed keys and trickiest
+// key switches come up most, and missed symbols and capitals are worked in the way they show
+// up in real writing. A switch no word holds still brings words with its keys, and with
+// nothing to go on at all, common words fill the test.
+let drillWords = null;
+const PAIRED = { "(": ")", "[": "]", "{": "}", "<": ">", ")": "(", "]": "[", "}": "{", ">": "<" };
+const isLetter = (ch) => (ch >= "a" && ch <= "z") || (ch >= "A" && ch <= "Z");
+
+function drillText(plan, s) {
+  const pool = drillWords || (drillWords = [...new Set([...COMMON_WORDS, ...LITERARY_WORDS])].filter((w) => w.length > 1));
+  const wants = []; // [test, how many words should pass it, weight in the free draw]
+  const symbols = [];
+  const ties = []; // a symbol and the letter it follows or leads, like s then a period
+  const caps = new Set();
+  const want = (test, quota, weight) => wants.push([test, quota, weight]);
+  const addSymbol = (ch) => { if (!symbols.includes(ch)) symbols.push(ch); };
+  const lower = (ch) => ch.toLowerCase();
+  for (const ch of plan.keys) {
+    if (!isLetter(ch)) {
+      if (ch !== " ") addSymbol(ch);
+      continue;
+    }
+    want((w) => w.includes(lower(ch)), 3, 1.5);
+    if (ch !== lower(ch)) caps.add(lower(ch));
+  }
+  for (const [a, b] of plan.pairs) {
+    if (isLetter(a) && isLetter(b) && b === lower(b)) {
+      const gram = lower(a + b);
+      if (pool.some((w) => w.includes(gram))) want((w) => w.includes(gram), 3, 4);
+      else for (const ch of gram) want((w) => w.includes(ch), 1, 1);
+      if (a !== lower(a)) caps.add(lower(a));
+      continue;
+    }
+    if (isLetter(a)) want((w) => w.endsWith(lower(a)), 2, 1);
+    if (isLetter(b)) want((w) => w.startsWith(lower(b)), 2, 1);
+    if (isLetter(b) && b !== lower(b)) caps.add(lower(b));
+    for (const ch of [a, b]) if (ch !== " " && !isLetter(ch)) addSymbol(ch);
+    if (isLetter(a) && b !== " " && !isLetter(b)) ties.push({ m: b, end: lower(a) });
+    if (isLetter(b) && a !== " " && !isLetter(a)) ties.push({ m: a, start: lower(b) });
+  }
+  // Every key and switch gets a few words of its own, and the rest are drawn by how much
+  // they hold. With few words to pick from, any common word will do.
+  const scoreOf = (w) => wants.reduce((sum, [test, , weight]) => sum + (test(w) ? weight : 0), 0);
+  let picks = pool.map((w) => [w, scoreOf(w)]).filter(([, score]) => score > 0);
+  if (picks.length < 12) picks = COMMON_WORDS.slice(0, 200).map((w) => [w, 1]);
+  const count = clamp(s.lessonWords, 15, 50);
+  const used = new Map();
+  const take = (list) => {
+    for (let tries = 0; tries < 8; tries++) {
+      const w = pick(list);
+      if ((used.get(w) || 0) < 2) {
+        used.set(w, (used.get(w) || 0) + 1);
+        return w;
+      }
+    }
+    return pick(list);
+  };
+  const words = [];
+  for (const [test, quota] of wants) {
+    const fits = pool.filter(test).map((w) => [w, 1]);
+    for (let k = 0; k < quota && fits.length && words.length < count; k++) words.push(take(fits));
+  }
+  while (words.length < count) words.push(take(picks));
+  for (let i = words.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [words[i], words[j]] = [words[j], words[i]];
+  }
+  for (let i = 1; i < words.length; i++) {
+    if (words[i] !== words[i - 1]) continue;
+    const j = words.findIndex((w, k) => w !== words[i] && words[k - 1] !== words[i] && words[k + 1] !== words[i]);
+    if (j >= 0) [words[i], words[j]] = [words[j], words[i]]; // the same word twice in a row moves apart
+  }
+  const num = (max) => String(1 + Math.floor(Math.random() * max));
+  const withMark = (w, m) => {
+    if (".,;:!?".includes(m)) return w + m;
+    if (PAIRED[m]) {
+      const open = "([{<".includes(m) ? m : PAIRED[m];
+      return open + w + PAIRED[open];
+    }
+    if ("\"*`".includes(m)) return m + w + m;
+    if ("#@~".includes(m)) return m + w;
+    if (m === "'") return w.endsWith("s") ? `${w}'` : `${w}'s`;
+    return `${w}${m}${take(picks)}`; // joins two words, like - / _ | \ + = ^
+  };
+  const token = (m) => {
+    if (m >= "0" && m <= "9") return Math.random() < 0.5 ? `${m}${num(9)}` : `${num(9)}${m}`;
+    if (m === "$") return `$${num(99)}`;
+    if (m === "%") return `${num(100)}%`;
+    return m === "&" ? "&" : "";
+  };
+  // Each missed symbol shows up in about one word in seven, and at least twice. Symbols that
+  // stand in for a word go between words, and the rest go on words, the right ones first
+  // when the switch into or out of them is the tricky part.
+  for (const m of symbols.slice(0, 4)) {
+    const times = Math.max(2, Math.round(count / 7));
+    for (let k = 0; k < times; k++) {
+      if (token(m)) {
+        const spots = []; // between two words, so two stand ins never meet
+        for (let at = 1; at <= words.length; at++) {
+          if (/[a-z]/i.test(words[at - 1]) && (at === words.length || /[a-z]/i.test(words[at]))) spots.push(at);
+        }
+        words.splice(spots.length ? pickFrom(spots) : words.length, 0, token(m));
+        continue;
+      }
+      const open = words.map((w, i) => (/^[a-z]+$/.test(w) ? i : -1)).filter((i) => i >= 0);
+      const tied = open.filter((i) => ties.some((t) => t.m === m && (t.end ? words[i].endsWith(t.end) : words[i].startsWith(t.start))));
+      const from = tied.length ? tied : open;
+      if (from.length) {
+        const i = from[Math.floor(Math.random() * from.length)];
+        words[i] = withMark(words[i], m);
+      }
+    }
+  }
+  return words
+    .map((w) => (caps.has((w.match(/[a-z]/i) || [""])[0].toLowerCase()) || (plan.shift && Math.random() < 0.25) ? capitalize(w) : w))
+    .join(" ");
 }
 
 // My text keeps whole documents, like articles and essays, with no length limit.
@@ -3002,6 +3812,24 @@ const MARKS = [
   { id: ":", label: ":", name: "Colon" },
   { id: "(", label: "( )", name: "Parentheses" },
   { id: "/", label: "/", name: "Slash" },
+  { id: "[", label: "[ ]", name: "Square brackets", group: "symbols" },
+  { id: "{", label: "{ }", name: "Braces", group: "symbols" },
+  { id: "<", label: "< >", name: "Angle brackets", group: "symbols" },
+  { id: "*", label: "*", name: "Asterisk", group: "symbols" },
+  { id: "&", label: "&", name: "Ampersand", group: "symbols" },
+  { id: "%", label: "%", name: "Percent", group: "symbols" },
+  { id: "$", label: "$", name: "Dollar", group: "symbols" },
+  { id: "#", label: "#", name: "Hash", group: "symbols" },
+  { id: "@", label: "@", name: "At sign", group: "symbols" },
+  { id: "+", label: "+", name: "Plus", group: "symbols" },
+  { id: "=", label: "=", name: "Equals", group: "symbols" },
+  { id: "_", label: "_", name: "Underscore", group: "symbols" },
+  { id: "~", label: "~", name: "Tilde", group: "symbols" },
+  { id: "`", label: "`", name: "Backtick", group: "symbols" },
+  { id: "^", label: "^", name: "Caret", group: "symbols" },
+  { id: "|", label: "|", name: "Pipe", group: "symbols" },
+  { id: "\\", label: "\\", name: "Backslash", group: "symbols" },
+  { id: "1", label: "123", name: "Numbers", group: "symbols" },
 ];
 const MARK_IDS = MARKS.map((m) => m.id).join("");
 
@@ -3049,6 +3877,42 @@ function decorate(words, s, more, adaptive) {
     else if (has("/") && Math.random() < 0.03) out[i] = `${out[i]}/${more()}`;
   }
 
+  // Symbols show up the way they do in real writing. Some join two words, some stand in for
+  // a word (a number, a price, a sum, an ampersand), and some mark one (a tag or a mention).
+  for (let i = 0; i < out.length; i++) {
+    if (/[-/]/.test(out[i])) continue; // already a pair
+    const r = Math.random();
+    if (has("_") && r < 0.03) out[i] = `${out[i]}_${more()}`;
+    else if (has("|") && r < 0.045) out[i] = `${out[i]}|${more()}`;
+    else if (has("\\") && r < 0.06) out[i] = `${out[i]}\\${more()}`;
+  }
+  const num = (max) => String(1 + Math.floor(Math.random() * max));
+  const tokens = [];
+  if (has("1")) tokens.push(() => num(Math.random() < 0.7 ? 99 : 2026));
+  if (has("%")) tokens.push(() => `${num(100)}%`);
+  if (has("$")) tokens.push(() => `$${num(Math.random() < 0.7 ? 99 : 999)}`);
+  if (has("+") && has("=")) {
+    tokens.push(() => {
+      const a = Number(num(9));
+      const b = Number(num(9));
+      return `${a}+${b}=${a + b}`;
+    });
+  } else if (has("+")) tokens.push(() => `${num(9)}+${num(9)}`);
+  else if (has("=")) tokens.push(() => `${pickFrom(["x", "y", "n", "a", "b"])}=${num(20)}`);
+  if (has("^")) tokens.push(() => `${num(9)}^${num(3)}`);
+  if (has("&")) tokens.push(() => "&");
+  for (let i = 1; i < out.length - 1; i++) {
+    if (tokens.length && Math.random() < 0.04 * Math.min(3, tokens.length)) out[i] = pickFrom(tokens)();
+  }
+  if (has("&")) out = out.map((w) => (w === "and" && Math.random() < 0.6 ? "&" : w));
+  for (let i = 0; i < out.length; i++) {
+    if (!/^[a-z]/i.test(out[i])) continue;
+    const r = Math.random();
+    if (has("#") && r < 0.03) out[i] = `#${out[i]}`;
+    else if (has("@") && r < 0.06) out[i] = `@${out[i]}`;
+    else if (has("~") && r < 0.075) out[i] = `~${out[i]}`;
+  }
+
   const inside = new Uint8Array(out.length);
   const wrap = (open, close, chance) => {
     for (let i = 0; i < out.length; i++) {
@@ -3065,6 +3929,11 @@ function decorate(words, s, more, adaptive) {
   };
   if (has("\"")) wrap("\"", "\"", 0.05);
   if (has("(")) wrap("(", ")", 0.035);
+  if (has("[")) wrap("[", "]", 0.03);
+  if (has("{")) wrap("{", "}", 0.02);
+  if (has("<")) wrap("<", ">", 0.02);
+  if (has("*")) wrap("*", "*", 0.025);
+  if (has("`")) wrap("`", "`", 0.02);
 
   const ends = [[".", 0.7], ["?", 0.2], ["!", 0.1]].filter(([m]) => has(m));
   for (let i = 0; i < out.length; i++) {
@@ -3083,11 +3952,51 @@ function decorate(words, s, more, adaptive) {
     // With sentence endings on, capitals mostly start sentences. Without them, they are sprinkled in.
     const extraCaps = ends.length ? 0.04 : 0.12;
     for (let i = 0; i < out.length; i++) {
-      const sentenceStart = i === 0 || /[.?!]["')]?$/.test(out[i - 1]);
+      const sentenceStart = i === 0 || /[.?!]["')\]}>*`]?$/.test(out[i - 1]);
       if (sentenceStart || Math.random() < extraCaps) out[i] = capitalize(out[i]);
     }
   }
   return out.join(" ");
+}
+
+/* Chinese ------------------------------------------------------------------ */
+
+// The Chinese words, each with the pinyin of every character.
+const ZH_LIST = ZH_WORDS.split(",")
+  .map((entry) => entry.trim().split(/\s+/))
+  .filter((parts) => parts.length > 1 && [...parts[0]].length === parts.length - 1)
+  .map(([word, ...py]) => ({ word, py }));
+
+// The keys a pinyin input method turns into Chinese marks.
+const ZH_KEYS = { "\uff0c": ",", "\u3002": "." };
+
+// A Chinese test is a run of everyday words with no spaces between them, the way Chinese is
+// written. Each character keeps its pinyin for the hint above it ("" for a mark), and ends
+// holds the last character of each word, which is how words are counted.
+function zhText(count, s) {
+  const commas = s.punctuation && s.marks.includes(",");
+  const stops = s.punctuation && s.marks.includes(".");
+  let text = "";
+  const py = [];
+  const ends = [];
+  let last = -1;
+  for (let n = 0; n < count; n++) {
+    let pick = Math.floor(Math.random() * ZH_LIST.length);
+    if (pick === last) pick = (pick + 1) % ZH_LIST.length;
+    last = pick;
+    text += ZH_LIST[pick].word;
+    py.push(...ZH_LIST[pick].py);
+    let mark = "";
+    if (n === count - 1) mark = stops ? "\u3002" : "";
+    else if (commas && Math.random() < 0.15) mark = "\uff0c";
+    else if (stops && Math.random() < 0.05) mark = "\u3002";
+    if (mark) {
+      text += mark;
+      py.push("");
+    }
+    ends.push(text.length - 1);
+  }
+  return { text, py, ends };
 }
 
 /* 6. Letter statistics ----------------------------------------------------- */
@@ -3241,9 +4150,10 @@ function checkGoals() {
   }
   const wasDone = state.goalMetOn === day;
   if ((s.dailyGoal || s.cleanGoal) && dayDone(total, clean)) state.goalMetOn = day;
-  if (!fresh.length) return;
+  if (!fresh.length) return fresh;
   scheduleSave();
   celebrate(fresh, wasDone);
+  return fresh;
 }
 
 // Adds the gap since the last keystroke to today's typing time and returns it.
@@ -3277,13 +4187,59 @@ function keepPartial(L) {
   const upto = Math.min(L.text.length, L.pos + (L.errAt[L.pos] ? 1 : 0));
   if (!upto) return;
   applyKeyStats(state.profiles[L.layout] || profile(), L, upto);
+  holdPartial(L, upto);
   scheduleSave();
+}
+
+// Step up starts each day at stepStart words and grows by a word with every perfect test,
+// up to stepTop. A test with a mistake keeps the same length.
+function stepWords() {
+  const s = state.settings;
+  const today = state.step.day === dayKey() ? state.step.words : 0;
+  const start = Math.min(s.stepStart, s.stepTop);
+  return clamp(today || start, start, s.stepTop);
+}
+
+// Every key of a test, for the Analysis tab. tx is the text, mx the mistakes and tm the
+// time before each key typed right on the first try, two base 36 digits in 10 ms steps
+// for each character of tx, or "zz" when there is none.
+function keyDetail(L, upto = L.text.length) {
+  let tm = "";
+  for (let i = 0; i < upto; i++) tm += L.gaps[i] < 0 ? "zz" : Math.round(L.gaps[i] / 10).toString(36).padStart(2, "0");
+  return { tx: L.text.slice(0, upto), mx: L.misses.filter((m) => m[0] < upto), tm };
+}
+
+// Attempts that end early, like a failed try in One mistake restarts or one you leave with
+// Esc or Tab, have no test of their own. Their keys wait here and join the next test you
+// finish on the same layout, each part after a line break, so no mistake goes unseen.
+let unfinished = null; // { layout, parts }
+
+function holdPartial(L, upto) {
+  if (L.mode === "custom" || L.zh) return; // My text and Chinese keep no keystrokes, see finishLesson
+  if (!unfinished || unfinished.layout !== L.layout) unfinished = { layout: L.layout, parts: [] };
+  unfinished.parts.push(keyDetail(L, upto));
+  let size = unfinished.parts.reduce((sum, part) => sum + part.tx.length, 0);
+  while (size > APP.unfinishedChars && unfinished.parts.length) size -= unfinished.parts.shift().tx.length;
+}
+
+function joinDetail(parts) {
+  const mx = [];
+  let at = 0;
+  for (const part of parts) {
+    for (const m of part.mx) mx.push([m[0] + at, ...m.slice(1)]);
+    at += part.tx.length + 1;
+  }
+  return { tx: parts.map((part) => part.tx).join("\n"), mx, tm: parts.map((part) => part.tm).join("zz") };
 }
 
 function newLesson(attempt = 1) {
   if (!ready) return;
   const s = state.settings;
-  if (s.mode === "custom") {
+  if (zhOn()) {
+    // Chinese tests take their length from Step up, or from Words per test in other modes.
+    const zh = zhText(s.mode === "step" ? stepWords() : s.lessonWords, s);
+    startLesson(zh.text, attempt, null, zh);
+  } else if (s.mode === "custom") {
     const doc = activeDoc();
     const data = docData(doc);
     if (!data || !data.passages.length) {
@@ -3293,14 +4249,22 @@ function newLesson(attempt = 1) {
     if (doc.at >= data.passages.length) doc.at = 0;
     startLesson(data.passages[doc.at]);
   } else {
-    startLesson(s.mode === "adaptive" ? adaptiveText(profile(), s) : wordsText(s), attempt);
+    const text = s.mode === "adaptive" ? adaptiveText(profile(), s) : wordsText(s.mode === "step" ? { ...s, lessonWords: stepWords() } : s);
+    startLesson(text, attempt);
   }
   renderFocus();
 }
 
-// Tab gives new text. In My text it moves on to the next passage.
+// Tab gives new text. In My text it moves on to the next passage, and in Practice these it
+// gives new drill text, so the drill goes on.
 function skipAhead() {
-  const doc = state.settings.mode === "custom" ? activeDoc() : null;
+  if (lesson && lesson.drill) {
+    startLesson(drillText(lesson.drill, state.settings), 1, lesson.drill);
+    renderFocus();
+    checkGoals();
+    return;
+  }
+  const doc = state.settings.mode === "custom" && !zhOn() && !(lesson && lesson.drill) ? activeDoc() : null;
   if (doc && doc.passages) {
     doc.at = (doc.at + 1) % doc.passages;
     scheduleSave();
@@ -3309,15 +4273,22 @@ function skipAhead() {
   checkGoals();
 }
 
-function startLesson(text, attempt = 1) {
+// A drill is a Practice these test from the Analysis tab. It counts as a Words test, so it
+// never moves My text along or unlocks a letter, and it goes back to your usual tests after.
+// A Chinese test comes with zh, the pinyin and word ends from zhText. It counts as Step up
+// or Words, so it never moves My text along or unlocks a letter either.
+function startLesson(text, attempt = 1, drill = null, zh = null) {
   if (lesson && !lesson.done) keepPartial(lesson);
   const wordAt = new Uint32Array(text.length + 1);
-  for (let i = 0; i < text.length; i++) wordAt[i + 1] = wordAt[i] + (text[i] === " " ? 1 : 0);
+  const ends = zh ? new Set(zh.ends) : null;
+  for (let i = 0; i < text.length; i++) wordAt[i + 1] = wordAt[i] + ((zh ? ends.has(i) : text[i] === " ") ? 1 : 0);
+  let mode = drill ? "words" : state.settings.mode;
+  if (zh) mode = mode === "step" ? "step" : "words";
   lesson = {
     text,
     attempt,
     wordAt,
-    words: wordAt[text.length] + 1,
+    words: zh ? zh.ends.length : wordAt[text.length] + 1,
     pos: 0,
     states: new Uint8Array(text.length), // 0 waiting, 1 right, 2 right after a mistake, 3 wrong
     errAt: new Uint8Array(text.length),
@@ -3330,10 +4301,14 @@ function startLesson(text, attempt = 1) {
     active: 0,  // typing time in this test, without long pauses
     trail: [],  // wrong keys typed at the cursor, shown before it until the right key comes
     typed: [],  // what was typed at positions that went wrong, when mistakes move the cursor on
+    gaps: new Int16Array(text.length).fill(-1), // ms before each key that was right on the first try, -1 if not
+    misses: [], // the first wrong key at each position that went wrong, as [index, key, ms before it]
     afterBackspace: false,
     done: false,
-    mode: state.settings.mode,
+    mode,
     layout: state.settings.layout,
+    drill,
+    zh,
     counted: false, // true once this test's letters are in the stats
   };
   el.boardEmpty.hidden = true;
@@ -3348,8 +4323,15 @@ function startLesson(text, attempt = 1) {
 }
 
 function restartLesson() {
-  if (lesson) startLesson(lesson.text, lesson.attempt);
+  if (lesson) startLesson(lesson.text, lesson.attempt, lesson.drill, lesson.zh);
   checkGoals();
+}
+
+// Notes the first wrong key at a position for the Analysis tab. Wrong keys typed after it,
+// before the mistake is fixed, follow from that one and aren't noted again.
+function noteMiss(L, i, ch, gap) {
+  L.misses.push(gap >= 0 ? [i, ch, gap] : [i, ch]);
+  L.gaps[i] = -1;
 }
 
 function typeChar(ch) {
@@ -3361,6 +4343,9 @@ function typeChar(ch) {
   const now = performance.now();
   countTime(L, now);
   const expected = L.text[L.pos];
+  // The time since the key before, for the Analysis tab. A test's first key and a key
+  // right after Backspace have none.
+  const gap = L.start && !L.afterBackspace ? Math.min(APP.idleGap, Math.max(0, Math.round(now - L.last))) : -1;
   if (!L.start) {
     L.start = now;
     L.last = now;
@@ -3378,6 +4363,7 @@ function typeChar(ch) {
 
   if (!hit && sudden) {
     L.errors += 1;
+    noteMiss(L, L.pos, ch, gap);
     L.errAt[L.pos] = 1; // the missed letter counts as a mistake for that letter
     addTrail(ch, true); // a softer highlight that fades out with the text
     failAttempt();
@@ -3404,12 +4390,14 @@ function typeChar(ch) {
         (L.samples[expected] || (L.samples[expected] = [])).push(dt);
       }
     }
+    if (!L.errAt[L.pos] && L.gaps[L.pos] < 0) L.gaps[L.pos] = gap;
     L.states[L.pos] = L.errAt[L.pos] ? 2 : 1;
     L.lastOk = now;
     sound("key");
     clearTrail();
   } else {
     L.errors += 1;
+    if (!L.errAt[L.pos]) noteMiss(L, L.pos, ch, gap);
     L.errAt[L.pos] = 1;
     sound("miss");
     if (s.mistakes !== "move") {
@@ -3465,7 +4453,8 @@ function failAttempt() {
   markNextKey();
   clearTimeout(coolTimer);
   coolTimer = setTimeout(() => {
-    if (lesson === L) newLesson(L.attempt + 1);
+    if (lesson === L && L.drill) startLesson(drillText(L.drill, state.settings), L.attempt + 1, L.drill);
+    else if (lesson === L) newLesson(L.attempt + 1);
     coolUntil = hold;
     el.board.style.setProperty("--fade", `${Math.round(total * 0.6)}ms`);
     el.board.classList.remove("cooling");
@@ -3501,10 +4490,19 @@ function finishLesson() {
   const p = profile();
   L.done = true;
   const dur = Math.max(1, L.last - L.start);
-  const wpm = L.text.length > 1 ? (L.text.length - 1) / 5 / (dur / 60000) : 0;
+  // A Chinese test's time starts with its first key in the input method, before the first
+  // character arrives, so every character counts toward its speed.
+  const chars = L.zh ? L.text.length : L.text.length - 1;
+  const wpm = chars > 0 ? chars / 5 / (dur / 60000) : 0;
   const acc = L.strokes ? (L.strokes - L.errors) / L.strokes : 1;
   applyKeyStats(p, L);
   L.counted = true;
+  // A Chinese test has no letters of its own, so it keeps no letter detail or keystrokes,
+  // and unfinished English attempts wait for the next English test.
+  const early = !L.zh && unfinished && unfinished.layout === L.layout ? unfinished.parts : [];
+  if (!L.zh) unfinished = null;
+  // My text keeps no keystrokes, since its words are yours and must go when the text does.
+  const detailParts = L.mode === "custom" || L.zh ? early : [...early, keyDetail(L)];
   p.history.push({
     ts: Date.now(),
     wpm: round(wpm, 1),
@@ -3513,9 +4511,11 @@ function finishLesson() {
     words: L.words,
     mode: L.mode,
     tries: L.attempt,
-    ...testDetail(L),
+    ...(L.zh ? { lang: "zh" } : testDetail(L)),
+    ...(detailParts.length ? joinDetail(detailParts) : {}),
   });
   if (p.history.length > APP.historyLimit) p.history.splice(0, p.history.length - APP.historyLimit);
+  trimDetail(p.history);
   if (L.errors === 0 && L.active > 0) addClean(L.active);
 
   let unlocked = null;
@@ -3542,8 +4542,18 @@ function finishLesson() {
   if (unlocked) celebrateUnlock(unlocked);
   else if (finishedDoc) showToast(`You typed all of ${finishedDoc.title}. Starting again from the top.`);
   if (view === "progress") renderProgress();
+  const perfect = L.errors === 0 && L.text.length > 1;
+  perfectRun = perfect ? perfectRun + 1 : 0;
+  let step = 0;
+  if (perfect && L.mode === "step") {
+    const was = stepWords();
+    state.step = { day: dayKey(), words: Math.min(s.stepTop, was + 1) };
+    step = was < s.stepTop ? stepWords() : -1; // -1 means it was already at the top
+    scheduleSave();
+  }
   newLesson();
-  checkGoals();
+  // A goal celebration says more than a perfect test, so a test that reaches a goal shows that.
+  if (!checkGoals().length && perfect) flourishPerfect(perfectRun, step);
 }
 /* 8. Practice screen ------------------------------------------------------- */
 
@@ -3565,6 +4575,7 @@ const el = {
   goalClean: $("#goalClean"),
   board: $("#board"),
   textWindow: $("#textWindow"),
+  flourish: $("#flourish"),
   text: $("#text"),
   lessonBar: $("#lessonBar"),
   wordCount: $("#wordCount"),
@@ -3589,6 +4600,7 @@ const el = {
   progSub: $("#progSub"),
   progEmpty: $("#progEmpty"),
   progBody: $("#progBody"),
+  progView: $("#view-progress"),
   dayTitle: $("#dayTitle"),
   dayStats: $("#dayStats"),
   dayNote: $("#dayNote"),
@@ -3618,6 +4630,29 @@ const el = {
   calPrev: $("#calPrev"),
   calNext: $("#calNext"),
   calGrid: $("#calGrid"),
+  anaSub: $("#anaSub"),
+  anaEmpty: $("#anaEmpty"),
+  anaEmptyText: $("#anaEmptyText"),
+  anaBody: $("#anaBody"),
+  anaStats: $("#anaStats"),
+  anaTrend: $("#anaTrend"),
+  anaTrendNote: $("#anaTrendNote"),
+  anaDrillKeys: $("#anaDrillKeys"),
+  anaDrill: $("#anaDrill"),
+  anaKeys: $("#anaKeys"),
+  anaSwaps: $("#anaSwaps"),
+  anaPairs: $("#anaPairs"),
+  anaShift: $("#anaShift"),
+  anaShiftSlips: $("#anaShiftSlips"),
+  anaShiftNote: $("#anaShiftNote"),
+  anaSymbols: $("#anaSymbols"),
+  anaHands: $("#anaHands"),
+  anaFingers: $("#anaFingers"),
+  anaSlow: $("#anaSlow"),
+  anaRush: $("#anaRush"),
+  anaRushNote: $("#anaRushNote"),
+  anaWord: $("#anaWord"),
+  anaRecent: $("#anaRecent"),
   layoutSelect: $("#set-layout"),
   unlockNext: $("#unlockNext"),
   unlockHint: $("#unlockHint"),
@@ -3667,15 +4702,18 @@ function renderPractice() {
 function renderSequence() {
   const s = state.settings;
   const p = profile();
+  el.sequence.hidden = zhOn();
   const adaptive = s.mode === "adaptive";
   const order = adaptive ? APP.letterOrder : "abcdefghijklmnopqrstuvwxyz";
-  const extra = adaptive ? [focusKey(p, s)] : s.mode === "words" && s.weakBoost ? weakLetters(p, s).map(([ch]) => ch) : [];
+  const plain = s.mode === "words" || s.mode === "step";
+  const extra = adaptive ? [focusKey(p, s)] : plain && s.weakBoost ? weakLetters(p, s).map(([ch]) => ch) : [];
   const focus = new Set(extra);
-  const items = [...order].map((ch) => {
+  const items = [...order].map((ch, i) => {
     const rank = APP.letterOrder.indexOf(ch);
     const k = p.keys[ch];
     const locked = adaptive && rank >= p.unlocked;
     const item = node("span", "seq-key", ch);
+    item.style.setProperty("--i", i); // the order a perfect test's light runs along the letters
     item.setAttribute("role", "listitem");
     if (locked) item.classList.add("locked");
     else if (k && k.n) {
@@ -3700,11 +4738,49 @@ function renderFocus() {
   const s = state.settings;
   const p = profile();
   const adaptive = s.mode === "adaptive";
+  const drill = lesson && lesson.drill;
+  el.focusDetail.classList.toggle("chips", Boolean(drill));
+  if (drill) {
+    // A Practice these test names the keys and switches it leans on.
+    el.focus.hidden = false;
+    el.focusCap.hidden = true;
+    el.focusMeter.hidden = true;
+    el.focusDetail.hidden = false;
+    el.focusTitle.textContent = "Practice these";
+    el.focusDetail.replaceChildren(...drillChips(drill));
+    return;
+  }
+  if (zhOn()) {
+    const n = s.mode === "step" ? stepWords() : s.lessonWords;
+    const words = node("strong", null, `${n.toLocaleString("en-US")} ${n === 1 ? "word" : "words"}`);
+    el.focus.hidden = false;
+    el.focusCap.hidden = true;
+    el.focusMeter.hidden = true;
+    el.focusDetail.hidden = false;
+    if (s.mode === "step") {
+      el.focusTitle.replaceChildren("Step up in Chinese, ", words);
+      el.focusDetail.textContent = n < s.stepTop
+        ? `Each perfect test adds a word, up to ${s.stepTop.toLocaleString("en-US")}.`
+        : "At the top. Tomorrow starts short again.";
+    } else {
+      el.focusTitle.replaceChildren("Chinese, ", words);
+      el.focusDetail.textContent = "Type each word with your Chinese input method.";
+    }
+    return;
+  }
   el.focus.hidden = s.mode === "words";
   el.focusCap.hidden = !adaptive;
   el.focusMeter.hidden = !adaptive;
   el.focusDetail.hidden = false;
   if (s.mode === "words") return;
+  if (s.mode === "step") {
+    const n = stepWords();
+    el.focusTitle.replaceChildren("Step up, ", node("strong", null, `${n.toLocaleString("en-US")} ${n === 1 ? "word" : "words"}`));
+    el.focusDetail.textContent = n < s.stepTop
+      ? `Each perfect test adds a word, up to ${s.stepTop.toLocaleString("en-US")}.`
+      : "At the top. Tomorrow starts short again.";
+    return;
+  }
   if (s.mode === "custom") {
     const doc = activeDoc();
     el.focusTitle.textContent = doc ? doc.title : "My text";
@@ -3725,6 +4801,13 @@ function renderFocus() {
   el.focusFill.style.width = `${(clamp(skill(k, s.targetWpm), 0, 1) * 100).toFixed(1)}%`;
 }
 
+// Chinese tests count characters instead of letters, so they keep apart from English ones
+// in every figure and chart. Each language shows its own tests.
+function testsNow(p = profile()) {
+  const zh = zhOn();
+  return p.history.filter((e) => (e.lang === "zh") === zh);
+}
+
 // The tests the practice screen averages over, set in Settings.
 function statsWindow(h) {
   const over = state.settings.averageOver;
@@ -3739,7 +4822,7 @@ function statsWindow(h) {
 
 // The last test's speed sits at the top, with how far it is above or below your average.
 function renderStats() {
-  const h = profile().history;
+  const h = testsNow();
   el.figures.hidden = !h.length;
   if (!h.length) return;
   const last = h[h.length - 1];
@@ -3783,6 +4866,20 @@ function renderGoal() {
   fillGoal(el.goalTotal, total, s.dailyGoal, "Typing today", s.dailyGoal > 0 && total >= s.dailyGoal * 60000);
   fillGoal(el.goalClean, clean, s.cleanGoal, "Clean typing today", s.cleanGoal > 0 && clean >= s.cleanGoal * 60000);
   el.goals.hidden = !s.dailyGoal && !s.cleanGoal;
+  renderCharge(total);
+}
+
+// The last stretch toward the daily typing goal charges the page, from APP.chargeFrom of the
+// goal up to the goal itself, so reaching it feels like a release.
+function renderCharge(total) {
+  const goal = state.settings.dailyGoal * 60000;
+  const share = goal ? total / goal : 0;
+  const charge = share < 1 ? clamp((share - APP.chargeFrom) / (1 - APP.chargeFrom), 0, 1) : 0;
+  for (const box of [el.goalTotal, el.board]) {
+    box.classList.toggle("charging", charge > 0);
+    box.style.setProperty("--charge", charge.toFixed(3));
+    box.style.setProperty("--breath", `${(3.4 - charge * 1.8).toFixed(2)}s`);
+  }
 }
 
 
@@ -3829,14 +4926,94 @@ function cheerDetail(ids, wasDone) {
   return wasDone ? line : `${line} Your day is complete.`;
 }
 
+// Each goal has its own celebration. The clean typing goal gets a quiet, precise one, and
+// the daily typing goal, alone or with the other, gets the full release.
 function celebrate(ids, wasDone) {
   renderGoal();
   for (const id of ids) popGoal(id === "total" ? el.goalTotal : el.goalClean);
-  const title = pickCheer();
   const detail = cheerDetail(ids, wasDone);
+  if (!ids.includes("total")) {
+    el.announce.textContent = `Clean typing goal done. ${detail}`;
+    sound("clean");
+    flourishClean();
+    return;
+  }
+  const title = pickCheer();
   el.announce.textContent = `${title} ${detail}`;
-  sound("cheer");
+  sound("release");
   playCheer(title, detail);
+}
+
+let perfectRun = 0;   // perfect tests in a row
+let flourishTimer = 0;
+
+// A test with no mistakes gets a small celebration, quiet enough to happen often.
+function flourishPerfect(run, step = 0) {
+  const parts = ["Perfect"];
+  if (run > 1) parts.push(`${run.toLocaleString("en-US")} in a row`);
+  if (step > 0) parts.push(`now ${step.toLocaleString("en-US")} words`);
+  else if (step < 0) parts.push(`at the top with ${state.settings.stepTop.toLocaleString("en-US")} words`);
+  showFlourish(parts.join(", "), false);
+  el.sequence.classList.remove("shine");
+  void el.sequence.offsetWidth;
+  el.sequence.classList.add("shine");
+  sound("perfect");
+}
+
+function showFlourish(text, clean) {
+  const f = el.flourish;
+  clearTimeout(flourishTimer);
+  f.style.top = "";
+  f.style.right = "";
+  f.textContent = text;
+  f.classList.remove("show", "clean");
+  void f.offsetWidth;
+  f.classList.toggle("clean", clean);
+  f.classList.add("show");
+  flourishTimer = setTimeout(() => {
+    f.classList.remove("show", "clean");
+    el.sequence.classList.remove("shine");
+  }, clean ? 3700 : 2700);
+}
+
+let trace = null; // the line drawn around the text, built the first time it's needed
+let traceTimer = 0;
+
+// One fine line draws itself all the way around the text, glows once and fades.
+function flourishClean() {
+  showFlourish(`${fmtGoal(state.settings.cleanGoal)} of clean typing`, true);
+  if (!trace) {
+    trace = document.createElementNS(SVG_NS, "svg");
+    trace.setAttribute("class", "trace");
+    trace.setAttribute("aria-hidden", "true");
+    const rect = document.createElementNS(SVG_NS, "rect");
+    rect.setAttribute("pathLength", "100");
+    trace.appendChild(rect);
+    el.board.appendChild(trace);
+  }
+  const box = el.textWindow.getBoundingClientRect();
+  const board = el.board.getBoundingClientRect();
+  if (!box.width || !box.height) return;
+  const pad = clamp(Math.min(box.left, window.innerWidth - box.right) - 2, 2, 14); // stays on screen on a phone
+  const w = box.width + pad * 2;
+  const h = box.height + pad * 2;
+  trace.setAttribute("width", w.toFixed(1));
+  trace.setAttribute("height", h.toFixed(1));
+  trace.style.transform = `translate(${(box.left - board.left - pad).toFixed(1)}px, ${(box.top - board.top - pad).toFixed(1)}px)`;
+  const rect = trace.firstChild;
+  rect.setAttribute("x", "0.75");
+  rect.setAttribute("y", "0.75");
+  rect.setAttribute("width", (w - 1.5).toFixed(1));
+  rect.setAttribute("height", (h - 1.5).toFixed(1));
+  rect.setAttribute("rx", "12");
+  const top = box.top - board.top - pad;
+  el.flourish.style.top = `${(top - el.flourish.offsetHeight / 2).toFixed(1)}px`;
+  el.flourish.style.right = `${(board.right - box.right - pad + 28).toFixed(1)}px`;
+  trace.classList.remove("play");
+  void trace.getBoundingClientRect();
+  trace.classList.add("play");
+  clearTimeout(traceTimer);
+  traceTimer = setTimeout(() => trace.classList.remove("play"), 3600);
 }
 
 function popGoal(box) {
@@ -3855,6 +5032,7 @@ function cheerParts() {
   root.setAttribute("aria-hidden", "true");
   root.hidden = true;
   const canvas = node("canvas", "cheer-burst");
+  const waves = [node("div", "cheer-wave"), node("div", "cheer-wave")];
   const card = node("div", "cheer-card");
   const print = node("div", "cheer-print");
   for (let i = 0; i < 4; i++) print.appendChild(node("span", "cheer-ring"));
@@ -3864,15 +5042,16 @@ function cheerParts() {
   const title = node("p", "cheer-title");
   const detail = node("p", "cheer-detail");
   card.append(print, title, detail);
-  root.append(canvas, card);
+  root.append(...waves, canvas, card);
   document.body.appendChild(root);
   cheer = { root, canvas, print, title, detail, caret: null, chars: [], timers: [], raf: 0 };
   return cheer;
 }
 
-// The mark presses down like a fingerprint, ripples spread out in the four finger colors,
-// keycaps burst from it, and the message types itself out with the same underline as
-// your text. Keys wait for a moment first, then the next key clears it all and types.
+// The page goes quiet and a wave of warm light spreads out, the mark settles with ripples
+// in the four finger colors, keycaps drift up and away, and the message writes itself out
+// slowly with the same underline as your text. Keys wait for a moment first, then the next
+// key clears it all and types.
 function playCheer(title, detail) {
   const c = cheerParts();
   clearCheer(c);
@@ -3905,7 +5084,7 @@ function playCheer(title, detail) {
   if (calm) {
     for (const span of chars) span.classList.add("on");
     root.classList.add("typed");
-    at(2800, () => endCheer());
+    at(4200, () => endCheer());
     return;
   }
   root.classList.add("play");
@@ -3913,17 +5092,17 @@ function playCheer(title, detail) {
   moveCheerCaret(0);
   void c.caret.offsetWidth;
   c.caret.style.transition = "";
-  at(420, () => burst(c));
-  let t = 620;
+  at(1300, () => burst(c));
+  let t = 1900;
   chars.forEach((span, i) => {
     at(t, () => {
       span.classList.add("on");
       moveCheerCaret(i + 1);
     });
-    t += span.textContent === " " ? 26 : 46;
+    t += span.textContent === " " ? 50 : 85;
   });
-  at(t + 80, () => root.classList.add("typed"));
-  at(Math.max(3800, t + 2000), () => endCheer());
+  at(t + 200, () => root.classList.add("typed"));
+  at(Math.max(7200, t + 3600), () => endCheer());
 }
 
 function moveCheerCaret(i) {
@@ -3953,16 +5132,17 @@ function endCheer(fast = false) {
   cheerOn = false;
   for (const id of c.timers) clearTimeout(id);
   c.timers = [];
-  c.root.style.setProperty("--leave", fast ? "0.2s" : "0.55s");
+  c.root.style.setProperty("--leave", fast ? "0.2s" : "1.5s");
   c.root.classList.add("leaving");
   c.timers.push(setTimeout(() => {
     clearCheer(c);
     c.root.hidden = true;
     c.root.classList.remove("show", "play", "typed", "leaving");
-  }, fast ? 220 : 580));
+  }, fast ? 220 : 1550));
 }
 
-// Keycaps burst out of the print, tumble and fall. A canvas draws them, so it stays light.
+// Keycaps rise slowly from around the mark, sway and fade, like something let go. A canvas
+// draws them, so it stays light.
 function burst(c) {
   const canvas = c.canvas;
   const W = window.innerWidth;
@@ -3983,23 +5163,24 @@ function burst(c) {
   const font = getComputedStyle(c.title).fontFamily;
   const letters = "abcdefghijklmnopqrstuvwxyz";
   const caps = [];
-  for (let i = 0; i < 46; i++) {
+  for (let i = 0; i < 34; i++) {
     const a = Math.random() * Math.PI * 2;
-    const v = reach * (0.55 + Math.random() * 0.8);
+    const spread = box.width * (0.6 + Math.random() * 1.4);
     caps.push({
-      x: ox + Math.cos(a) * box.width * 0.3,
-      y: oy + Math.sin(a) * box.width * 0.3,
-      vx: Math.cos(a) * v,
-      vy: Math.sin(a) * v - reach * 0.45,
+      x: ox + Math.cos(a) * spread,
+      y: oy + Math.sin(a) * spread * 0.5,
+      vx: (Math.random() - 0.5) * 0.4,
+      vy: -reach * (0.05 + Math.random() * 0.09),
+      sway: Math.random() * Math.PI * 2,
       s: size * (0.7 + Math.random() * 0.65),
       rot: Math.random() * Math.PI * 2,
-      spin: (Math.random() - 0.5) * 0.2,
+      spin: (Math.random() - 0.5) * 0.03,
       flip: Math.random() * Math.PI * 2,
-      flipSpeed: 0.05 + Math.random() * 0.12,
+      flipSpeed: 0.01 + Math.random() * 0.025,
       color: colors[i % colors.length] || "#999",
       ch: letters[Math.floor(Math.random() * letters.length)],
-      age: 0,
-      life: 100 + Math.random() * 70,
+      age: -Math.random() * 60, // they don't all start at once
+      life: 230 + Math.random() * 150,
     });
   }
   let last = performance.now();
@@ -4008,18 +5189,16 @@ function burst(c) {
     last = now;
     ctx.clearRect(0, 0, W, H);
     let alive = 0;
-    const drag = Math.pow(0.972, dt);
     for (const p of caps) {
       p.age += dt;
-      if (p.age >= p.life || p.y > H + 60) continue;
+      if (p.age >= p.life || p.y < -60) continue;
       alive += 1;
-      p.vx *= drag;
-      p.vy = p.vy * drag + 0.36 * dt;
-      p.x += p.vx * dt;
+      if (p.age < 0) continue;
+      p.x += (p.vx + Math.sin(p.sway + p.age / 38) * 0.3) * dt;
       p.y += p.vy * dt;
       p.rot += p.spin * dt;
       p.flip += p.flipSpeed * dt;
-      drawCap(ctx, p, font, clamp((p.life - p.age) / 30, 0, 1));
+      drawCap(ctx, p, font, 0.85 * clamp(p.age / 30, 0, 1) * clamp((p.life - p.age) / 70, 0, 1));
     }
     c.raf = alive ? requestAnimationFrame(frame) : 0;
   };
@@ -4070,7 +5249,8 @@ function drawCap(ctx, p, font, alpha) {
 /* Zoom --------------------------------------------------------------------- */
 
 // Normal shows everything. No keyboard hides the keyboard and makes the text bigger.
-// Text only hides everything but the text, and Esc brings the rest back.
+// Text only hides everything but the text, and Esc (or the button at the top on a touch
+// screen) brings the rest back.
 const ZOOMS = ["normal", "nokeys", "text"];
 const ZOOM_NAMES = { normal: "Normal", nokeys: "No keyboard", text: "Text only" };
 let zoomShown = "";      // the zoom on screen, always normal away from the practice page
@@ -4094,9 +5274,17 @@ function applyZoom() {
   else root.dataset.zoom = z;
   if (z === "text") flashZenHint();
   else el.zenHint.classList.remove("show");
+  el.board.classList.remove("zoom-in", "zoom-out");
+  // Text only can be taller than a phone's screen, and reaching the zoom buttons there means
+  // scrolling down, so it opens with the line you're typing in view. This runs before the
+  // zoom animation starts, because its scaling would throw the measurement off.
+  if (z === "text" && from !== "text" && lesson && charEls.length) {
+    const full = state.settings.textView === "full";
+    const target = full ? charEls[Math.min(lesson.pos, charEls.length - 1)] : el.textWindow;
+    target.scrollIntoView({ block: "center" });
+  }
   if (from && view === "practice") {
     const dir = ZOOMS.indexOf(z) > ZOOMS.indexOf(from) ? "zoom-in" : "zoom-out";
-    el.board.classList.remove("zoom-in", "zoom-out");
     void el.board.offsetWidth;
     el.board.classList.add(dir);
     clearTimeout(zoomTimer);
@@ -4134,6 +5322,14 @@ function leaveTextOnly() {
 function renderKeyNote() {
   const s = state.settings;
   const p = profile();
+  if (inputNote) {
+    el.keyNote.textContent = inputNote;
+    return;
+  }
+  if (zhOn()) {
+    el.keyNote.textContent = "Type the pinyin, then pick the word with Space or its number.";
+    return;
+  }
   if (s.mode !== "adaptive") {
     el.keyNote.textContent = "";
     return;
@@ -4148,6 +5344,7 @@ function renderText() {
   const L = lesson;
   const frag = document.createDocumentFragment();
   charEls = new Array(L.text.length);
+  const ends = L.zh ? new Set(L.zh.ends) : null;
   let word = null;
   for (let i = 0; i < L.text.length; i++) {
     const ch = L.text[i];
@@ -4156,10 +5353,13 @@ function renderText() {
       frag.appendChild(word);
     }
     const c = node("span", ch === " " ? "c sp" : "c", ch);
+    if (L.zh) c.prepend(node("span", "py", pyLabel(L.zh.py[i])));
     word.appendChild(c);
     charEls[i] = c;
-    if (ch === " ") word = null;
+    if (L.zh ? ends.has(i) : ch === " ") word = null;
   }
+  el.board.classList.toggle("zh", Boolean(L.zh));
+  pinyinLit = [];
   el.text.replaceChildren(frag);
   trailEl = null;
   caretEl = node("span", "caret");
@@ -4190,6 +5390,93 @@ function moveCaret(instant = false) {
   caretEl.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
   caretEl.style.width = `${Math.max(3, c.offsetWidth - inset * 2).toFixed(1)}px`;
   caretLine = line;
+  placeSink(c);
+}
+
+// The input method opens its list of words by the hidden input, so in a Chinese test the
+// input sits just under the next character.
+function placeSink(c) {
+  if (!lesson || !lesson.zh) {
+    el.sink.style.transform = "";
+    return;
+  }
+  const board = el.board.getBoundingClientRect();
+  const r = c.getBoundingClientRect();
+  if (!r.width) return;
+  el.sink.style.transform = `translate(${Math.round(r.left - board.left)}px, ${Math.round(r.bottom - board.top)}px)`;
+}
+
+// Pinyin shows with \u00fc, though the key for it is v.
+const pyLabel = (py) => py.replace(/v/g, "\u00fc");
+
+// How far the input method has got, matched against the pinyin from the cursor on. Each
+// character takes the letters that fit its syllable, so full pinyin and the first letters
+// of each syllable both match. Characters the input method already shows in Chinese, still
+// waiting to be sent, count as done. typed holds the letters matched for each character,
+// with -1 where a letter doesn't fit, and next is the key that comes after.
+function pinyinFit(L, composing) {
+  const shown = (composing.match(/^[^A-Za-z\u00fc\u00dc' ]*/) || [""])[0];
+  const letters = composing.slice(shown.length).toLowerCase().replace(/\u00fc/g, "v").replace(/[^a-z]/g, "");
+  const start = Math.min(L.text.length, L.pos + [...shown].length);
+  const typed = [];
+  for (let i = L.pos; i < start; i++) typed.push(L.zh.py[i].length);
+  let j = 0;
+  let i = start;
+  let next = null;
+  let wrong = false;
+  for (; i < L.text.length && j < letters.length; i++) {
+    const py = L.zh.py[i];
+    if (!py) break; // a mark, which the input method types once the word is picked
+    let m = 0;
+    while (m < py.length && j < letters.length && letters[j] === py[m]) {
+      m += 1;
+      j += 1;
+    }
+    if (!m) {
+      wrong = true;
+      typed.push(-1);
+      break;
+    }
+    typed.push(m);
+    if (j >= letters.length && m < py.length) next = py[m];
+  }
+  if (!wrong && !next) {
+    // After a whole word, or before a mark, Space picks the word. Otherwise the next
+    // syllable starts, or the key for the mark.
+    const py = i < L.text.length ? L.zh.py[i] : "";
+    if (composing && (i >= L.text.length || !py || L.zh.ends.includes(i - 1))) next = " ";
+    else if (i < L.text.length) next = py ? py[0] : ZH_KEYS[L.text[i]] || null;
+  }
+  return { typed, next: wrong ? null : next };
+}
+
+// The pinyin above the next characters fills in as the input method takes each letter,
+// and a letter that doesn't fit turns the rest red.
+let pinyinLit = [];
+function paintPinyin() {
+  const L = lesson;
+  for (const i of pinyinLit) {
+    const py = charEls[i] && charEls[i].firstChild;
+    if (py && L && L.zh) {
+      py.className = "py";
+      py.textContent = pyLabel(L.zh.py[i]);
+    }
+  }
+  pinyinLit = [];
+  if (!L || !L.zh || L.done || !imeText) return;
+  pinyinFit(L, imeText).typed.forEach((m, n) => {
+    const i = L.pos + n;
+    const py = charEls[i] && charEls[i].firstChild;
+    if (!py) return;
+    pinyinLit.push(i);
+    const label = pyLabel(L.zh.py[i]);
+    if (m < 0) {
+      py.className = "py off";
+      return;
+    }
+    py.className = "py lit";
+    py.replaceChildren(node("b", null, label.slice(0, m)), label.slice(m));
+  });
 }
 
 function measureLines() {
@@ -4259,7 +5546,8 @@ function paintChar(i) {
   const st = L.states[i];
   // A position that went wrong shows the key that was actually typed.
   const shown = st === 3 && L.typed[i] != null ? L.typed[i] : L.text[i];
-  if (c.textContent !== shown) c.textContent = shown;
+  const glyph = L.zh ? c.lastChild : c; // a Chinese character keeps its pinyin span first
+  if (glyph.textContent !== shown) glyph.textContent = shown;
   let cls = shown === " " ? "c sp" : "c";
   if (st === 1) cls += " ok";
   else if (st === 2) cls += " fixed";
@@ -4386,6 +5674,32 @@ function sound(kind) {
       for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / data.length) ** 4;
     }
     const t = audio.currentTime;
+    const note = (f, at, peak, len, type = "sine") => {
+      const osc = audio.createOscillator();
+      const g = audio.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(f, at);
+      g.gain.setValueAtTime(0.0001, at);
+      g.gain.exponentialRampToValueAtTime(peak, at + Math.min(0.6, len * 0.35));
+      g.gain.exponentialRampToValueAtTime(0.0001, at + len);
+      osc.connect(g).connect(audio.destination);
+      osc.start(at);
+      osc.stop(at + len + 0.05);
+    };
+    if (kind === "perfect") {
+      note(1318.5, t, 0.05, 0.35); // one soft high note
+      return;
+    }
+    if (kind === "clean") {
+      note(659.25, t, 0.07, 0.9); // two calm notes a fifth apart
+      note(987.77, t + 0.22, 0.06, 1.1);
+      return;
+    }
+    if (kind === "release") {
+      // A low chord that swells slowly and then lets go.
+      [261.63, 392, 523.25, 659.25].forEach((f, i) => note(f, t + 0.3 + i * 0.12, 0.05, 3.2));
+      return;
+    }
     if (kind === "cheer") {
       // A short rising chime, one note for each finger.
       [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => {
@@ -4917,7 +6231,7 @@ function markNextKey() {
   let main = null;
   let shift = null;
   if (lesson && !lesson.done) {
-    const target = keyFor(lesson.text[lesson.pos]);
+    const target = keyFor(lesson.zh ? pinyinFit(lesson, imeText).next : lesson.text[lesson.pos]);
     if (target) {
       main = target.el;
       if (target.shift) shift = target.finger <= 3 ? shiftKeys.R : shiftKeys.L;
@@ -5272,15 +6586,23 @@ function lessonGuide(ctx, top, bottom, n, W, P) {
 
 function renderProgress() {
   const s = state.settings;
-  const h = profile().history;
+  const h = testsNow();
   testDays = h.map((e) => dayKey(new Date(e.ts)));
   if (!prog.day) prog.day = dayKey();
   const typing = Object.values(state.daily).reduce((sum, ms) => sum + ms, 0);
   const layout = LAYOUTS[s.layout].name;
   const count = `${h.length.toLocaleString("en-US")} ${h.length === 1 ? "test" : "tests"}`;
-  el.progSub.textContent = h.length
-    ? `${count} on ${layout} and ${fmtDuration(typing)} of typing in all.`
-    : `Each keyboard layout keeps its own record, and your ${layout} record starts with your first test.`;
+  const zh = zhOn();
+  el.progView.classList.toggle("zh", zh);
+  if (zh) {
+    el.progSub.textContent = h.length
+      ? `${count} in Chinese and ${fmtDuration(typing)} of typing in all.`
+      : "Chinese tests keep their own record, and it starts with your first one.";
+  } else {
+    el.progSub.textContent = h.length
+      ? `${count} on ${layout} and ${fmtDuration(typing)} of typing in all.`
+      : `Each keyboard layout keeps its own record, and your ${layout} record starts with your first test.`;
+  }
   renderCalendar();
   renderDay();
   fillStats(el.allStats, figures(h, typing));
@@ -5346,7 +6668,7 @@ function fillStats(box, f) {
 function renderDay() {
   const today = dayKey();
   const day = prog.day || today;
-  const tests = profile().history.filter((e, i) => testDays[i] === day);
+  const tests = testsNow().filter((e, i) => testDays[i] === day);
   el.dayTitle.textContent = day === today ? "Today" : fmtDay(day);
   fillStats(el.dayStats, figures(tests, state.daily[day] || 0));
   const whose = day === today ? "Today's" : "This day's";
@@ -5495,7 +6817,7 @@ function drawSpeedChart() {
   if (!g) return;
   const { ctx, W, H } = g;
   const P = palette();
-  const h = profile().history;
+  const h = testsNow();
   const n = h.length;
   if (!n) return;
   const top = 14;
@@ -5538,7 +6860,7 @@ function drawOverview() {
   const { ctx, W, H } = g;
   const P = palette();
   const s = state.settings;
-  const h = profile().history;
+  const h = testsNow();
   const n = h.length;
   if (!n) return;
   const top = 4;
@@ -5633,7 +6955,7 @@ function renderKeyFigures() {
   const p = profile();
   const ch = prog.key;
   const k = p.keys[ch];
-  const series = letterSeries(p.history, ch);
+  const series = letterSeries(testsNow(p), ch);
   const now = k && k.n ? keySpeed(k) : 0;
   const best = Math.max(now, ...smoothed(series.map((q) => q.wpm), 3));
   const share = (wpm) => `${Math.round((wpm / s.targetWpm) * 100)}% of target`;
@@ -5665,7 +6987,7 @@ function drawKeyChart() {
   const { ctx, W, H } = g;
   const P = palette();
   const s = state.settings;
-  const h = profile().history;
+  const h = testsNow();
   const n = h.length;
   if (!n) return;
   const top = 14;
@@ -5974,7 +7296,7 @@ function bindProgress() {
   // Charts over time. Pointing at one marks the same test in all of them.
   const overTime = (canvas, describe) => {
     canvas.addEventListener("pointermove", (e) => {
-      const h = profile().history;
+      const h = testsNow();
       if (!h.length) return;
       const rect = canvas.getBoundingClientRect();
       const i = lessonIndex(e.clientX - rect.left, h.length, rect.width);
@@ -6157,12 +7479,626 @@ function renderCalendar() {
   el.calGrid.replaceChildren(...cells);
 }
 
+/* Analysis ----------------------------------------------------------------- */
+
+// The Analysis tab reads the keys the newest tests keep (tx, mx and tm, see keyDetail) and
+// works out where your mistakes come from. It all happens when the tab opens, never while
+// you type. Everything comes from the current layout's record.
+const ANALYSIS_MIN = {
+  tests: 3,   // tests with every key kept before the tab fills in
+  key: 20,    // times a letter or the space was the key to type before it is ranked
+  symbol: 6,  // times a mark, number or symbol was the key to type before it is ranked
+  pair: 12,   // times a key switch came up before it is ranked
+  timed: 8,   // timed switches before one can count as slow
+  shift: 15,  // keys in a Shift group before its rate shows
+  group: 30,  // keys in a finger, hand, pace or word place before its rate shows
+  prior: 20,  // keys at your overall rate mixed into every ranking, so a lucky or unlucky few can't top it
+};
+const ROW_START = [0, 1.5, 1.75, 2.25]; // key widths before the first character key of each row
+const FINGER_NAMES = ["Left pinky", "Left ring", "Left middle", "Left index", "Right index", "Right middle", "Right ring", "Right pinky", "Thumbs"];
+const SHIFT_SLIPS = {
+  forgot: { name: "Forgot Shift", note: "A capital or shifted symbol came out plain" },
+  held: { name: "Held Shift too long", note: "Shift was still down for the key after a capital" },
+  extra: { name: "Shift by mistake", note: "Shift came down on a key that needs none" },
+};
+let analysisNow = null; // the analysis on screen, which Practice these builds its test from
+
+const needsShift = (ch) => (ch >= "A" && ch <= "Z") || Boolean(UNSHIFT[ch]);
+const baseKey = (ch) => (ch >= "A" && ch <= "Z" ? ch.toLowerCase() : UNSHIFT[ch] || ch);
+const handOf = (f) => (f < 4 ? 0 : f < 8 ? 1 : 2); // left, right, thumbs
+const countOf = (n) => n.toLocaleString("en-US");
+const timesText = (n) => (n === 1 ? "once" : n === 2 ? "twice" : `${countOf(n)} times`);
+const missedText = (t) => `${countOf(t.x)} of ${countOf(t.n)} missed`;
+const rateOf = (t) => (t && t.n ? t.x / t.n : 0);
+
+function medianOf(list) {
+  if (!list.length) return 0;
+  const sorted = list.slice().sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+// Where a character sits on your layout, by row, column, finger and how far in from the
+// left edge it is in key widths, or null for one the layout doesn't have. A shifted
+// character sits on the key it shares. The space bar is row 4.
+function keyPlace(ch, rows, fingers) {
+  if (ch === " ") return { r: 4, c: 0, f: 8, x: 7.5 };
+  const base = baseKey(ch);
+  for (let r = 0; r < rows.length; r++) {
+    const c = rows[r].indexOf(base);
+    if (c >= 0) return { r, c, f: fingers[r][c], x: ROW_START[r] + c + (r === 1 && c === 12 ? 0.75 : 0.5) };
+  }
+  return null;
+}
+
+// The likely reason for a wrong key, from the keys around it and where the two keys sit.
+function missReason(want, got, prev, next, place) {
+  if (baseKey(want) === baseKey(got)) {
+    if (needsShift(want)) return SHIFT_SLIPS.forgot.name;
+    return prev && needsShift(prev) ? SHIFT_SLIPS.held.name : SHIFT_SLIPS.extra.name;
+  }
+  if (want === " ") return "Missed the space";
+  if (got === " ") return "Space too soon";
+  if (next && got === next) return "Typed the next key first";
+  if (prev && got === prev) return "Doubled the key before";
+  const a = place(want);
+  const b = place(got);
+  if (!a || !b) return "A key off your layout";
+  if (Math.hypot(a.x - b.x, a.r - b.r) < 1.45) return "The key next to it";
+  if (a.f === b.f) return "Same finger, other key";
+  if (a.r === b.r && handOf(a.f) !== handOf(b.f) && a.c + b.c === (a.r === 0 ? 11 : 9)) return "Same key, other hand";
+  return handOf(a.f) === handOf(b.f) ? "Same hand, other key" : "Other hand";
+}
+
+// How your fingers travel from one key to the next.
+function switchKind(a, b, place) {
+  const pa = place(a);
+  const pb = place(b);
+  if (!pa || !pb) return "";
+  if (a === " ") return "From the space bar";
+  if (b === " ") return "Into the space bar";
+  const parts = [];
+  if (baseKey(a) === baseKey(b)) parts.push("Same key twice");
+  else if (pa.f === pb.f) parts.push("Same finger");
+  else parts.push(handOf(pa.f) === handOf(pb.f) ? "Same hand" : "Hand switch");
+  if (Math.abs(pa.r - pb.r) >= 2) parts.push("row jump");
+  if (needsShift(b)) parts.push("with Shift");
+  else if (needsShift(a)) parts.push("after Shift");
+  return parts.join(", ");
+}
+
+// The tests that kept their keys, read back. One saved before keys were kept, or one whose
+// detail doesn't add up, is left out.
+function detailedTests(h) {
+  const out = [];
+  for (const e of h) {
+    if (!e || typeof e.tx !== "string" || !e.tx || !Array.isArray(e.mx) || typeof e.tm !== "string") continue;
+    const n = e.tx.length;
+    if (e.tm.length !== n * 2) continue;
+    const miss = new Map();
+    for (const m of e.mx) {
+      if (!Array.isArray(m) || !Number.isInteger(m[0]) || m[0] < 0 || m[0] >= n || e.tx[m[0]] === "\n") continue;
+      if (typeof m[1] !== "string" || [...m[1]].length !== 1 || m[1] === e.tx[m[0]] || miss.has(m[0])) continue;
+      miss.set(m[0], { got: m[1], ms: Number.isFinite(m[2]) && m[2] >= 0 ? m[2] : -1 });
+    }
+    const gaps = new Int16Array(n).fill(-1);
+    for (let i = 0; i < n; i++) {
+      const code = e.tm.slice(2 * i, 2 * i + 2);
+      const v = code === "zz" || miss.has(i) ? NaN : parseInt(code, 36);
+      if (Number.isFinite(v)) gaps[i] = Math.min(APP.idleGap, v * 10);
+    }
+    out.push({ ts: Number(e.ts) || 0, tx: e.tx, miss, gaps });
+  }
+  return out;
+}
+
+// Goes through every key of every detailed test once and tallies it every way the cards
+// need. Each tally is { n, x }, keys typed and keys missed.
+function analyze(h, s) {
+  const tests = detailedTests(h);
+  const rows = LAYOUTS[s.layout].rows;
+  const fingers = FINGER_PATTERNS[s.fingerPattern] || FINGER_PATTERNS.angle;
+  const places = new Map();
+  const place = (ch) => {
+    if (!places.has(ch)) places.set(ch, keyPlace(ch, rows, fingers));
+    return places.get(ch);
+  };
+  const add = (map, key, bad) => {
+    let t = map.get(key);
+    if (!t) map.set(key, (t = { n: 0, x: 0 }));
+    t.n += 1;
+    t.x += bad;
+    return t;
+  };
+  const A = {
+    tests: tests.length,
+    keys: 0,
+    missed: 0,
+    series: [],          // keys and misses of each test, oldest first
+    chars: new Map(),    // by the key to type
+    swaps: new Map(),    // by the key to type and the key typed
+    pairs: new Map(),    // by the key before and the key to type, with ms of the clean ones
+    fingers: new Map(),
+    hands: new Map(),
+    shift: new Map(),
+    slips: new Map(),
+    word: new Map(),
+    pace: new Map(),     // by how fast the key came next to your usual pace
+    after: new Map(),    // by how fast the key before it came
+    recent: [],
+    usual: [],           // the usual ms between keys in each test
+    place,
+  };
+  for (const t of tests) {
+    const { tx, miss, gaps } = t;
+    const timed = [];
+    for (let i = 0; i < tx.length; i++) if (gaps[i] >= APP.minInterval && gaps[i] <= APP.maxInterval) timed.push(gaps[i]);
+    const usual = timed.length >= 10 ? medianOf(timed) : 0;
+    if (usual) A.usual.push(usual);
+    const gapAt = (i) => (miss.has(i) ? miss.get(i).ms : gaps[i]);
+    let keys = 0;
+    let missed = 0;
+    for (let i = 0; i < tx.length; i++) {
+      const ch = tx[i];
+      if (ch === "\n") continue; // between attempts, see unfinished
+      const prev = i > 0 && tx[i - 1] !== "\n" ? tx[i - 1] : "";
+      const next = i + 1 < tx.length && tx[i + 1] !== "\n" ? tx[i + 1] : "";
+      const m = miss.get(i);
+      const bad = m ? 1 : 0;
+      keys += 1;
+      missed += bad;
+      add(A.chars, ch, bad);
+      const at = place(ch);
+      if (at) {
+        add(A.fingers, at.f, bad);
+        add(A.hands, handOf(at.f), bad);
+      }
+      if (ch === " ") add(A.word, "space", bad);
+      else {
+        add(A.word, !prev || prev === " " ? "first" : !next || next === " " ? "last" : "inside", bad);
+        const up = needsShift(ch);
+        add(A.shift, up ? "with" : "without", bad);
+        if (up) add(A.shift, isLetter(ch) ? "capital" : "symbol", bad);
+        else if (prev && needsShift(prev)) add(A.shift, "after", bad);
+      }
+      if (prev && !miss.has(i - 1)) {
+        const pair = add(A.pairs, prev + ch, bad);
+        if (!bad && gaps[i] >= APP.minInterval && gaps[i] <= APP.maxInterval) (pair.ms || (pair.ms = [])).push(gaps[i]);
+      }
+      const gap = gapAt(i);
+      if (usual && gap >= APP.minInterval && gap <= APP.maxInterval) {
+        const r = gap / usual;
+        add(A.pace, r < 0.5 ? "rushed" : r < 0.8 ? "quick" : r <= 1.25 ? "usual" : "slow", bad);
+      }
+      const before = prev ? gapAt(i - 1) : -1;
+      if (usual && before >= APP.minInterval && before <= APP.maxInterval) {
+        const r = before / usual;
+        if (r < 0.5) add(A.after, "fast", bad);
+        else if (r >= 0.8 && r <= 1.25) add(A.after, "usual", bad);
+      }
+      if (!m) continue;
+      const reason = missReason(ch, m.got, prev, next, place);
+      const swap = add(A.swaps, ch + m.got, 1);
+      swap.why = swap.why || {};
+      swap.why[reason] = (swap.why[reason] || 0) + 1;
+      const slip = Object.keys(SHIFT_SLIPS).find((id) => SHIFT_SLIPS[id].name === reason);
+      if (slip) {
+        const tally = add(A.slips, slip, 1);
+        if (!tally.like) tally.like = [ch, m.got];
+      }
+      A.recent.push({ t, i, got: m.got });
+    }
+    A.series.push({ ts: t.ts, keys, missed });
+    A.keys += keys;
+    A.missed += missed;
+  }
+  A.rate = A.keys ? A.missed / A.keys : 0;
+  A.usualMs = medianOf(A.usual);
+  return A;
+}
+
+// Ranks tallies by error rate, mixed with your overall rate in proportion to how few times
+// each one came up, so a key typed four times can't top the list on one slip.
+function rankRates(map, min, base) {
+  const k = ANALYSIS_MIN.prior;
+  return [...map.entries()]
+    .filter(([, t]) => t.n >= min)
+    .map(([key, t]) => ({ key, n: t.n, x: t.x, rate: t.x / t.n, score: (t.x + k * base) / (t.n + k), ms: t.ms }))
+    .sort((a, b) => b.score - a.score || b.n - a.n);
+}
+
+const keyMin = (ch) => (isLetter(ch) || ch === " " ? ANALYSIS_MIN.key : ANALYSIS_MIN.symbol);
+const missedKeys = (A) => rankRates(A.chars, 0, A.rate).filter((r) => r.x > 0 && r.n >= keyMin(r.key));
+// A key switch counts as tricky when it goes wrong clearly more often than the key it lands
+// on usually does, so a key that's weak after everything doesn't fill the list on its own.
+function trickyPairs(A) {
+  const own = (r) => Math.max(rateOf(A.chars.get(r.key.slice(1))), 0.005);
+  return rankRates(A.pairs, ANALYSIS_MIN.pair, A.rate)
+    .filter((r) => r.x >= 2 && r.score > own(r) * 1.25)
+    .sort((a, b) => b.score / own(b) - a.score / own(a) || b.n - a.n);
+}
+
+function slowSwitches(A) {
+  return [...A.pairs.entries()]
+    .filter(([, t]) => t.ms && t.ms.length >= ANALYSIS_MIN.timed)
+    .map(([key, t]) => ({ key, ms: medianOf(t.ms), n: t.ms.length }))
+    .sort((a, b) => b.ms - a.ms);
+}
+
+// What Practice these leans on. Your most missed keys and the switches that go wrong or
+// slow you down most, with extra capitals when Shift trips you up.
+function drillPlan(A) {
+  let keys = missedKeys(A).filter((r) => r.key !== " " && r.rate > A.rate).slice(0, 4).map((r) => r.key);
+  if (!keys.length) keys = missedKeys(A).filter((r) => r.key !== " ").slice(0, 3).map((r) => r.key);
+  const slow = A.usualMs ? slowSwitches(A).filter((r) => r.ms > A.usualMs * 1.3) : [];
+  const pairs = [...new Set([...trickyPairs(A).slice(0, 3), ...slow.slice(0, 2)].map((r) => r.key))];
+  const up = A.shift.get("with");
+  const shift = Boolean(up) && up.n >= ANALYSIS_MIN.shift && rateOf(up) > rateOf(A.shift.get("without")) * 1.5;
+  return { keys, pairs, shift };
+}
+
+// A small key cap. The space bar says space.
+const keyCap = (ch) => node("span", ch === " " ? "kc sp" : "kc", ch === " " ? "space" : ch);
+
+function pairCaps(pair) {
+  const to = node("span", "kto", "\u2192");
+  to.setAttribute("aria-label", "then");
+  return [keyCap(pair[0]), to, keyCap(pair[1])];
+}
+
+function drillChips(plan) {
+  return [
+    ...plan.keys.map(keyCap),
+    ...plan.pairs.map((pair) => {
+      const box = node("span", "ana-pair");
+      box.append(...pairCaps(pair));
+      return box;
+    }),
+  ];
+}
+
+// One row of a bar list, with its label, a bar from 0 to 1, the figure and a note under it.
+function barRow(label, share, value, note, kind) {
+  const row = node("div", "bar-row");
+  const name = node("span", "bl");
+  name.append(...(Array.isArray(label) ? label : [label]));
+  const track = node("span", "bt");
+  const fill = node("i", kind || null);
+  fill.style.setProperty("--v", clamp(share || 0, 0, 1).toFixed(3));
+  track.append(fill);
+  row.append(name, track, node("span", "bv", value));
+  if (note && note.length) {
+    const under = node("span", "bn");
+    under.append(...(Array.isArray(note) ? note : [note]));
+    row.append(under);
+  }
+  return row;
+}
+
+// A wrong key in words, with both keys as caps, like "t typed as r".
+const typedAs = (want, got) => [keyCap(want), " typed as ", keyCap(got)];
+
+function fillBars(box, rows, empty) {
+  box.replaceChildren(...(rows.length ? rows : [node("p", "ana-none", empty)]));
+}
+
+// Rows of error rates, with bars scaled to the highest one shown.
+function rateRows(list, label, note) {
+  const top = Math.max(0.01, ...list.map((r) => r.rate));
+  return list.map((r) => barRow(label(r), r.rate / top, fmtPct(r.rate), note(r)));
+}
+
+function figure(name, value, small) {
+  const item = node("div");
+  const dd = node("dd", value == null ? "none" : null, value == null ? "Not yet" : value);
+  if (value != null && small) dd.append(node("small", null, small));
+  item.append(node("dt", null, name), dd);
+  return item;
+}
+
+const rateFigure = (name, t, min) => figure(name, t && t.n >= min ? fmtPct(rateOf(t)) : null, t ? `of ${countOf(t.n)}` : "");
+
+function renderAnalysis() {
+  const s = state.settings;
+  const p = profile();
+  const A = analyze(p.history, s);
+  analysisNow = A;
+  const layout = LAYOUTS[s.layout].name;
+  const enough = A.tests >= ANALYSIS_MIN.tests;
+  el.anaEmpty.hidden = enough;
+  el.anaBody.hidden = !enough;
+  if (!enough) {
+    const left = ANALYSIS_MIN.tests - A.tests;
+    const more = `${left} more ${left === 1 ? "test" : "tests"}`;
+    el.anaSub.textContent = `Each keyboard layout keeps its own record, and your ${layout} analysis starts after ${ANALYSIS_MIN.tests} tests.`;
+    if (!p.history.length) {
+      el.anaEmptyText.textContent = `Finish ${more} and this page shows which keys, switches and fingers your mistakes come from, then builds a test to practice them.`;
+    } else if (!A.tests) {
+      el.anaEmptyText.textContent = `Your tests so far were saved before every key was kept, so they can't show here. Finish ${more} and your analysis fills in.`;
+    } else {
+      el.anaEmptyText.textContent = `Finish ${more} and your analysis fills in. Every test you finish counts, mistakes and all.`;
+    }
+    return;
+  }
+  el.anaSub.textContent = `${countOf(A.tests)} tests on ${layout} with every key kept, ${countOf(A.keys)} keys in all.`;
+  renderAnaOverview(A);
+  renderAnaDrill(A);
+  renderAnaKeys(A);
+  renderAnaSwaps(A);
+  renderAnaPairs(A);
+  renderAnaShift(A);
+  renderAnaSymbols(A);
+  renderAnaFingers(A);
+  renderAnaSlow(A);
+  renderAnaRush(A);
+  renderAnaWord(A);
+  renderAnaRecent(A);
+}
+
+// Your totals, and your error rate day by day, or test by test until there are three days.
+function renderAnaOverview(A) {
+  const items = [
+    ["tests", "Tests analyzed", countOf(A.tests)],
+    ["time", "Keys analyzed", countOf(A.keys)],
+    ["miss", "Keys missed", countOf(A.missed)],
+    ["acc", "Error rate", fmtPct(A.rate)],
+  ];
+  el.anaStats.replaceChildren(...items.map(([kind, name, value]) => {
+    const item = node("div", kind);
+    item.append(node("dt", null, name), node("dd", null, value));
+    return item;
+  }));
+  const days = new Map();
+  for (const t of A.series) {
+    const day = dayKey(new Date(t.ts));
+    const d = days.get(day) || { keys: 0, missed: 0 };
+    d.keys += t.keys;
+    d.missed += t.missed;
+    days.set(day, d);
+  }
+  const byDay = days.size >= 3;
+  const missRate = (d) => (d.keys ? d.missed / d.keys : 0);
+  const points = byDay
+    ? [...days.entries()].slice(-14).map(([day, d]) => ({
+        label: String(Number(day.slice(8))),
+        rate: missRate(d),
+        title: `${fmtDay(day)}, ${fmtPct(missRate(d))} of ${countOf(d.keys)} keys missed`,
+      }))
+    : A.series.slice(-20).map((t) => ({
+        label: "",
+        rate: missRate(t),
+        title: `${fmtDate(t.ts)}, ${fmtPct(missRate(t))} of ${countOf(t.keys)} keys missed`,
+      }));
+  const top = Math.max(0.02, ...points.map((pt) => pt.rate));
+  el.anaTrend.replaceChildren(...points.map((pt) => {
+    const col = node("span", "tcol");
+    const bar = node("span", "tbar");
+    bar.style.setProperty("--v", (pt.rate / top).toFixed(3));
+    col.title = pt.title;
+    col.append(bar, node("span", "tlab", pt.label));
+    return col;
+  }));
+  const recent = A.series.slice(-20);
+  let trend = "";
+  if (recent.length >= 6) {
+    const half = Math.floor(recent.length / 2);
+    const rate = (list) => missRate(list.reduce((sum, t) => ({ keys: sum.keys + t.keys, missed: sum.missed + t.missed }), { keys: 0, missed: 0 }));
+    const was = rate(recent.slice(0, half));
+    const now = rate(recent.slice(half));
+    const span = `your last ${countOf(recent.length)} tests`;
+    if (now < was * 0.9) trend = ` Your error rate fell from ${fmtPct(was)} to ${fmtPct(now)} over ${span}.`;
+    else if (now > was * 1.1) trend = ` Your error rate rose from ${fmtPct(was)} to ${fmtPct(now)} over ${span}. Easing off the speed a little often brings it back down.`;
+    else trend = ` Your error rate held steady around ${fmtPct(now)} over ${span}.`;
+  }
+  el.anaTrendNote.textContent = `${byDay ? "Each bar is a day" : "Each bar is a test"}, oldest on the left.${trend}`;
+}
+
+function renderAnaDrill(A) {
+  const chips = drillChips(drillPlan(A));
+  el.anaDrillKeys.replaceChildren(...(chips.length ? chips : [node("p", "ana-none", "Nothing stands out yet, so keep typing and check back.")]));
+  el.anaDrill.hidden = !chips.length;
+}
+
+function renderAnaKeys(A) {
+  const list = missedKeys(A).slice(0, 10);
+  fillBars(el.anaKeys, rateRows(list, (r) => keyCap(r.key), missedText), "No key has been missed often enough to rank yet.");
+}
+
+function renderAnaSwaps(A) {
+  const list = [...A.swaps.entries()].filter(([, t]) => t.n >= 2).sort((a, b) => b[1].n - a[1].n).slice(0, 12);
+  const top = Math.max(1, ...list.map(([, t]) => t.n));
+  const rows = list.map(([key, t]) => {
+    const why = Object.entries(t.why).sort((a, b) => b[1] - a[1])[0][0];
+    const missed = (A.chars.get(key[0]) || { x: t.n }).x;
+    return barRow(pairCaps(key), t.n / top, timesText(t.n), `${why}, ${fmtPct(t.n / missed)} of your misses on this key`, "slip");
+  });
+  fillBars(el.anaSwaps, rows, "No wrong key has come up twice yet.");
+}
+
+function renderAnaPairs(A) {
+  const list = trickyPairs(A).slice(0, 10);
+  const rows = rateRows(list, (r) => pairCaps(r.key), (r) => [switchKind(r.key[0], r.key[1], A.place), missedText(r)].filter(Boolean).join(", "));
+  fillBars(el.anaPairs, rows, "No key switch goes wrong more than your other keys yet.");
+}
+
+function renderAnaShift(A) {
+  const sh = A.shift;
+  const min = ANALYSIS_MIN.shift;
+  el.anaShift.replaceChildren(
+    rateFigure("Keys with Shift", sh.get("with"), min),
+    rateFigure("Keys without Shift", sh.get("without"), min),
+    rateFigure("Capitals", sh.get("capital"), min),
+    rateFigure("Shifted symbols", sh.get("symbol"), min),
+    rateFigure("Right after Shift", sh.get("after"), min),
+  );
+  const ids = Object.keys(SHIFT_SLIPS).filter((id) => A.slips.has(id));
+  const top = Math.max(1, ...ids.map((id) => A.slips.get(id).n));
+  const rows = ids.map((id) => {
+    const t = A.slips.get(id);
+    return barRow(SHIFT_SLIPS[id].name, t.n / top, timesText(t.n), [`${SHIFT_SLIPS[id].note}, like `, ...typedAs(t.like[0], t.like[1])], "slip");
+  });
+  fillBars(el.anaShiftSlips, rows, "No Shift slips yet.");
+  const up = sh.get("with");
+  const down = sh.get("without");
+  let note = "";
+  if (up && down && up.n >= min && down.n >= min && rateOf(down) > 0) {
+    const times = rateOf(up) / rateOf(down);
+    if (times >= 1.25) note = `Keys with Shift go wrong ${times.toFixed(1)} times as often as keys without it.`;
+    else if (times <= 0.8) note = "Keys with Shift go wrong less often than keys without it.";
+    else note = "Keys with Shift go wrong about as often as keys without it.";
+  } else if (!up || up.n < min) {
+    note = "Turn on Capital letters, or Punctuation and symbols, in Settings to see how Shift goes for you.";
+  }
+  el.anaShiftNote.textContent = note;
+  el.anaShiftNote.hidden = !note;
+}
+
+function renderAnaSymbols(A) {
+  const all = [...A.chars.entries()]
+    .filter(([ch]) => !isLetter(ch) && ch !== " ")
+    .map(([key, t]) => ({ key, n: t.n, x: t.x, rate: t.x / t.n }))
+    .sort((a, b) => b.rate - a.rate || b.n - a.n);
+  const shown = all.filter((r) => r.n >= ANALYSIS_MIN.symbol);
+  const few = all.filter((r) => r.n < ANALYSIS_MIN.symbol);
+  const top = Math.max(0.01, ...shown.map((r) => r.rate));
+  // One tile per symbol, so a long list of them still fits on a screen.
+  const tiles = shown.map((r) => {
+    const tile = node("div", "tile");
+    const track = node("span", "bt");
+    const fill = node("i");
+    fill.style.setProperty("--v", (r.rate / top).toFixed(3));
+    track.append(fill);
+    tile.append(keyCap(r.key), node("b", null, fmtPct(r.rate)), track, node("small", null, `${countOf(r.x)} of ${countOf(r.n)}`));
+    return tile;
+  });
+  if (few.length) {
+    const rest = node("p", "ana-none");
+    rest.append(`Typed fewer than ${ANALYSIS_MIN.symbol} times so far `, ...few.map((r) => keyCap(r.key)));
+    tiles.push(rest);
+  }
+  fillBars(el.anaSymbols, tiles, "You haven't typed any marks, numbers or symbols yet. Turn on Punctuation and symbols in Settings and pick the ones to practice.");
+}
+
+function renderAnaFingers(A) {
+  const min = ANALYSIS_MIN.group;
+  el.anaHands.replaceChildren(
+    rateFigure("Left hand", A.hands.get(0), min),
+    rateFigure("Right hand", A.hands.get(1), min),
+    rateFigure("Thumbs", A.hands.get(2), min),
+  );
+  const list = FINGER_NAMES.map((name, f) => ({ f, name, ...(A.fingers.get(f) || { n: 0, x: 0 }) }))
+    .filter((r) => r.n >= min)
+    .map((r) => ({ ...r, rate: r.x / r.n }));
+  const worst = list.length ? list.reduce((a, b) => (b.rate > a.rate ? b : a)) : null;
+  const rows = rateRows(list, (r) => {
+    const sw = node("span", "fsw");
+    sw.dataset.f = r.f;
+    return [sw, r.name];
+  }, (r) => `${missedText(r)}${r === worst && r.x > 0 ? ", your most missed finger" : ""}`);
+  fillBars(el.anaFingers, rows, "Not enough keys yet for each finger.");
+}
+
+// Only switches clearly slower than your usual gap count as slow.
+function renderAnaSlow(A) {
+  const usual = A.usualMs;
+  const timed = slowSwitches(A);
+  const list = timed.filter((r) => usual && r.ms >= usual * 1.15).slice(0, 10);
+  const top = Math.max(1, ...list.map((r) => r.ms));
+  const rows = list.map((r) => {
+    const kind = switchKind(r.key[0], r.key[1], A.place);
+    const pace = `${(r.ms / usual).toFixed(1)} times your usual gap`;
+    return barRow(pairCaps(r.key), r.ms / top, `${countOf(Math.round(r.ms))} ms`, [kind, pace].filter(Boolean).join(", "), "slow");
+  });
+  fillBars(el.anaSlow, rows, timed.length ? "None of your switches stands out as slow. Your rhythm is even." : "Not enough timed switches yet.");
+}
+
+function renderAnaRush(A) {
+  const min = ANALYSIS_MIN.group;
+  const kinds = [
+    ["rushed", "Much faster", "Under half your usual gap"],
+    ["quick", "A little faster", "Half to four fifths of it"],
+    ["usual", "Usual pace", "Close to your usual gap"],
+    ["slow", "Slower", "A quarter longer or more"],
+  ];
+  const list = kinds
+    .map(([id, name, note]) => ({ id, name, note, ...(A.pace.get(id) || { n: 0, x: 0 }) }))
+    .filter((r) => r.n >= min)
+    .map((r) => ({ ...r, rate: r.x / r.n }));
+  fillBars(el.anaRush, rateRows(list, (r) => r.name, (r) => `${r.note}, ${missedText(r)}`), "Not enough timed keys yet.");
+  const parts = [];
+  if (A.usualMs) parts.push(`Your usual gap between keys is about ${countOf(Math.round(A.usualMs))} ms.`);
+  const fast = A.after.get("fast");
+  const calm = A.after.get("usual");
+  if (fast && calm && fast.n >= min && calm.n >= min) {
+    parts.push(`Right after a key that came much faster, ${fmtPct(rateOf(fast))} of keys go wrong, against ${fmtPct(rateOf(calm))} after one at your usual pace.`);
+  }
+  const rushed = list.find((r) => r.id === "rushed");
+  const usual = list.find((r) => r.id === "usual");
+  if (rushed && usual) {
+    if (rushed.rate > usual.rate * 1.5 && rushed.x >= 3) parts.push("You miss far more when you rush, so a steady rhythm should help more than raw speed.");
+    else if (rushed.rate <= usual.rate * 1.1) parts.push("Speed isn't what trips you up, so you can push the pace.");
+  }
+  el.anaRushNote.textContent = parts.join(" ");
+  el.anaRushNote.hidden = !parts.length;
+}
+
+function renderAnaWord(A) {
+  const kinds = [
+    ["first", "First letter", "Right after a space"],
+    ["inside", "Inside a word", ""],
+    ["last", "Last letter", "Just before the space"],
+    ["space", "Space", "Between words"],
+  ];
+  const list = kinds
+    .map(([id, name, note]) => ({ id, name, note, ...(A.word.get(id) || { n: 0, x: 0 }) }))
+    .filter((r) => r.n >= ANALYSIS_MIN.group)
+    .map((r) => ({ ...r, rate: r.x / r.n }));
+  fillBars(el.anaWord, rateRows(list, (r) => r.name, (r) => [r.note, missedText(r)].filter(Boolean).join(", ")), "Not enough keys yet.");
+}
+
+// Each slip shows in its word, with the key that went wrong marked. A missed space shows
+// the words on both sides of it.
+function renderAnaRecent(A) {
+  const gap = (c) => c === " " || c === "\n";
+  const chips = A.recent.slice(-20).reverse().map(({ t, i, got }) => {
+    const tx = t.tx;
+    let a = i;
+    let b = i + 1;
+    while (a > 0 && !gap(tx[a - 1]) && i - a < 14) a -= 1;
+    while (b < tx.length && !gap(tx[b]) && b - i < 15) b += 1;
+    const chip = node("span", "slip");
+    const word = node("span", "slip-word");
+    word.append(tx.slice(a, i), node("mark", null, tx[i] === " " ? "\u00b7" : tx[i]), tx.slice(i + 1, b));
+    const typed = node("span", "slip-got", "typed ");
+    typed.append(keyCap(got));
+    chip.append(word, typed);
+    chip.title = fmtDate(t.ts);
+    return chip;
+  });
+  el.anaRecent.replaceChildren(...(chips.length ? chips : [node("p", "ana-none", "No mistakes in your detailed tests. Well done.")]));
+}
+
+// Practice these starts a test built from the analysis on screen, back on the Practice tab.
+function startDrill() {
+  if (!ready) return;
+  const A = analysisNow || analyze(profile().history, state.settings);
+  const plan = drillPlan(A);
+  if (!plan.keys.length && !plan.pairs.length) return;
+  if (zhOn()) setSetting("language", "en");
+  showView("practice");
+  startLesson(drillText(plan, state.settings), 1, plan);
+  renderFocus();
+  checkGoals();
+}
+
 /* 11. Settings ------------------------------------------------------------- */
 
 // What each setting needs to refresh when it changes.
 const EFFECTS = {
   mode: ["lesson", "keyboard", "practice"],
   lessonWords: ["lesson"],
+  stepStart: ["lesson"],
+  stepTop: ["lesson"],
   wordPool: ["lesson", "practice"],
   suddenDeath: ["restart"],
   targetWpm: ["keyboard", "practice"],
@@ -6186,6 +8122,8 @@ const EFFECTS = {
   averageOver: ["practice"],
   showHands: ["hands"],
   zoom: ["zoom"],
+  language: ["lesson", "keyboard", "practice", "live"],
+  pinyin: ["theme"],
 };
 
 function applyTheme() {
@@ -6196,6 +8134,7 @@ function applyTheme() {
   root.dataset.font = s.textFont;
   el.board.classList.toggle("dots", s.spaceDots);
   el.board.classList.toggle("full", s.textView === "full");
+  el.board.classList.toggle("nopy", !s.pinyin);
 }
 
 function buildLayoutOptions() {
@@ -6217,9 +8156,15 @@ function setSetting(key, value) {
       const p = profile();
       if (p.unlocked < value) p.unlocked = value;
     }
+    // Step up can't start above its top, so a start set past the top takes the top with it.
+    if (key === "stepStart" && s.stepTop < value) s.stepTop = value;
+    if (key === "language") {
+      plainKeys = 0;
+      inputNote = "";
+    }
     if (fx.includes("build")) buildKeyboard();
     if (fx.includes("lesson")) newLesson();
-    if (fx.includes("restart") && lesson) startLesson(lesson.text, 1);
+    if (fx.includes("restart") && lesson) startLesson(lesson.text, 1, lesson.drill, lesson.zh);
     if (fx.includes("keyboard")) refreshKeyboard();
     if (fx.includes("practice")) renderPractice();
     if (fx.includes("live")) updateLive();
@@ -6320,13 +8265,20 @@ function bindSettings() {
 }
 
 function buildMarks() {
-  const chips = MARKS.map((m) => {
+  const chips = [];
+  let group = "";
+  for (const m of MARKS) {
+    const g = m.group || "punctuation";
+    if (g !== group) {
+      group = g;
+      chips.push(node("span", "marks-group", g === "symbols" ? "Symbols" : "Punctuation"));
+    }
     const btn = node("button", "mark");
     btn.type = "button";
     btn.dataset.mark = m.id;
     btn.append(node("span", "mk", m.label), m.name);
-    return btn;
-  });
+    chips.push(btn);
+  }
   el.marks.replaceChildren(...chips);
 }
 
@@ -6392,22 +8344,20 @@ async function onBackupClick() {
 
 async function restoreBackup(data) {
   if (!data || data.app !== "keyprint" || !data.state || typeof data.state !== "object") throw new Error("backup");
-  hydrate(data.state);
+  const here = new Set(state.docs.map((d) => d.id));
+  restoreFrom(data.state);
   legacyText = "";
-  docCache.clear();
   const texts = data.texts && typeof data.texts === "object" ? data.texts : {};
   for (const doc of state.docs) {
     if (typeof texts[doc.id] !== "string") continue;
     docCache.set(doc.id, { text: texts[doc.id], passages: splitPassages(texts[doc.id]) });
     await Store.saveDoc(doc.id, texts[doc.id]);
   }
-  state.docs = state.docs.filter((d) => docCache.has(d.id));
+  // Texts from the backup come with their words. Ones that came without them are dropped.
+  state.docs = state.docs.filter((d) => here.has(d.id) || docCache.has(d.id));
   if (state.docId && !(await openDoc(state.docId))) state.docId = "";
   await Store.save(state);
   if (Cloud.on) {
-    // The backup file replaces the cloud copy instead of merging with it.
-    state.savedAt = Date.now();
-    Cloud.seen = state.savedAt;
     try {
       await uploadDocs();
     } catch (err) {
@@ -6447,6 +8397,7 @@ function afterMerge() {
   renderPractice();
   syncSettingsUI();
   if (view === "progress") renderProgress();
+  if (view === "analysis") renderAnalysis();
   if (view === "settings") renderLibrary();
 }
 
@@ -6526,7 +8477,8 @@ async function onCloudConnect() {
       newLesson();
     }
     await uploadDocs();
-    await Store.write(APP.cloudConfig, JSON.stringify({ url, key }));
+    if (!Cloud.device) Cloud.device = newDeviceId();
+    await saveCloudConfig();
     Cloud.error = "";
     cloudDirty = true;
     const ok = await pushCloud();
@@ -6587,10 +8539,7 @@ async function onCloudRestore() {
   try {
     const raw = await Cloud.call("GET", `backup-${day}`);
     if (!raw) throw new Error("reach");
-    hydrate(JSON.parse(raw));
-    state.savedAt = Date.now();
-    Cloud.seen = state.savedAt; // the restored copy replaces the cloud copy instead of merging with it
-    docCache.clear();
+    restoreFrom(JSON.parse(raw));
     if (state.docId && !(await openDoc(state.docId))) state.docId = "";
     Store.save(state);
     cloudDirty = true;
@@ -6625,6 +8574,7 @@ function onResetClick() {
   renderPractice();
   syncSettingsUI();
   newLesson();
+  unfinished = null; // keys from before the reset stay out of the fresh record
   scheduleSave(0);
   showToast("Progress reset");
 }
@@ -6643,6 +8593,7 @@ function showView(name) {
   applyZoom();
   hideTip();
   if (name === "progress") renderProgress();
+  if (name === "analysis") renderAnalysis();
   if (name === "settings") {
     syncSettingsUI(true);
     renderLibrary();
@@ -6676,12 +8627,113 @@ function updateCaps(e) {
   if (e && typeof e.getModifierState === "function") el.capsWarn.hidden = !e.getModifierState("CapsLock");
 }
 
+/* Input methods ------------------------------------------------------------ */
+
+// While an input method builds a word, imeText holds what it shows so far, like "nihao".
+let composing = false;
+let imeText = "";
+let plainKeys = 0;  // letters typed straight into a Chinese test, with no input method taking them
+let inputNote = ""; // a note about the input method, shown under the keyboard in place of the usual one
+
+const coarse = () => Boolean(window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
+const HAN = /[\u3400-\u9fff\uf900-\ufaff]/;
+const KANA = /[\u3040-\u30ff\uac00-\ud7af]/; // Japanese kana and Korean hangul
+const LETTERS_NOTE = "Your input method is typing letters. Switch it to Chinese to type these.";
+const ZH_NOTE = "Your input method is typing Chinese. Pick \u4e2d\u6587 under the text for Chinese tests.";
+
+// A key the input method takes for itself. Phones send every key through their keyboard's
+// input method, even in English, so English tests there keep reading the hidden input.
+function imeKey(e) {
+  if (!zhOn() && coarse()) return false;
+  if (e.key === "Process" || e.isComposing || composing) return true;
+  return e.keyCode === 229 && e.key !== "Backspace";
+}
+
+// Keys going into the input method are typing too. They count toward practice time, and
+// the first one starts the test's clock.
+function imeActivity() {
+  const L = lesson;
+  plainKeys = 0;
+  setInputNote("");
+  if (!ready || !L || L.done || !L.zh || performance.now() < coolUntil) return;
+  if (cheerOn) endCheer(true);
+  const now = performance.now();
+  wakeCue();
+  countTime(L, now);
+  if (!L.start) {
+    L.start = now;
+    L.last = now;
+    L.lastOk = now;
+    updateHands();
+  }
+  markTyping();
+}
+
+function setInputNote(text) {
+  if (inputNote === text) return;
+  inputNote = text;
+  renderKeyNote();
+}
+
+// Tests follow the input method you type with. Chinese from it starts Chinese tests, and
+// letters typed straight into a Chinese test go back to English. With Follow your input
+// method off, nothing switches.
+function followInput(lang) {
+  const s = state.settings;
+  if (!ready || !s.followInput || s.language === lang) return false;
+  setSetting("language", lang);
+  showToast(lang === "zh" ? "Switched to Chinese for your input method" : "Switched to English for your keyboard");
+  return true;
+}
+
+// An input method set to half width marks types "," and "." for the Chinese ones.
+function zhMark(ch) {
+  const want = lesson && lesson.zh ? lesson.text[lesson.pos] : "";
+  return ZH_KEYS[want] === ch ? want : ch;
+}
+
+// A key typed straight into a Chinese test, with no input method taking it. A mark key types
+// its Chinese mark, and letters mean the input method is off or typing English.
+function zhKey(ch) {
+  if (/[A-Za-z]/.test(ch)) {
+    plainKeys += 1;
+    if (plainKeys >= 2 && followInput("en")) return;
+    setInputNote(LETTERS_NOTE);
+    return;
+  }
+  if (!ch.trim() || /[0-9]/.test(ch)) return;
+  typeChar(zhMark(ch));
+}
+
+// What an input method sends to a Chinese test. Characters and marks are typed, and letters
+// alone mean it's typing English.
+function zhInput(text) {
+  let letters = 0;
+  let typed = false;
+  for (const ch of text) {
+    if (/[A-Za-z]/.test(ch)) letters += 1;
+    else if (ch.trim() && !/[0-9]/.test(ch)) {
+      typeChar(zhMark(ch));
+      typed = true;
+    }
+  }
+  if (typed || !letters) return;
+  plainKeys += letters;
+  if (plainKeys >= 2 && followInput("en")) return;
+  setInputNote(LETTERS_NOTE);
+}
+
 function onKeyDown(e) {
   if (view !== "practice") return;
   const t = e.target;
   if (t !== el.sink && t instanceof Element && t.closest("input, textarea, select, [contenteditable='true']")) return;
   updateCaps(e);
   if (e.ctrlKey || e.metaKey || e.altKey) return;
+  // A key the input method takes is left to it. What it types comes through the hidden input.
+  if (imeKey(e)) {
+    if (zhOn()) imeActivity();
+    return;
+  }
   if (e.key === "Escape" && state.settings.zoom === "text") {
     // In Text only, Esc brings back the rest of the page instead of starting over.
     e.preventDefault();
@@ -6716,15 +8768,28 @@ function onKeyDown(e) {
   e.preventDefault();
   if (e.repeat) return;
   if (document.activeElement !== el.sink) focusSink();
-  typeChar(ch);
+  if (zhOn()) zhKey(ch);
+  else typeChar(ch);
 }
 
-// Phones send text through the hidden input instead of key events.
+// Phones send text through the hidden input instead of key events, and so do input methods.
+// While an input method is still building a word, its text waits in the input, except in
+// English on a phone, where each letter goes in at once.
 function onSinkInput() {
+  if (composing && (zhOn() || !coarse())) return;
   const v = el.sink.value;
+  if (!v) return;
   el.sink.value = "";
   if (view !== "practice" || !ready) return;
   if (cheerOn && performance.now() >= coolUntil) endCheer(true);
+  if (zhOn()) {
+    zhInput(v);
+    return;
+  }
+  if (HAN.test(v) && !KANA.test(v)) {
+    if (!followInput("zh")) setInputNote(ZH_NOTE);
+    return;
+  }
   for (const ch of v) typeChar(ch);
 }
 
@@ -6738,6 +8803,11 @@ function bindEvents() {
   document.addEventListener("keydown", onKeyDown);
   el.zoomIn.addEventListener("click", () => stepZoom(1));
   el.zoomOut.addEventListener("click", () => stepZoom(-1));
+  // On a touch screen the Text only hint is a button that stays on screen, since there's no Esc.
+  el.zenHint.addEventListener("click", () => {
+    leaveTextOnly();
+    focusSink();
+  });
   // In Text only, moving the mouse brings the Esc hint back for a moment.
   document.addEventListener("mousemove", (e) => {
     if (zoomShown !== "text" || el.zenHint.classList.contains("show")) return;
@@ -6748,8 +8818,32 @@ function bindEvents() {
   el.sink.addEventListener("input", onSinkInput);
   el.sink.addEventListener("beforeinput", (e) => {
     if (e.inputType !== "deleteContentBackward") return;
+    // While an input method builds a word, Backspace takes back its letters instead.
+    if ((composing || e.isComposing) && (zhOn() || !coarse())) return;
     e.preventDefault();
     backspace();
+  });
+  el.sink.addEventListener("compositionstart", () => {
+    composing = true;
+    imeText = "";
+    if (zhOn()) imeActivity();
+  });
+  el.sink.addEventListener("compositionupdate", (e) => {
+    imeText = e.data || "";
+    if (!zhOn()) return;
+    imeActivity();
+    paintPinyin();
+    markNextKey();
+  });
+  el.sink.addEventListener("compositionend", () => {
+    composing = false;
+    imeText = "";
+    // Some browsers send the finished word just before this event and some just after, so
+    // it's read from the input once both have had their turn.
+    setTimeout(onSinkInput, 0);
+    if (!zhOn()) return;
+    paintPinyin();
+    markNextKey();
   });
 
   // Time away from the page does not count against your speed.
@@ -6776,6 +8870,17 @@ function bindEvents() {
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "hidden") flushSaves();
   });
+  // Another tab of this browser saved. Its progress is folded into this tab, so this tab's
+  // next save can't write over it.
+  window.addEventListener("storage", (e) => {
+    if (!ready || e.key !== APP.storageKey || !e.newValue) return;
+    try {
+      hydrate(mergeSaves(snapshot(), JSON.parse(e.newValue), true));
+      afterMerge();
+    } catch (err) {
+      // a copy that doesn't read is left alone, and this tab's next save writes a whole one
+    }
+  });
   el.cloudConnect.addEventListener("click", onCloudConnect);
   el.cloudKey.addEventListener("keydown", (e) => {
     if (e.key === "Enter") onCloudConnect();
@@ -6787,6 +8892,7 @@ function bindEvents() {
     if (view === "settings") renderCloudStatus();
   }, 30000);
   el.unlockNext.addEventListener("click", unlockNextKey);
+  el.anaDrill.addEventListener("click", startDrill);
   el.calPrev.addEventListener("click", () => {
     calOffset = Math.min(calOffset + 1, 60);
     renderCalendar();
@@ -6839,15 +8945,18 @@ async function init() {
   const local = await Store.load();
   await loadCloudConfig();
   let start = local;
+  let listed = true; // whether the cloud copy lists this browser, so others can find its left copies
   if (Cloud.on) {
     // Fold in the cloud copy, so a cleared browser or another computer loses nothing.
     try {
-      const remote = await Cloud.call("GET", APP.storageKey);
-      const theirs = remote ? JSON.parse(remote) : null;
+      const { theirs, left } = await readCloud(local);
+      listed = deviceIds(theirs).includes(Cloud.device);
       if (theirs) {
         start = mergeSaves(local, theirs, false);
         Cloud.seen = theirs.savedAt || 0;
       }
+      // Browsers that were hidden or closed may have left copies newer than the main one.
+      start = foldLeft(start, left, false);
     } catch (err) {
       Cloud.error = cloudProblem(err);
     }
@@ -6857,6 +8966,9 @@ async function init() {
   applyZoom();
   ready = true;
   if (start !== local) saveLocal(); // keeps this browser and the cloud copy in step
+  // Other browsers only read the left copies of browsers the cloud copy lists, so a browser
+  // that isn't listed yet saves to the cloud straight away instead of waiting for a change.
+  if (!listed) pushCloud();
   el.cloudUrl.value = Cloud.url.replace(/^https:\/\//, "");
   el.cloudKey.value = Cloud.key;
   renderCloudStatus();
