@@ -1,0 +1,12 @@
+# Cloudflare publishes the repo folder as the website, so everything that isn't the site
+# stays off it. That matters most for .git, which on Cloudflare's build machines can hold
+# a GitHub access token. Only index.html is the site.
+.*
+*.md
+*.js
+*.mjs
+*.cjs
+*.json
+*.jsonc
+*.toml
+node_modules

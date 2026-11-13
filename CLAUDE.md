@@ -6,7 +6,14 @@ Keyprint is a browser typing trainer that lives in one file, `index.html`, with 
 
 - `index.html` is the entire app, about 6,900 lines of HTML, CSS and JS. Keep it one self-contained file. The owner also runs it as an artifact in the Claude chat app (that is where `window.storage` comes from), so don't split it into modules or add local files, packages or a build step.
 - `README.md` is a one-line stub.
+- `wrangler.jsonc` and `.assetsignore` deploy the site to Cloudflare (see Deploying).
 - `save-worker.js` is the Cloudflare Worker behind Cloud save (an ES module, `export default { fetch }`). It stores everything in a Workers KV namespace bound as `DATA` and only answers requests with `Authorization: Bearer <SAVE_KEY>`. The owner deploys it by hand in the Cloudflare dashboard, so editing this file changes nothing live. Say so whenever a change needs a redeploy, and keep the app working with the Worker that is already deployed.
+
+## Deploying
+
+The site is a Cloudflare Worker that serves `index.html` as a static asset. `wrangler.jsonc` names that Worker (`typing`, which must match the dashboard exactly), keeps its workers.dev address and declares the `type.stevenwu.org` custom domain. Once the owner connects the Worker to this repo under Settings, Build, every push to the production branch (`main`) runs `npx wrangler deploy`, and other branches can get preview versions.
+
+The assets directory is the repo root, so `.assetsignore` must keep everything except `index.html` off the site, above all `.git`, which can hold a GitHub token on the build machine. When you add a file to the repo, check whether it would be published (`git -c core.excludesFile=.assetsignore check-ignore --no-index -v <path>` shows the matching rule) and extend `.assetsignore` if it shouldn't be. `save-worker.js` is deployed separately by hand and isn't part of this.
 
 ## Running and checking changes
 
