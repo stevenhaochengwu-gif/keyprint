@@ -507,6 +507,39 @@ h2, h3, p { margin: 0; }
 .zoom button:disabled { background: none; color: var(--ink-3); opacity: 0.45; cursor: default; }
 .zoom svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; }
 
+/* Chinese ------------------------------------------------------------------ */
+
+/* Chinese tests leave room above each character for its pinyin, and a little space between
+   words, since Chinese text has none. */
+.board.zh .text-window { line-height: 2.4; height: calc(2.4em * 3); }
+.board.zh.full .text-window { height: auto; min-height: 2.4em; }
+.board.zh .w { margin-right: 0.45em; }
+.board.zh .c { padding: 0 0.08em; }
+
+.py {
+  position: absolute;
+  top: 0.22em;
+  left: 50%;
+  transform: translateX(-50%);
+  color: var(--ink-2);
+  font-size: 0.36em;
+  line-height: 1;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.c.ok .py { opacity: 0.55; }
+.py b { color: var(--cue); font-weight: inherit; }
+.py.off { color: var(--miss); }
+
+/* With Show pinyin off, only the letters the input method has taken show. */
+.board.nopy .py { color: transparent; }
+.board.nopy .py b { color: var(--cue); }
+.board.nopy .py.off { color: var(--miss); }
+
+.lang button { padding: 2px 7px; font-size: 12.5px; }
+#view-progress.zh .en-only { display: none; }
+
 /* Zoom changes size in one step, and a quick scale shows which way it went. */
 .board.zoom-in .text-window { animation: zoom-in 0.32s cubic-bezier(0.2, 0.8, 0.25, 1); }
 .board.zoom-out .text-window { animation: zoom-out 0.32s cubic-bezier(0.2, 0.8, 0.25, 1); }
@@ -1603,6 +1636,10 @@ label.row { cursor: pointer; }
         <div class="board-foot" id="boardFoot">
           <div class="track" aria-hidden="true"><span id="lessonBar"></span></div>
           <span class="count" id="wordCount"></span>
+          <div class="seg lang" data-setting="language" role="group" aria-label="Language">
+            <button type="button" data-value="en">EN</button>
+            <button type="button" data-value="zh" lang="zh-Hans">中文</button>
+          </div>
           <div class="zoom" role="group" aria-label="Zoom">
             <button type="button" id="zoomOut" aria-label="Zoom out"><svg viewBox="0 0 18 18" aria-hidden="true"><circle cx="7.75" cy="7.75" r="5.25"/><path d="M11.6 11.6 15.6 15.6M5.25 7.75h5"/></svg></button>
             <button type="button" id="zoomIn" aria-label="Zoom in"><svg viewBox="0 0 18 18" aria-hidden="true"><circle cx="7.75" cy="7.75" r="5.25"/><path d="M11.6 11.6 15.6 15.6M5.25 7.75h5M7.75 5.25v5"/></svg></button>
@@ -1682,7 +1719,7 @@ label.row { cursor: pointer; }
           <div class="streak-list" id="streakList"></div>
         </div>
 
-        <div class="card">
+        <div class="card en-only">
           <h3 class="card-title">Where you stand</h3>
           <p class="card-lede">Your all time averages against typists everywhere, estimated from the charts keybr.com shows of all its users. Your own tests never change these typists.</p>
           <div class="rel">
@@ -1719,7 +1756,7 @@ label.row { cursor: pointer; }
           </div>
         </div>
 
-        <div class="card">
+        <div class="card en-only">
           <h3 class="card-title">Letters over time</h3>
           <p class="card-lede">Each row is one letter and each column one test, lined up with the chart above. Red is slow and green is fast for you, so rows turn greener as you improve.</p>
           <canvas id="overview" role="img" aria-label="Chart of each letter's speed in every test"></canvas>
@@ -1727,7 +1764,7 @@ label.row { cursor: pointer; }
           <p class="card-note" id="overviewNote" hidden></p>
         </div>
 
-        <div class="card">
+        <div class="card en-only">
           <h3 class="card-title">One letter</h3>
           <p class="card-lede">How your speed on one letter changes from test to test. Pick a letter here, or click one in any letter chart on this page.</p>
           <div class="picker" id="keyPicker" role="group" aria-label="Letter to show"></div>
@@ -1741,21 +1778,21 @@ label.row { cursor: pointer; }
           </div>
         </div>
 
-        <div class="card">
+        <div class="card en-only">
           <h3 class="card-title">Letter speeds</h3>
           <p class="card-lede">Your speed on each letter right now. Green ones are your fastest, and red ones need the most work.</p>
           <canvas id="keyBars" role="img" aria-label="Chart of your speed on each letter"></canvas>
           <div class="legend"><span>Slow</span><span class="ramp"></span><span>Fast for you</span><span><i class="sw line target"></i>Target speed</span></div>
         </div>
 
-        <div class="card">
+        <div class="card en-only">
           <h3 class="card-title">Letter frequency</h3>
           <p class="card-lede">How many times you typed each letter, how many of those had a mistake, and how often each letter goes wrong.</p>
           <canvas id="freqChart" role="img" aria-label="Chart of how often you type and miss each letter"></canvas>
           <div class="legend"><span><i class="sw hit"></i>Typed</span><span><i class="sw miss"></i>Mistakes</span><span><i class="sw ratio"></i>Mistakes for each time typed</span></div>
         </div>
 
-        <div class="card">
+        <div class="card en-only">
           <h3 class="card-title">Keyboard heatmap</h3>
           <p class="card-lede">The same counts on your keyboard. The blue half of each circle grows with how often you type the key, and the red half with how often you miss it.</p>
           <canvas id="heatmap" role="img" aria-label="Keyboard heatmap of the letters you type and miss"></canvas>
@@ -1863,6 +1900,36 @@ label.row { cursor: pointer; }
       <div class="view-head">
         <h2 id="setTitle">Settings</h2>
         <p>Changes save automatically.</p>
+      </div>
+
+      <div class="group">
+        <h3>Language</h3>
+        <div class="row">
+          <div class="row-text">
+            <span class="row-label">Language</span>
+            <span class="row-hint">Chinese tests are everyday words in Simplified Chinese, typed with a pinyin input method like the one on your computer or phone. Their speeds are in characters per minute.</span>
+          </div>
+          <div class="seg" data-setting="language" role="group" aria-label="Language">
+            <button type="button" data-value="en">English</button>
+            <button type="button" data-value="zh">Chinese</button>
+          </div>
+        </div>
+
+        <label class="row" for="set-follow">
+          <span class="row-text">
+            <span class="row-label">Follow your input method</span>
+            <span class="row-hint">Switches to Chinese when your input method types Chinese, and back to English when it types letters.</span>
+          </span>
+          <input class="switch" id="set-follow" type="checkbox" data-setting="followInput">
+        </label>
+
+        <label class="row" for="set-pinyin">
+          <span class="row-text">
+            <span class="row-label">Show pinyin</span>
+            <span class="row-hint">Pinyin above each Chinese character. With it off, only the letters you've typed show.</span>
+          </span>
+          <input class="switch" id="set-pinyin" type="checkbox" data-setting="pinyin">
+        </label>
       </div>
 
       <div class="group">
@@ -2423,6 +2490,44 @@ wary wasteland wayfarer wayward weary wharf whimsical whirlwind whisper whistle 
 wistful withered woebegone wonder wondrous woodland wraith wrath wreath wretched writhe yearning yesteryear yonder
 youthful yuletide zealous zenith zephyr zest zither
 `.trim().split(/\s+/))];
+
+/* Everyday words in Simplified Chinese for Chinese tests. Each word is followed by the
+   pinyin of its characters, one syllable for each, without tones, the way a pinyin input
+   method takes them. v stands for ü, as it does on the keyboard. */
+const ZH_WORDS = `
+我们 wo men,你们 ni men,他们 ta men,大家 da jia,自己 zi ji,朋友 peng you,家人 jia ren,父母 fu mu,爸爸 ba ba,妈妈 ma ma,
+哥哥 ge ge,姐姐 jie jie,弟弟 di di,妹妹 mei mei,孩子 hai zi,女儿 nv er,儿子 er zi,老师 lao shi,学生 xue sheng,同学 tong xue,
+医生 yi sheng,邻居 lin ju,客人 ke ren,今天 jin tian,明天 ming tian,昨天 zuo tian,现在 xian zai,时间 shi jian,早上 zao shang,中午 zhong wu,
+下午 xia wu,晚上 wan shang,周末 zhou mo,星期 xing qi,去年 qu nian,今年 jin nian,明年 ming nian,以前 yi qian,以后 yi hou,最近 zui jin,
+马上 ma shang,刚才 gang cai,每天 mei tian,有时 you shi,经常 jing chang,一直 yi zhi,已经 yi jing,春天 chun tian,夏天 xia tian,秋天 qiu tian,
+冬天 dong tian,生日 sheng ri,假期 jia qi,小时 xiao shi,分钟 fen zhong,学校 xue xiao,教室 jiao shi,图书馆 tu shu guan,公园 gong yuan,商店 shang dian,
+超市 chao shi,饭馆 fan guan,银行 yin hang,医院 yi yuan,车站 che zhan,机场 ji chang,城市 cheng shi,农村 nong cun,房间 fang jian,厨房 chu fang,
+窗户 chuang hu,桌子 zhuo zi,椅子 yi zi,电脑 dian nao,手机 shou ji,电话 dian hua,电视 dian shi,衣服 yi fu,鞋子 xie zi,书包 shu bao,
+铅笔 qian bi,本子 ben zi,杯子 bei zi,雨伞 yu san,钥匙 yao shi,米饭 mi fan,面条 mian tiao,饺子 jiao zi,包子 bao zi,鸡蛋 ji dan,
+牛奶 niu nai,面包 mian bao,水果 shui guo,苹果 ping guo,香蕉 xiang jiao,西瓜 xi gua,葡萄 pu tao,蔬菜 shu cai,茶叶 cha ye,咖啡 ka fei,
+早饭 zao fan,午饭 wu fan,晚饭 wan fan,菜单 cai dan,味道 wei dao,东西 dong xi,地方 di fang,路口 lu kou,门口 men kou,楼上 lou shang,
+附近 fu jin,旁边 pang bian,外面 wai mian,里面 li mian,
+学习 xue xi,工作 gong zuo,休息 xiu xi,睡觉 shui jiao,起床 qi chuang,吃饭 chi fan,喝水 he shui,做饭 zuo fan,洗澡 xi zao,打扫 da sao,
+散步 san bu,跑步 pao bu,游泳 you yong,唱歌 chang ge,跳舞 tiao wu,画画 hua hua,看书 kan shu,写字 xie zi,读书 du shu,听说 ting shuo,
+说话 shuo hua,聊天 liao tian,见面 jian mian,认识 ren shi,知道 zhi dao,觉得 jue de,喜欢 xi huan,希望 xi wang,准备 zhun bei,开始 kai shi,
+结束 jie shu,完成 wan cheng,帮助 bang zhu,告诉 gao su,回答 hui da,问题 wen ti,练习 lian xi,记得 ji de,忘记 wang ji,打开 da kai,
+关上 guan shang,出发 chu fa,到达 dao da,回家 hui jia,旅游 lv you,参加 can jia,欢迎 huan ying,介绍 jie shao,讨论 tao lun,决定 jue ding,
+发现 fa xian,选择 xuan ze,需要 xu yao,可以 ke yi,应该 ying gai,能够 neng gou,打算 da suan,等待 deng dai,照顾 zhao gu,购物 gou wu,
+高兴 gao xing,快乐 kuai le,漂亮 piao liang,干净 gan jing,舒服 shu fu,安静 an jing,热闹 re nao,容易 rong yi,简单 jian dan,重要 zhong yao,
+有趣 you qu,认真 ren zhen,聪明 cong ming,努力 nu li,方便 fang bian,便宜 pian yi,新鲜 xin xian,好吃 hao chi,好看 hao kan,可爱 ke ai,
+温暖 wen nuan,凉快 liang kuai,明白 ming bai,清楚 qing chu,一样 yi yang,不同 bu tong,特别 te bie,非常 fei chang,真的 zhen de,一起 yi qi,
+一定 yi ding,也许 ye xu,因为 yin wei,所以 suo yi,但是 dan shi,如果 ru guo,虽然 sui ran,还是 hai shi,或者 huo zhe,然后 ran hou,
+天气 tian qi,太阳 tai yang,月亮 yue liang,星星 xing xing,下雨 xia yu,下雪 xia xue,白云 bai yun,大海 da hai,花园 hua yuan,树叶 shu ye,
+小狗 xiao gou,小猫 xiao mao,音乐 yin yue,电影 dian ying,故事 gu shi,礼物 li wu,颜色 yan se,红色 hong se,绿色 lv se,蓝色 lan se,
+白色 bai se,黑色 hei se,中文 zhong wen,汉字 han zi,拼音 pin yin,句子 ju zi,词语 ci yu,意思 yi si,办法 ban fa,机会 ji hui,
+习惯 xi guan,生活 sheng huo,健康 jian kang,身体 shen ti,眼睛 yan jing,耳朵 er duo,头发 tou fa,名字 ming zi,世界 shi jie,自然 zi ran,
+运动 yun dong,比赛 bi sai,足球 zu qiu,篮球 lan qiu,早安 zao an,晚安 wan an,谢谢 xie xie,再见 zai jian,你好 ni hao,没关系 mei guan xi,
+对不起 dui bu qi,不客气 bu ke qi,星期天 xing qi tian,好朋友 hao peng you,火车站 huo che zhan,自行车 zi xing che,动物园 dong wu yuan,咖啡馆 ka fei guan,西红柿 xi hong shi,一路平安 yi lu ping an,
+新年快乐 xin nian kuai le,生日快乐 sheng ri kuai le,好好学习 hao hao xue xi,我 wo,你 ni,他 ta,她 ta,好 hao,是 shi,在 zai,
+有 you,和 he,很 hen,大 da,小 xiao,多 duo,少 shao,水 shui,书 shu,人 ren,
+天 tian,去 qu,来 lai,看 kan,想 xiang,说 shuo,走 zou,写 xie,买 mai,吃 chi,
+喝 he,家 jia,车 che,茶 cha,花 hua,雨 yu,山 shan,风 feng,猫 mao,狗 gou
+`;
 </script>
 <script>
 "use strict";
@@ -2508,6 +2613,9 @@ const DEFAULTS = {
   spaceDots: true,      // faint middle dots in place of spaces
   textView: "full",     // "full" shows the whole test, "three" shows three lines that scroll
   zoom: "normal",       // "normal", "nokeys" or "text", see ZOOMS
+  language: "en",       // "en" or "zh", Chinese tests typed with a pinyin input method
+  followInput: true,    // switch language to match the input method you type with
+  pinyin: true,         // pinyin above each Chinese character
 };
 
 /* 2. Keyboard data --------------------------------------------------------- */
@@ -2608,8 +2716,10 @@ function node(tag, cls, text) {
   return n;
 }
 
-const unitLabel = () => state.settings.unit;
-const speedValue = (wpm) => (state.settings.unit === "cpm" ? wpm * 5 : wpm);
+const zhOn = () => state.settings.language === "zh";
+// Chinese speeds are always in characters per minute, the way Chinese typing is measured.
+const unitLabel = () => (zhOn() ? "cpm" : state.settings.unit);
+const speedValue = (wpm) => (zhOn() || state.settings.unit === "cpm" ? wpm * 5 : wpm);
 const fmtSpeed = (wpm) => String(Math.round(speedValue(wpm)));
 
 function fmtPct(fraction) {
@@ -3180,6 +3290,7 @@ function hydrate(saved) {
   if (!["all", "last10", "today"].includes(s.averageOver)) s.averageOver = DEFAULTS.averageOver;
   if (!["ubuntu", "verdana"].includes(s.textFont)) s.textFont = DEFAULTS.textFont;
   if (!["full", "three"].includes(s.textView)) s.textView = DEFAULTS.textView;
+  if (!["en", "zh"].includes(s.language)) s.language = DEFAULTS.language;
   if (!ZOOMS.includes(s.zoom)) s.zoom = DEFAULTS.zoom;
   if (!APP.coolDowns[s.coolDown]) s.coolDown = DEFAULTS.coolDown;
   if (!FINGER_PATTERNS[s.fingerPattern]) s.fingerPattern = DEFAULTS.fingerPattern;
@@ -3848,6 +3959,46 @@ function decorate(words, s, more, adaptive) {
   return out.join(" ");
 }
 
+/* Chinese ------------------------------------------------------------------ */
+
+// The Chinese words, each with the pinyin of every character.
+const ZH_LIST = ZH_WORDS.split(",")
+  .map((entry) => entry.trim().split(/\s+/))
+  .filter((parts) => parts.length > 1 && [...parts[0]].length === parts.length - 1)
+  .map(([word, ...py]) => ({ word, py }));
+
+// The keys a pinyin input method turns into Chinese marks.
+const ZH_KEYS = { "\uff0c": ",", "\u3002": "." };
+
+// A Chinese test is a run of everyday words with no spaces between them, the way Chinese is
+// written. Each character keeps its pinyin for the hint above it ("" for a mark), and ends
+// holds the last character of each word, which is how words are counted.
+function zhText(count, s) {
+  const commas = s.punctuation && s.marks.includes(",");
+  const stops = s.punctuation && s.marks.includes(".");
+  let text = "";
+  const py = [];
+  const ends = [];
+  let last = -1;
+  for (let n = 0; n < count; n++) {
+    let pick = Math.floor(Math.random() * ZH_LIST.length);
+    if (pick === last) pick = (pick + 1) % ZH_LIST.length;
+    last = pick;
+    text += ZH_LIST[pick].word;
+    py.push(...ZH_LIST[pick].py);
+    let mark = "";
+    if (n === count - 1) mark = stops ? "\u3002" : "";
+    else if (commas && Math.random() < 0.15) mark = "\uff0c";
+    else if (stops && Math.random() < 0.05) mark = "\u3002";
+    if (mark) {
+      text += mark;
+      py.push("");
+    }
+    ends.push(text.length - 1);
+  }
+  return { text, py, ends };
+}
+
 /* 6. Letter statistics ----------------------------------------------------- */
 
 // Each letter keeps k.t (average ms per keystroke), k.n (timed keystrokes),
@@ -4064,7 +4215,7 @@ function keyDetail(L, upto = L.text.length) {
 let unfinished = null; // { layout, parts }
 
 function holdPartial(L, upto) {
-  if (L.mode === "custom") return; // My text keeps no keystrokes, see finishLesson
+  if (L.mode === "custom" || L.zh) return; // My text and Chinese keep no keystrokes, see finishLesson
   if (!unfinished || unfinished.layout !== L.layout) unfinished = { layout: L.layout, parts: [] };
   unfinished.parts.push(keyDetail(L, upto));
   let size = unfinished.parts.reduce((sum, part) => sum + part.tx.length, 0);
@@ -4084,7 +4235,11 @@ function joinDetail(parts) {
 function newLesson(attempt = 1) {
   if (!ready) return;
   const s = state.settings;
-  if (s.mode === "custom") {
+  if (zhOn()) {
+    // Chinese tests take their length from Step up, or from Words per test in other modes.
+    const zh = zhText(s.mode === "step" ? stepWords() : s.lessonWords, s);
+    startLesson(zh.text, attempt, null, zh);
+  } else if (s.mode === "custom") {
     const doc = activeDoc();
     const data = docData(doc);
     if (!data || !data.passages.length) {
@@ -4109,7 +4264,7 @@ function skipAhead() {
     checkGoals();
     return;
   }
-  const doc = state.settings.mode === "custom" && !(lesson && lesson.drill) ? activeDoc() : null;
+  const doc = state.settings.mode === "custom" && !zhOn() && !(lesson && lesson.drill) ? activeDoc() : null;
   if (doc && doc.passages) {
     doc.at = (doc.at + 1) % doc.passages;
     scheduleSave();
@@ -4120,15 +4275,20 @@ function skipAhead() {
 
 // A drill is a Practice these test from the Analysis tab. It counts as a Words test, so it
 // never moves My text along or unlocks a letter, and it goes back to your usual tests after.
-function startLesson(text, attempt = 1, drill = null) {
+// A Chinese test comes with zh, the pinyin and word ends from zhText. It counts as Step up
+// or Words, so it never moves My text along or unlocks a letter either.
+function startLesson(text, attempt = 1, drill = null, zh = null) {
   if (lesson && !lesson.done) keepPartial(lesson);
   const wordAt = new Uint32Array(text.length + 1);
-  for (let i = 0; i < text.length; i++) wordAt[i + 1] = wordAt[i] + (text[i] === " " ? 1 : 0);
+  const ends = zh ? new Set(zh.ends) : null;
+  for (let i = 0; i < text.length; i++) wordAt[i + 1] = wordAt[i] + ((zh ? ends.has(i) : text[i] === " ") ? 1 : 0);
+  let mode = drill ? "words" : state.settings.mode;
+  if (zh) mode = mode === "step" ? "step" : "words";
   lesson = {
     text,
     attempt,
     wordAt,
-    words: wordAt[text.length] + 1,
+    words: zh ? zh.ends.length : wordAt[text.length] + 1,
     pos: 0,
     states: new Uint8Array(text.length), // 0 waiting, 1 right, 2 right after a mistake, 3 wrong
     errAt: new Uint8Array(text.length),
@@ -4145,9 +4305,10 @@ function startLesson(text, attempt = 1, drill = null) {
     misses: [], // the first wrong key at each position that went wrong, as [index, key, ms before it]
     afterBackspace: false,
     done: false,
-    mode: drill ? "words" : state.settings.mode,
+    mode,
     layout: state.settings.layout,
     drill,
+    zh,
     counted: false, // true once this test's letters are in the stats
   };
   el.boardEmpty.hidden = true;
@@ -4162,7 +4323,7 @@ function startLesson(text, attempt = 1, drill = null) {
 }
 
 function restartLesson() {
-  if (lesson) startLesson(lesson.text, lesson.attempt, lesson.drill);
+  if (lesson) startLesson(lesson.text, lesson.attempt, lesson.drill, lesson.zh);
   checkGoals();
 }
 
@@ -4329,14 +4490,19 @@ function finishLesson() {
   const p = profile();
   L.done = true;
   const dur = Math.max(1, L.last - L.start);
-  const wpm = L.text.length > 1 ? (L.text.length - 1) / 5 / (dur / 60000) : 0;
+  // A Chinese test's time starts with its first key in the input method, before the first
+  // character arrives, so every character counts toward its speed.
+  const chars = L.zh ? L.text.length : L.text.length - 1;
+  const wpm = chars > 0 ? chars / 5 / (dur / 60000) : 0;
   const acc = L.strokes ? (L.strokes - L.errors) / L.strokes : 1;
   applyKeyStats(p, L);
   L.counted = true;
-  const early = unfinished && unfinished.layout === L.layout ? unfinished.parts : [];
-  unfinished = null;
+  // A Chinese test has no letters of its own, so it keeps no letter detail or keystrokes,
+  // and unfinished English attempts wait for the next English test.
+  const early = !L.zh && unfinished && unfinished.layout === L.layout ? unfinished.parts : [];
+  if (!L.zh) unfinished = null;
   // My text keeps no keystrokes, since its words are yours and must go when the text does.
-  const detailParts = L.mode === "custom" ? early : [...early, keyDetail(L)];
+  const detailParts = L.mode === "custom" || L.zh ? early : [...early, keyDetail(L)];
   p.history.push({
     ts: Date.now(),
     wpm: round(wpm, 1),
@@ -4345,7 +4511,7 @@ function finishLesson() {
     words: L.words,
     mode: L.mode,
     tries: L.attempt,
-    ...testDetail(L),
+    ...(L.zh ? { lang: "zh" } : testDetail(L)),
     ...(detailParts.length ? joinDetail(detailParts) : {}),
   });
   if (p.history.length > APP.historyLimit) p.history.splice(0, p.history.length - APP.historyLimit);
@@ -4434,6 +4600,7 @@ const el = {
   progSub: $("#progSub"),
   progEmpty: $("#progEmpty"),
   progBody: $("#progBody"),
+  progView: $("#view-progress"),
   dayTitle: $("#dayTitle"),
   dayStats: $("#dayStats"),
   dayNote: $("#dayNote"),
@@ -4535,6 +4702,7 @@ function renderPractice() {
 function renderSequence() {
   const s = state.settings;
   const p = profile();
+  el.sequence.hidden = zhOn();
   const adaptive = s.mode === "adaptive";
   const order = adaptive ? APP.letterOrder : "abcdefghijklmnopqrstuvwxyz";
   const plain = s.mode === "words" || s.mode === "step";
@@ -4582,6 +4750,24 @@ function renderFocus() {
     el.focusDetail.replaceChildren(...drillChips(drill));
     return;
   }
+  if (zhOn()) {
+    const n = s.mode === "step" ? stepWords() : s.lessonWords;
+    const words = node("strong", null, `${n.toLocaleString("en-US")} ${n === 1 ? "word" : "words"}`);
+    el.focus.hidden = false;
+    el.focusCap.hidden = true;
+    el.focusMeter.hidden = true;
+    el.focusDetail.hidden = false;
+    if (s.mode === "step") {
+      el.focusTitle.replaceChildren("Step up in Chinese, ", words);
+      el.focusDetail.textContent = n < s.stepTop
+        ? `Each perfect test adds a word, up to ${s.stepTop.toLocaleString("en-US")}.`
+        : "At the top. Tomorrow starts short again.";
+    } else {
+      el.focusTitle.replaceChildren("Chinese, ", words);
+      el.focusDetail.textContent = "Type each word with your Chinese input method.";
+    }
+    return;
+  }
   el.focus.hidden = s.mode === "words";
   el.focusCap.hidden = !adaptive;
   el.focusMeter.hidden = !adaptive;
@@ -4615,6 +4801,13 @@ function renderFocus() {
   el.focusFill.style.width = `${(clamp(skill(k, s.targetWpm), 0, 1) * 100).toFixed(1)}%`;
 }
 
+// Chinese tests count characters instead of letters, so they keep apart from English ones
+// in every figure and chart. Each language shows its own tests.
+function testsNow(p = profile()) {
+  const zh = zhOn();
+  return p.history.filter((e) => (e.lang === "zh") === zh);
+}
+
 // The tests the practice screen averages over, set in Settings.
 function statsWindow(h) {
   const over = state.settings.averageOver;
@@ -4629,7 +4822,7 @@ function statsWindow(h) {
 
 // The last test's speed sits at the top, with how far it is above or below your average.
 function renderStats() {
-  const h = profile().history;
+  const h = testsNow();
   el.figures.hidden = !h.length;
   if (!h.length) return;
   const last = h[h.length - 1];
@@ -5129,6 +5322,14 @@ function leaveTextOnly() {
 function renderKeyNote() {
   const s = state.settings;
   const p = profile();
+  if (inputNote) {
+    el.keyNote.textContent = inputNote;
+    return;
+  }
+  if (zhOn()) {
+    el.keyNote.textContent = "Type the pinyin, then pick the word with Space or its number.";
+    return;
+  }
   if (s.mode !== "adaptive") {
     el.keyNote.textContent = "";
     return;
@@ -5143,6 +5344,7 @@ function renderText() {
   const L = lesson;
   const frag = document.createDocumentFragment();
   charEls = new Array(L.text.length);
+  const ends = L.zh ? new Set(L.zh.ends) : null;
   let word = null;
   for (let i = 0; i < L.text.length; i++) {
     const ch = L.text[i];
@@ -5151,10 +5353,13 @@ function renderText() {
       frag.appendChild(word);
     }
     const c = node("span", ch === " " ? "c sp" : "c", ch);
+    if (L.zh) c.prepend(node("span", "py", pyLabel(L.zh.py[i])));
     word.appendChild(c);
     charEls[i] = c;
-    if (ch === " ") word = null;
+    if (L.zh ? ends.has(i) : ch === " ") word = null;
   }
+  el.board.classList.toggle("zh", Boolean(L.zh));
+  pinyinLit = [];
   el.text.replaceChildren(frag);
   trailEl = null;
   caretEl = node("span", "caret");
@@ -5185,6 +5390,93 @@ function moveCaret(instant = false) {
   caretEl.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
   caretEl.style.width = `${Math.max(3, c.offsetWidth - inset * 2).toFixed(1)}px`;
   caretLine = line;
+  placeSink(c);
+}
+
+// The input method opens its list of words by the hidden input, so in a Chinese test the
+// input sits just under the next character.
+function placeSink(c) {
+  if (!lesson || !lesson.zh) {
+    el.sink.style.transform = "";
+    return;
+  }
+  const board = el.board.getBoundingClientRect();
+  const r = c.getBoundingClientRect();
+  if (!r.width) return;
+  el.sink.style.transform = `translate(${Math.round(r.left - board.left)}px, ${Math.round(r.bottom - board.top)}px)`;
+}
+
+// Pinyin shows with \u00fc, though the key for it is v.
+const pyLabel = (py) => py.replace(/v/g, "\u00fc");
+
+// How far the input method has got, matched against the pinyin from the cursor on. Each
+// character takes the letters that fit its syllable, so full pinyin and the first letters
+// of each syllable both match. Characters the input method already shows in Chinese, still
+// waiting to be sent, count as done. typed holds the letters matched for each character,
+// with -1 where a letter doesn't fit, and next is the key that comes after.
+function pinyinFit(L, composing) {
+  const shown = (composing.match(/^[^A-Za-z\u00fc\u00dc' ]*/) || [""])[0];
+  const letters = composing.slice(shown.length).toLowerCase().replace(/\u00fc/g, "v").replace(/[^a-z]/g, "");
+  const start = Math.min(L.text.length, L.pos + [...shown].length);
+  const typed = [];
+  for (let i = L.pos; i < start; i++) typed.push(L.zh.py[i].length);
+  let j = 0;
+  let i = start;
+  let next = null;
+  let wrong = false;
+  for (; i < L.text.length && j < letters.length; i++) {
+    const py = L.zh.py[i];
+    if (!py) break; // a mark, which the input method types once the word is picked
+    let m = 0;
+    while (m < py.length && j < letters.length && letters[j] === py[m]) {
+      m += 1;
+      j += 1;
+    }
+    if (!m) {
+      wrong = true;
+      typed.push(-1);
+      break;
+    }
+    typed.push(m);
+    if (j >= letters.length && m < py.length) next = py[m];
+  }
+  if (!wrong && !next) {
+    // After a whole word, or before a mark, Space picks the word. Otherwise the next
+    // syllable starts, or the key for the mark.
+    const py = i < L.text.length ? L.zh.py[i] : "";
+    if (composing && (i >= L.text.length || !py || L.zh.ends.includes(i - 1))) next = " ";
+    else if (i < L.text.length) next = py ? py[0] : ZH_KEYS[L.text[i]] || null;
+  }
+  return { typed, next: wrong ? null : next };
+}
+
+// The pinyin above the next characters fills in as the input method takes each letter,
+// and a letter that doesn't fit turns the rest red.
+let pinyinLit = [];
+function paintPinyin() {
+  const L = lesson;
+  for (const i of pinyinLit) {
+    const py = charEls[i] && charEls[i].firstChild;
+    if (py && L && L.zh) {
+      py.className = "py";
+      py.textContent = pyLabel(L.zh.py[i]);
+    }
+  }
+  pinyinLit = [];
+  if (!L || !L.zh || L.done || !imeText) return;
+  pinyinFit(L, imeText).typed.forEach((m, n) => {
+    const i = L.pos + n;
+    const py = charEls[i] && charEls[i].firstChild;
+    if (!py) return;
+    pinyinLit.push(i);
+    const label = pyLabel(L.zh.py[i]);
+    if (m < 0) {
+      py.className = "py off";
+      return;
+    }
+    py.className = "py lit";
+    py.replaceChildren(node("b", null, label.slice(0, m)), label.slice(m));
+  });
 }
 
 function measureLines() {
@@ -5254,7 +5546,8 @@ function paintChar(i) {
   const st = L.states[i];
   // A position that went wrong shows the key that was actually typed.
   const shown = st === 3 && L.typed[i] != null ? L.typed[i] : L.text[i];
-  if (c.textContent !== shown) c.textContent = shown;
+  const glyph = L.zh ? c.lastChild : c; // a Chinese character keeps its pinyin span first
+  if (glyph.textContent !== shown) glyph.textContent = shown;
   let cls = shown === " " ? "c sp" : "c";
   if (st === 1) cls += " ok";
   else if (st === 2) cls += " fixed";
@@ -5938,7 +6231,7 @@ function markNextKey() {
   let main = null;
   let shift = null;
   if (lesson && !lesson.done) {
-    const target = keyFor(lesson.text[lesson.pos]);
+    const target = keyFor(lesson.zh ? pinyinFit(lesson, imeText).next : lesson.text[lesson.pos]);
     if (target) {
       main = target.el;
       if (target.shift) shift = target.finger <= 3 ? shiftKeys.R : shiftKeys.L;
@@ -6293,15 +6586,23 @@ function lessonGuide(ctx, top, bottom, n, W, P) {
 
 function renderProgress() {
   const s = state.settings;
-  const h = profile().history;
+  const h = testsNow();
   testDays = h.map((e) => dayKey(new Date(e.ts)));
   if (!prog.day) prog.day = dayKey();
   const typing = Object.values(state.daily).reduce((sum, ms) => sum + ms, 0);
   const layout = LAYOUTS[s.layout].name;
   const count = `${h.length.toLocaleString("en-US")} ${h.length === 1 ? "test" : "tests"}`;
-  el.progSub.textContent = h.length
-    ? `${count} on ${layout} and ${fmtDuration(typing)} of typing in all.`
-    : `Each keyboard layout keeps its own record, and your ${layout} record starts with your first test.`;
+  const zh = zhOn();
+  el.progView.classList.toggle("zh", zh);
+  if (zh) {
+    el.progSub.textContent = h.length
+      ? `${count} in Chinese and ${fmtDuration(typing)} of typing in all.`
+      : "Chinese tests keep their own record, and it starts with your first one.";
+  } else {
+    el.progSub.textContent = h.length
+      ? `${count} on ${layout} and ${fmtDuration(typing)} of typing in all.`
+      : `Each keyboard layout keeps its own record, and your ${layout} record starts with your first test.`;
+  }
   renderCalendar();
   renderDay();
   fillStats(el.allStats, figures(h, typing));
@@ -6367,7 +6668,7 @@ function fillStats(box, f) {
 function renderDay() {
   const today = dayKey();
   const day = prog.day || today;
-  const tests = profile().history.filter((e, i) => testDays[i] === day);
+  const tests = testsNow().filter((e, i) => testDays[i] === day);
   el.dayTitle.textContent = day === today ? "Today" : fmtDay(day);
   fillStats(el.dayStats, figures(tests, state.daily[day] || 0));
   const whose = day === today ? "Today's" : "This day's";
@@ -6516,7 +6817,7 @@ function drawSpeedChart() {
   if (!g) return;
   const { ctx, W, H } = g;
   const P = palette();
-  const h = profile().history;
+  const h = testsNow();
   const n = h.length;
   if (!n) return;
   const top = 14;
@@ -6559,7 +6860,7 @@ function drawOverview() {
   const { ctx, W, H } = g;
   const P = palette();
   const s = state.settings;
-  const h = profile().history;
+  const h = testsNow();
   const n = h.length;
   if (!n) return;
   const top = 4;
@@ -6654,7 +6955,7 @@ function renderKeyFigures() {
   const p = profile();
   const ch = prog.key;
   const k = p.keys[ch];
-  const series = letterSeries(p.history, ch);
+  const series = letterSeries(testsNow(p), ch);
   const now = k && k.n ? keySpeed(k) : 0;
   const best = Math.max(now, ...smoothed(series.map((q) => q.wpm), 3));
   const share = (wpm) => `${Math.round((wpm / s.targetWpm) * 100)}% of target`;
@@ -6686,7 +6987,7 @@ function drawKeyChart() {
   const { ctx, W, H } = g;
   const P = palette();
   const s = state.settings;
-  const h = profile().history;
+  const h = testsNow();
   const n = h.length;
   if (!n) return;
   const top = 14;
@@ -6995,7 +7296,7 @@ function bindProgress() {
   // Charts over time. Pointing at one marks the same test in all of them.
   const overTime = (canvas, describe) => {
     canvas.addEventListener("pointermove", (e) => {
-      const h = profile().history;
+      const h = testsNow();
       if (!h.length) return;
       const rect = canvas.getBoundingClientRect();
       const i = lessonIndex(e.clientX - rect.left, h.length, rect.width);
@@ -7783,6 +8084,7 @@ function startDrill() {
   const A = analysisNow || analyze(profile().history, state.settings);
   const plan = drillPlan(A);
   if (!plan.keys.length && !plan.pairs.length) return;
+  if (zhOn()) setSetting("language", "en");
   showView("practice");
   startLesson(drillText(plan, state.settings), 1, plan);
   renderFocus();
@@ -7820,6 +8122,8 @@ const EFFECTS = {
   averageOver: ["practice"],
   showHands: ["hands"],
   zoom: ["zoom"],
+  language: ["lesson", "keyboard", "practice", "live"],
+  pinyin: ["theme"],
 };
 
 function applyTheme() {
@@ -7830,6 +8134,7 @@ function applyTheme() {
   root.dataset.font = s.textFont;
   el.board.classList.toggle("dots", s.spaceDots);
   el.board.classList.toggle("full", s.textView === "full");
+  el.board.classList.toggle("nopy", !s.pinyin);
 }
 
 function buildLayoutOptions() {
@@ -7853,9 +8158,13 @@ function setSetting(key, value) {
     }
     // Step up can't start above its top, so a start set past the top takes the top with it.
     if (key === "stepStart" && s.stepTop < value) s.stepTop = value;
+    if (key === "language") {
+      plainKeys = 0;
+      inputNote = "";
+    }
     if (fx.includes("build")) buildKeyboard();
     if (fx.includes("lesson")) newLesson();
-    if (fx.includes("restart") && lesson) startLesson(lesson.text, 1, lesson.drill);
+    if (fx.includes("restart") && lesson) startLesson(lesson.text, 1, lesson.drill, lesson.zh);
     if (fx.includes("keyboard")) refreshKeyboard();
     if (fx.includes("practice")) renderPractice();
     if (fx.includes("live")) updateLive();
@@ -8318,12 +8627,113 @@ function updateCaps(e) {
   if (e && typeof e.getModifierState === "function") el.capsWarn.hidden = !e.getModifierState("CapsLock");
 }
 
+/* Input methods ------------------------------------------------------------ */
+
+// While an input method builds a word, imeText holds what it shows so far, like "nihao".
+let composing = false;
+let imeText = "";
+let plainKeys = 0;  // letters typed straight into a Chinese test, with no input method taking them
+let inputNote = ""; // a note about the input method, shown under the keyboard in place of the usual one
+
+const coarse = () => Boolean(window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
+const HAN = /[\u3400-\u9fff\uf900-\ufaff]/;
+const KANA = /[\u3040-\u30ff\uac00-\ud7af]/; // Japanese kana and Korean hangul
+const LETTERS_NOTE = "Your input method is typing letters. Switch it to Chinese to type these.";
+const ZH_NOTE = "Your input method is typing Chinese. Pick \u4e2d\u6587 under the text for Chinese tests.";
+
+// A key the input method takes for itself. Phones send every key through their keyboard's
+// input method, even in English, so English tests there keep reading the hidden input.
+function imeKey(e) {
+  if (!zhOn() && coarse()) return false;
+  if (e.key === "Process" || e.isComposing || composing) return true;
+  return e.keyCode === 229 && e.key !== "Backspace";
+}
+
+// Keys going into the input method are typing too. They count toward practice time, and
+// the first one starts the test's clock.
+function imeActivity() {
+  const L = lesson;
+  plainKeys = 0;
+  setInputNote("");
+  if (!ready || !L || L.done || !L.zh || performance.now() < coolUntil) return;
+  if (cheerOn) endCheer(true);
+  const now = performance.now();
+  wakeCue();
+  countTime(L, now);
+  if (!L.start) {
+    L.start = now;
+    L.last = now;
+    L.lastOk = now;
+    updateHands();
+  }
+  markTyping();
+}
+
+function setInputNote(text) {
+  if (inputNote === text) return;
+  inputNote = text;
+  renderKeyNote();
+}
+
+// Tests follow the input method you type with. Chinese from it starts Chinese tests, and
+// letters typed straight into a Chinese test go back to English. With Follow your input
+// method off, nothing switches.
+function followInput(lang) {
+  const s = state.settings;
+  if (!ready || !s.followInput || s.language === lang) return false;
+  setSetting("language", lang);
+  showToast(lang === "zh" ? "Switched to Chinese for your input method" : "Switched to English for your keyboard");
+  return true;
+}
+
+// An input method set to half width marks types "," and "." for the Chinese ones.
+function zhMark(ch) {
+  const want = lesson && lesson.zh ? lesson.text[lesson.pos] : "";
+  return ZH_KEYS[want] === ch ? want : ch;
+}
+
+// A key typed straight into a Chinese test, with no input method taking it. A mark key types
+// its Chinese mark, and letters mean the input method is off or typing English.
+function zhKey(ch) {
+  if (/[A-Za-z]/.test(ch)) {
+    plainKeys += 1;
+    if (plainKeys >= 2 && followInput("en")) return;
+    setInputNote(LETTERS_NOTE);
+    return;
+  }
+  if (!ch.trim() || /[0-9]/.test(ch)) return;
+  typeChar(zhMark(ch));
+}
+
+// What an input method sends to a Chinese test. Characters and marks are typed, and letters
+// alone mean it's typing English.
+function zhInput(text) {
+  let letters = 0;
+  let typed = false;
+  for (const ch of text) {
+    if (/[A-Za-z]/.test(ch)) letters += 1;
+    else if (ch.trim() && !/[0-9]/.test(ch)) {
+      typeChar(zhMark(ch));
+      typed = true;
+    }
+  }
+  if (typed || !letters) return;
+  plainKeys += letters;
+  if (plainKeys >= 2 && followInput("en")) return;
+  setInputNote(LETTERS_NOTE);
+}
+
 function onKeyDown(e) {
   if (view !== "practice") return;
   const t = e.target;
   if (t !== el.sink && t instanceof Element && t.closest("input, textarea, select, [contenteditable='true']")) return;
   updateCaps(e);
   if (e.ctrlKey || e.metaKey || e.altKey) return;
+  // A key the input method takes is left to it. What it types comes through the hidden input.
+  if (imeKey(e)) {
+    if (zhOn()) imeActivity();
+    return;
+  }
   if (e.key === "Escape" && state.settings.zoom === "text") {
     // In Text only, Esc brings back the rest of the page instead of starting over.
     e.preventDefault();
@@ -8358,15 +8768,28 @@ function onKeyDown(e) {
   e.preventDefault();
   if (e.repeat) return;
   if (document.activeElement !== el.sink) focusSink();
-  typeChar(ch);
+  if (zhOn()) zhKey(ch);
+  else typeChar(ch);
 }
 
-// Phones send text through the hidden input instead of key events.
+// Phones send text through the hidden input instead of key events, and so do input methods.
+// While an input method is still building a word, its text waits in the input, except in
+// English on a phone, where each letter goes in at once.
 function onSinkInput() {
+  if (composing && (zhOn() || !coarse())) return;
   const v = el.sink.value;
+  if (!v) return;
   el.sink.value = "";
   if (view !== "practice" || !ready) return;
   if (cheerOn && performance.now() >= coolUntil) endCheer(true);
+  if (zhOn()) {
+    zhInput(v);
+    return;
+  }
+  if (HAN.test(v) && !KANA.test(v)) {
+    if (!followInput("zh")) setInputNote(ZH_NOTE);
+    return;
+  }
   for (const ch of v) typeChar(ch);
 }
 
@@ -8395,8 +8818,32 @@ function bindEvents() {
   el.sink.addEventListener("input", onSinkInput);
   el.sink.addEventListener("beforeinput", (e) => {
     if (e.inputType !== "deleteContentBackward") return;
+    // While an input method builds a word, Backspace takes back its letters instead.
+    if ((composing || e.isComposing) && (zhOn() || !coarse())) return;
     e.preventDefault();
     backspace();
+  });
+  el.sink.addEventListener("compositionstart", () => {
+    composing = true;
+    imeText = "";
+    if (zhOn()) imeActivity();
+  });
+  el.sink.addEventListener("compositionupdate", (e) => {
+    imeText = e.data || "";
+    if (!zhOn()) return;
+    imeActivity();
+    paintPinyin();
+    markNextKey();
+  });
+  el.sink.addEventListener("compositionend", () => {
+    composing = false;
+    imeText = "";
+    // Some browsers send the finished word just before this event and some just after, so
+    // it's read from the input once both have had their turn.
+    setTimeout(onSinkInput, 0);
+    if (!zhOn()) return;
+    paintPinyin();
+    markNextKey();
   });
 
   // Time away from the page does not count against your speed.
