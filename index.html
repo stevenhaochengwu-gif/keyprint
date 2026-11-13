@@ -2136,7 +2136,8 @@ const APP = {
   storageKey: "keyprint-state-v1",
   cloudConfig: "keyprint-cloud", // where this browser remembers the cloud save address and key
   cloudDelay: 20000,   // ms between saves to your Cloudflare account while you practice
-  cloudPending: "keyprint-pending", // cloud name for the copy a hidden or closing page sends at once
+  cloudPending: "keyprint-pending", // cloud names for the copy a hidden or closing page sends at once, one per browser
+  cloudDevices: 12,    // browsers whose left copies a cloud save reads, the ones seen most recently
   pendingTests: 30,    // newest tests per layout in that copy, so it stays small enough to send while closing
   cloudTimeout: 20000, // ms a cloud request may wait for an answer to start, plus 1 s per 10,000 characters it uploads
   letterOrder: "etaoinshrdlcumwfgypbvkjxqz", // adaptive tests unlock letters in this order
@@ -2321,6 +2322,8 @@ let state = {
   docs: [],
   docId: "",
   removed: [],
+  restoredAt: 0, // when this progress was last restored from a copy, which then wins over anything older
+  devices: [],   // browsers that save to the cloud, see Cloud save
   savedAt: 0,
 };
 let ready = false;
@@ -2463,7 +2466,7 @@ const Cloud = {
   seen: 0,      // savedAt of the cloud copy the last time this browser read or wrote it
   lastOk: 0,    // when the last save to the cloud worked
   putAt: -1e9,  // performance.now() of that save, for spacing writes without trusting the clock
-  replaceAt: 0, // savedAt of a restored copy, remembered with the address and key until it's safely saved
+  device: "",   // this browser's id, which names the copy it leaves in the cloud
   error: "",
   get on() {
     return Boolean(this.url && this.key);
@@ -2513,23 +2516,67 @@ async function loadCloudConfig() {
     if (cfg && typeof cfg.url === "string" && typeof cfg.key === "string") {
       Cloud.url = cfg.url;
       Cloud.key = cfg.key;
-      Cloud.replaceAt = Number(cfg.replaceAt) || 0;
+      if (isDeviceId(cfg.device)) Cloud.device = cfg.device;
     }
   } catch (err) {
     // nothing remembered yet
   }
+  if (Cloud.on && !Cloud.device) {
+    Cloud.device = newDeviceId();
+    saveCloudConfig();
+  }
 }
 
-const saveCloudConfig = () => Store.write(APP.cloudConfig, JSON.stringify({ url: Cloud.url, key: Cloud.key, replaceAt: Cloud.replaceAt }));
+const saveCloudConfig = () => Store.write(APP.cloudConfig, JSON.stringify({ url: Cloud.url, key: Cloud.key, device: Cloud.device }));
+const isDeviceId = (id) => typeof id === "string" && /^[a-z0-9]{8,24}$/.test(id);
+const newDeviceId = () => (Math.random().toString(36).slice(2, 10) + Date.now().toString(36)).replace(/[^a-z0-9]/g, "").slice(0, 24);
 
-// A restore replaces the cloud copy instead of merging with it. Until a save has put it in
-// the cloud with no older copy left behind, copies from before it are dropped, not merged.
-// That's remembered across reloads, so closing the page too soon can't undo the restore.
+// A restore replaces what came before it instead of merging with it. It's stamped with the
+// time, and every merge, on every browser, then takes anything older than that only from the
+// restored copy. So the restore holds even on a browser that had already synced the mistake
+// it undoes, such as a Reset progress.
 function markReplace() {
   state.savedAt = Date.now();
+  state.restoredAt = state.savedAt;
   Cloud.seen = state.savedAt;
-  Cloud.replaceAt = state.savedAt;
-  saveCloudConfig();
+}
+
+// The part of a copy that still counts after a newer restore elsewhere. That's tests from the
+// restore on, a reset made after it, the days from the restore's day on, and texts added after
+// it. Letter stats can't be split by time, so the restored copy's stay.
+function sinceRestore(copy, at, restored) {
+  const out = JSON.parse(JSON.stringify(copy));
+  const kept = restored.profiles || {};
+  out.profiles = {};
+  for (const [id, p] of Object.entries(copy.profiles || {})) {
+    if (!p) continue;
+    const history = (p.history || []).filter((e) => e && e.ts >= at);
+    if ((p.resetAt || 0) >= at) out.profiles[id] = { ...p, history };
+    else if (kept[id]) out.profiles[id] = { ...p, resetAt: kept[id].resetAt || 0, keys: {}, unlocked: 0, history };
+    else if (history.length) out.profiles[id] = { ...p, history };
+  }
+  const day = dayKey(new Date(at));
+  for (const field of ["daily", "clean"]) {
+    out[field] = {};
+    for (const [d, ms] of Object.entries(copy[field] || {})) if (d >= day) out[field][d] = ms;
+  }
+  const back = new Set((restored.docs || []).map((d) => d && d.id));
+  out.docs = (copy.docs || []).filter((d) => d && (d.added || 0) >= at && !back.has(d.id));
+  out.removed = (copy.removed || []).filter((id) => !back.has(id));
+  out.restoredAt = at;
+  return out;
+}
+
+// Browsers are matched by id. Each keeps the latest time it was seen and the latest copy it
+// left that has been merged.
+function mergeDevices(a, b) {
+  const all = new Map();
+  for (const d of [...(a || []), ...(b || [])]) {
+    if (!d || !isDeviceId(d.id)) continue;
+    const prev = all.get(d.id) || { id: d.id, seen: 0, left: 0 };
+    all.set(d.id, { id: d.id, seen: Math.max(prev.seen, Number(d.seen) || 0), left: Math.max(prev.left, Number(d.left) || 0) });
+  }
+  return [...all.values()];
 }
 
 // Combines two saved copies so progress from either one is kept. Tests are matched by when
@@ -2538,6 +2585,9 @@ function markReplace() {
 function mergeSaves(mine, theirs, keepMine) {
   if (!mine) return theirs;
   if (!theirs) return mine;
+  const restoredAt = Math.max(mine.restoredAt || 0, theirs.restoredAt || 0);
+  if ((mine.restoredAt || 0) > (theirs.restoredAt || 0)) theirs = sinceRestore(theirs, restoredAt, mine);
+  else if ((theirs.restoredAt || 0) > (mine.restoredAt || 0)) mine = sinceRestore(mine, restoredAt, theirs);
   const newer = (theirs.savedAt || 0) > (mine.savedAt || 0) ? theirs : mine;
   const out = JSON.parse(JSON.stringify(newer));
   if (keepMine) out.settings = JSON.parse(JSON.stringify(mine.settings || {}));
@@ -2594,6 +2644,8 @@ function mergeSaves(mine, theirs, keepMine) {
     const b = theirs.cheered || {};
     out.cheered = { total: later(a.total, b.total), clean: later(a.clean, b.clean) };
   }
+  out.restoredAt = restoredAt;
+  out.devices = mergeDevices(mine.devices, theirs.devices);
   out.savedAt = Math.max(mine.savedAt || 0, theirs.savedAt || 0);
   return out;
 }
@@ -2628,6 +2680,46 @@ function pushCloud() {
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, Math.max(0, ms)));
 
+const slotName = (id) => `${APP.cloudPending}-${id}`;
+const deviceIds = (copy) => (copy && Array.isArray(copy.devices) ? copy.devices : []).map((d) => d && d.id).filter(isDeviceId);
+
+// Notes that a browser was seen, or that a copy it left has been merged.
+function markDevice(copy, id, { seen = 0, left = 0 } = {}) {
+  if (!copy || !isDeviceId(id)) return;
+  if (!Array.isArray(copy.devices)) copy.devices = [];
+  let d = copy.devices.find((x) => x && x.id === id);
+  if (!d) copy.devices.push((d = { id, seen: 0, left: 0 }));
+  d.seen = Math.max(d.seen || 0, seen);
+  d.left = Math.max(d.left || 0, left);
+}
+
+// Reads the main cloud copy and the copy each known browser left the last time it went away.
+async function readCloud(known) {
+  const ids = [...new Set([Cloud.device, ...deviceIds(known)])].filter(isDeviceId);
+  const got = await Promise.all([APP.storageKey, ...ids.map(slotName)].map((name) => Cloud.call("GET", name)));
+  const theirs = got[0] ? JSON.parse(got[0]) : null;
+  const left = ids.map((id, i) => [id, got[i + 1]]);
+  const more = deviceIds(theirs).filter((id) => !ids.includes(id));
+  if (more.length) {
+    const extra = await Promise.all(more.map((id) => Cloud.call("GET", slotName(id))));
+    more.forEach((id, i) => left.push([id, extra[i]]));
+  }
+  return { theirs, left: left.filter(([, raw]) => raw).map(([id, raw]) => [id, JSON.parse(raw)]) };
+}
+
+// Folds in each left copy that is newer than the last one merged from that browser, and
+// notes it, so a copy that stays in the cloud is only ever merged once.
+function foldLeft(base, left, keepMine) {
+  let out = base;
+  for (const [id, copy] of left) {
+    const d = ((out && out.devices) || []).find((x) => x && x.id === id);
+    if ((Number(copy.leftAt) || 0) <= (d ? d.left : 0)) continue;
+    out = mergeSaves(out, copy, keepMine);
+    markDevice(out, id, { left: Number(copy.leftAt) || 0 });
+  }
+  return out;
+}
+
 // The main cloud copy is only ever written after reading it and merging it in, so newer
 // progress from another browser is never replaced.
 async function sendCloud() {
@@ -2642,25 +2734,18 @@ async function sendCloud() {
     // it writes is never staler than it has to be.
     await wait(Cloud.putAt + 1100 - performance.now());
     if (!sameCloud()) return false;
-    const leftBefore = leftAt;
-    // Another browser may have saved since this one last looked, and a page that was hidden
-    // or closed may have left its copy, so fold both in first.
-    const [remote, pending] = await Promise.all([Cloud.call("GET", APP.storageKey), Cloud.call("GET", APP.cloudPending)]);
+    // Another browser may have saved since this one last looked, and browsers that were
+    // hidden or closed may have left their copies, so fold all of that in first.
+    const { theirs, left } = await readCloud(state);
     if (!sameCloud()) return false;
-    const replacing = Cloud.replaceAt; // read after the wait, in case a restore came meanwhile
-    const theirs = remote ? JSON.parse(remote) : null;
-    const left = pending ? JSON.parse(pending) : null;
-    const beforeRestore = (copy) => replacing && (copy.savedAt || 0) <= replacing;
-    let merged = false;
-    if (theirs && (theirs.savedAt || 0) > Cloud.seen && !beforeRestore(theirs)) {
-      hydrate(mergeSaves(snapshot(), theirs, true));
-      merged = true;
+    const base = snapshot();
+    let next = theirs && (theirs.savedAt || 0) > Cloud.seen ? mergeSaves(base, theirs, true) : base;
+    next = foldLeft(next, left, true);
+    if (next !== base) {
+      hydrate(next);
+      afterMerge();
     }
-    if (left && !beforeRestore(left)) {
-      hydrate(mergeSaves(snapshot(), left, true));
-      merged = true;
-    }
-    if (merged) afterMerge();
+    markDevice(state, Cloud.device, { seen: Date.now() });
     state.savedAt = Math.max(state.savedAt || 0, Date.now());
     await Cloud.call("PUT", APP.storageKey, JSON.stringify(state));
     Cloud.putAt = performance.now();
@@ -2669,12 +2754,6 @@ async function sendCloud() {
     Cloud.lastOk = Date.now();
     Cloud.error = "";
     cloudDirty = false;
-    // The left copy is merged now, so it goes. This finishes before the next save reads.
-    const cleared = pending ? await clearPending(leftBefore) : true;
-    if (replacing && cleared && Cloud.replaceAt === replacing) {
-      Cloud.replaceAt = 0;
-      saveCloudConfig();
-    }
     return true;
   } catch (err) {
     if (!sameCloud()) return false;
@@ -2687,18 +2766,15 @@ async function sendCloud() {
 }
 
 let leftCopy = false; // this page already sent the cloud a copy of its latest changes as it left
-let leftAt = -1e9;    // performance.now() when it did
 
 // A hidden page may never run again (phones often stop one right away), and a closing page
-// can't wait for answers, so either one sends its copy at once. It goes under its own name,
-// APP.cloudPending, so it never replaces the main copy. The next cloud save from any browser,
-// or the next start, merges it in. All browsers share that one name, so if two leave within
-// moments of each other, the later copy can replace the earlier one before it's merged. The
-// earlier browser still has those changes, and they reach the cloud the next time it opens.
+// can't wait for answers, so either one sends its copy at once. It goes under this browser's
+// own name, so it never replaces the main copy or another browser's copy. The next cloud save
+// from any browser, or the next start, merges it in. Tabs of one browser share the name, and
+// each tab folds in what the others save in this browser, so the latest copy has them all.
 function sendLeaving() {
-  if (!Cloud.on || leftCopy) return;
+  if (!Cloud.on || !isDeviceId(Cloud.device) || leftCopy) return;
   leftCopy = true;
-  leftAt = performance.now();
   // Merging only ever adds, so the copy leaves out what the main copy already has, which keeps
   // it small enough for the browser to finish sending after the page is gone. That's tests
   // from before this browser's last cloud save, and all but the last few days of totals.
@@ -2710,22 +2786,10 @@ function sendLeaving() {
   for (const field of ["daily", "clean"]) {
     copy[field] = Object.fromEntries(Object.entries(copy[field] || {}).sort().slice(-3));
   }
-  Cloud.call("PUT", APP.cloudPending, JSON.stringify(copy), true).catch(() => {
+  copy.leftAt = Date.now(); // this browser's clock, so its copies always count up
+  Cloud.call("PUT", slotName(Cloud.device), JSON.stringify(copy), true).catch(() => {
     leftCopy = false; // the next hide tries again, and the regular cloud save brings these changes anyway
   });
-}
-
-// Once a save has merged a left copy into the main one, the left copy goes. If this page
-// left a newer copy in the meantime, that one stays for the next save to merge.
-async function clearPending(leftBefore) {
-  await wait(leftAt + 1100 - performance.now()); // one write a second to the same name
-  if (leftAt !== leftBefore || !Cloud.on) return false;
-  try {
-    await Cloud.call("DELETE", APP.cloudPending);
-    return true;
-  } catch (err) {
-    return false; // the next save merges it again, which changes nothing, and tries again
-  }
 }
 
 // Saved texts go to the cloud as soon as they are added, each under its own name.
@@ -2857,6 +2921,13 @@ function hydrate(saved) {
   }
   state.docs = state.docs.filter((d) => !state.removed.includes(d.id));
   state.docId = state.docs.some((d) => d.id === saved.docId) ? saved.docId : "";
+  state.restoredAt = Number(saved.restoredAt) || 0;
+  state.devices = [];
+  for (const d of Array.isArray(saved.devices) ? saved.devices : []) {
+    if (!d || !isDeviceId(d.id) || state.devices.some((x) => x.id === d.id)) continue;
+    state.devices.push({ id: d.id, seen: Number(d.seen) || 0, left: Number(d.left) || 0 });
+  }
+  state.devices = state.devices.sort((a, b) => b.seen - a.seen).slice(0, APP.cloudDevices);
 }
 
 /* 5. Text generation ------------------------------------------------------- */
@@ -6562,8 +6633,8 @@ async function restoreBackup(data) {
   }
   state.docs = state.docs.filter((d) => docCache.has(d.id));
   if (state.docId && !(await openDoc(state.docId))) state.docId = "";
-  // The backup file replaces the cloud copy instead of merging with it.
-  if (Cloud.on) markReplace();
+  // The backup file replaces what came before it instead of merging with it.
+  markReplace();
   await Store.save(state);
   if (Cloud.on) {
     try {
@@ -6684,6 +6755,7 @@ async function onCloudConnect() {
       newLesson();
     }
     await uploadDocs();
+    if (!Cloud.device) Cloud.device = newDeviceId();
     await saveCloudConfig();
     Cloud.error = "";
     cloudDirty = true;
@@ -6713,7 +6785,6 @@ async function onCloudOff() {
   Cloud.error = "";
   Cloud.lastOk = 0;
   Cloud.seen = 0;
-  Cloud.replaceAt = 0;
   await Store.remove(APP.cloudConfig);
   el.cloudKey.value = "";
   el.cloudDaysRow.hidden = true;
@@ -6939,6 +7010,17 @@ function bindEvents() {
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "hidden") flushSaves();
   });
+  // Another tab of this browser saved. Its progress is folded into this tab, so this tab's
+  // next save can't write over it.
+  window.addEventListener("storage", (e) => {
+    if (!ready || e.key !== APP.storageKey || !e.newValue) return;
+    try {
+      hydrate(mergeSaves(snapshot(), JSON.parse(e.newValue), true));
+      afterMerge();
+    } catch (err) {
+      // a copy that doesn't read is left alone, and this tab's next save writes a whole one
+    }
+  });
   el.cloudConnect.addEventListener("click", onCloudConnect);
   el.cloudKey.addEventListener("keydown", (e) => {
     if (e.key === "Enter") onCloudConnect();
@@ -7002,20 +7084,18 @@ async function init() {
   const local = await Store.load();
   await loadCloudConfig();
   let start = local;
+  let listed = true; // whether the cloud copy lists this browser, so others can find its left copies
   if (Cloud.on) {
     // Fold in the cloud copy, so a cleared browser or another computer loses nothing.
     try {
-      const [remote, pending] = await Promise.all([Cloud.call("GET", APP.storageKey), Cloud.call("GET", APP.cloudPending)]);
-      const theirs = remote ? JSON.parse(remote) : null;
-      const left = pending ? JSON.parse(pending) : null;
-      // A restore that isn't safely in the cloud yet still wins over copies from before it.
-      const beforeRestore = (copy) => Cloud.replaceAt && (copy.savedAt || 0) <= Cloud.replaceAt;
+      const { theirs, left } = await readCloud(local);
+      listed = deviceIds(theirs).includes(Cloud.device);
       if (theirs) {
-        if (!beforeRestore(theirs)) start = mergeSaves(local, theirs, false);
+        start = mergeSaves(local, theirs, false);
         Cloud.seen = theirs.savedAt || 0;
       }
-      // A page that was hidden or closed may have left a copy newer than the main one.
-      if (left && !beforeRestore(left)) start = mergeSaves(start, left, false);
+      // Browsers that were hidden or closed may have left copies newer than the main one.
+      start = foldLeft(start, left, false);
     } catch (err) {
       Cloud.error = cloudProblem(err);
     }
@@ -7024,7 +7104,10 @@ async function init() {
   applyTheme();
   applyZoom();
   ready = true;
-  if (start !== local || Cloud.replaceAt) saveLocal(); // keeps this browser and the cloud copy in step
+  if (start !== local) saveLocal(); // keeps this browser and the cloud copy in step
+  // Other browsers only read the left copies of browsers the cloud copy lists, so a browser
+  // that isn't listed yet saves to the cloud straight away instead of waiting for a change.
+  if (!listed) pushCloud();
   el.cloudUrl.value = Cloud.url.replace(/^https:\/\//, "");
   el.cloudKey.value = Cloud.key;
   renderCloudStatus();
