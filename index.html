@@ -2025,7 +2025,7 @@ label.row { cursor: pointer; }
         <div class="row" id="cloudDaysRow" hidden>
           <div class="row-text">
             <span class="row-label">Daily copies</span>
-            <span class="row-hint">Your Cloudflare account keeps the first copy of each day. Restoring one undoes everything after it.</span>
+            <span class="row-hint">Your Cloudflare account keeps the first copy of each day. Restoring one brings back the progress it had, and undoes a Reset progress made since, on every device.</span>
           </div>
           <div class="tool">
             <select id="cloudDays"></select>
@@ -2047,7 +2047,7 @@ label.row { cursor: pointer; }
         <div class="row">
           <div class="row-text">
             <span class="row-label">Restore from a backup</span>
-            <span class="row-hint">Replaces everything here with what's in the backup file.</span>
+            <span class="row-hint">Brings back everything in the backup file and keeps what's here too. Its settings take over, and a Reset progress made since is undone.</span>
           </div>
           <button class="btn" type="button" id="restoreBtn">Choose backup file</button>
           <input type="file" id="restoreInput" accept=".json,application/json" hidden>
@@ -2650,38 +2650,28 @@ const saveCloudConfig = () => Store.write(APP.cloudConfig, JSON.stringify({ url:
 const isDeviceId = (id) => typeof id === "string" && /^[a-z0-9]{8,24}$/.test(id);
 const newDeviceId = () => (Math.random().toString(36).slice(2, 10) + Date.now().toString(36)).replace(/[^a-z0-9]/g, "").slice(0, 24);
 
-// A restore replaces what came before it instead of merging with it. It's stamped with the
-// time, and every merge, on every browser, then takes anything older than that only from the
-// restored copy. So the restore holds even on a browser that had already synced the mistake
-// it undoes, such as a Reset progress.
-function markReplace() {
-  state.savedAt = Date.now();
-  state.restoredAt = state.savedAt;
-  Cloud.seen = state.savedAt;
+// A restore brings back what a saved copy had, and keeps everything here too. The copy is
+// stamped with the time of the restore, so this merge, and every later merge on any browser,
+// undoes the resets made before it (see undoResets). The copy's settings and open text take
+// over. Nothing is ever taken away, so a browser that connects later, or work done elsewhere
+// after the restore, is kept.
+function restoreFrom(copy) {
+  const at = Date.now();
+  hydrate(mergeSaves({ ...copy, restoredAt: at }, snapshot(), true));
+  state.restoredAt = at;
+  state.savedAt = at;
 }
 
-// The part of a copy that still counts after a newer restore elsewhere. That's tests from the
-// restore on, a reset made after it, the days from the restore's day on, and texts added after
-// it. Letter stats can't be split by time, so the restored copy's stay.
-function sinceRestore(copy, at, restored) {
+// A restore undoes every Reset progress made before it, on every browser, which is what lets
+// it undo a reset another browser had already synced. So in the copy restored less recently,
+// a reset from before the newer restore stops counting, and that copy's tests and letter
+// stats merge as if it never happened. Resets made after the restore still count.
+function undoResets(copy, at, restored) {
   const out = JSON.parse(JSON.stringify(copy));
   const kept = restored.profiles || {};
-  out.profiles = {};
-  for (const [id, p] of Object.entries(copy.profiles || {})) {
-    if (!p) continue;
-    const history = (p.history || []).filter((e) => e && e.ts >= at);
-    if ((p.resetAt || 0) >= at) out.profiles[id] = { ...p, history };
-    else if (kept[id]) out.profiles[id] = { ...p, resetAt: kept[id].resetAt || 0, keys: {}, unlocked: 0, history };
-    else if (history.length) out.profiles[id] = { ...p, history };
+  for (const [id, p] of Object.entries(out.profiles || {})) {
+    if (p && (p.resetAt || 0) < at) p.resetAt = kept[id] ? kept[id].resetAt || 0 : 0;
   }
-  const day = dayKey(new Date(at));
-  for (const field of ["daily", "clean"]) {
-    out[field] = {};
-    for (const [d, ms] of Object.entries(copy[field] || {})) if (d >= day) out[field][d] = ms;
-  }
-  const back = new Set((restored.docs || []).map((d) => d && d.id));
-  out.docs = (copy.docs || []).filter((d) => d && (d.added || 0) >= at && !back.has(d.id));
-  out.removed = (copy.removed || []).filter((id) => !back.has(id));
   out.restoredAt = at;
   return out;
 }
@@ -2704,9 +2694,9 @@ function mergeDevices(a, b) {
 function mergeSaves(mine, theirs, keepMine) {
   if (!mine) return theirs;
   if (!theirs) return mine;
-  const restoredAt = Math.max(mine.restoredAt || 0, theirs.restoredAt || 0);
-  if ((mine.restoredAt || 0) > (theirs.restoredAt || 0)) theirs = sinceRestore(theirs, restoredAt, mine);
-  else if ((theirs.restoredAt || 0) > (mine.restoredAt || 0)) mine = sinceRestore(mine, restoredAt, theirs);
+  const restoredAt = Math.min(Math.max(mine.restoredAt || 0, theirs.restoredAt || 0), Date.now() + 300000);
+  if ((mine.restoredAt || 0) > (theirs.restoredAt || 0)) theirs = undoResets(theirs, restoredAt, mine);
+  else if ((theirs.restoredAt || 0) > (mine.restoredAt || 0)) mine = undoResets(mine, restoredAt, theirs);
   const newer = (theirs.savedAt || 0) > (mine.savedAt || 0) ? theirs : mine;
   const out = JSON.parse(JSON.stringify(newer));
   if (keepMine) out.settings = JSON.parse(JSON.stringify(mine.settings || {}));
@@ -2910,6 +2900,7 @@ function sendLeaving() {
   for (const field of ["daily", "clean"]) {
     copy[field] = Object.fromEntries(Object.entries(copy[field] || {}).sort().slice(-3));
   }
+  copy.devices = (copy.devices || []).map((d) => ({ id: d.id, seen: d.seen, left: d.id === Cloud.device ? d.left : 0 }));
   copy.leftAt = Date.now(); // this browser's clock, so its copies always count up
   Cloud.call("PUT", slotName(Cloud.device), JSON.stringify(copy), true).catch(() => {
     leftCopy = false; // the next hide tries again, and the regular cloud save brings these changes anyway
@@ -6978,19 +6969,18 @@ async function onBackupClick() {
 
 async function restoreBackup(data) {
   if (!data || data.app !== "keyprint" || !data.state || typeof data.state !== "object") throw new Error("backup");
-  hydrate(data.state);
+  const here = new Set(state.docs.map((d) => d.id));
+  restoreFrom(data.state);
   legacyText = "";
-  docCache.clear();
   const texts = data.texts && typeof data.texts === "object" ? data.texts : {};
   for (const doc of state.docs) {
     if (typeof texts[doc.id] !== "string") continue;
     docCache.set(doc.id, { text: texts[doc.id], passages: splitPassages(texts[doc.id]) });
     await Store.saveDoc(doc.id, texts[doc.id]);
   }
-  state.docs = state.docs.filter((d) => docCache.has(d.id));
+  // Texts from the backup come with their words. Ones that came without them are dropped.
+  state.docs = state.docs.filter((d) => here.has(d.id) || docCache.has(d.id));
   if (state.docId && !(await openDoc(state.docId))) state.docId = "";
-  // The backup file replaces what came before it instead of merging with it.
-  markReplace();
   await Store.save(state);
   if (Cloud.on) {
     try {
@@ -7173,9 +7163,7 @@ async function onCloudRestore() {
   try {
     const raw = await Cloud.call("GET", `backup-${day}`);
     if (!raw) throw new Error("reach");
-    hydrate(JSON.parse(raw));
-    markReplace(); // the restored copy replaces the cloud copy instead of merging with it
-    docCache.clear();
+    restoreFrom(JSON.parse(raw));
     if (state.docId && !(await openDoc(state.docId))) state.docId = "";
     Store.save(state);
     cloudDirty = true;
