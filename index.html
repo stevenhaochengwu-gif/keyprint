@@ -1806,7 +1806,7 @@ label.row { cursor: pointer; }
 
         <div class="card">
           <h3 class="card-title">Tricky key switches</h3>
-          <p class="card-lede">Many mistakes start in the move from one key to the next. These are the switches that go wrong more often than your other keys, with how your fingers travel for each.</p>
+          <p class="card-lede">Many mistakes start in the move from one key to the next. These are the switches that go wrong more often than the key they land on usually does, with how your fingers travel for each.</p>
           <div class="bars" id="anaPairs"></div>
         </div>
 
@@ -3549,7 +3549,7 @@ function drillText(plan, s) {
     }
   }
   return words
-    .map((w) => (caps.has(w[0]) || (plan.shift && Math.random() < 0.25) ? capitalize(w) : w))
+    .map((w) => (caps.has((w.match(/[a-z]/i) || [""])[0].toLowerCase()) || (plan.shift && Math.random() < 0.25) ? capitalize(w) : w))
     .join(" ");
 }
 
@@ -4064,6 +4064,7 @@ function keyDetail(L, upto = L.text.length) {
 let unfinished = null; // { layout, parts }
 
 function holdPartial(L, upto) {
+  if (L.mode === "custom") return; // My text keeps no keystrokes, see finishLesson
   if (!unfinished || unfinished.layout !== L.layout) unfinished = { layout: L.layout, parts: [] };
   unfinished.parts.push(keyDetail(L, upto));
   let size = unfinished.parts.reduce((sum, part) => sum + part.tx.length, 0);
@@ -4099,8 +4100,15 @@ function newLesson(attempt = 1) {
   renderFocus();
 }
 
-// Tab gives new text. In My text it moves on to the next passage.
+// Tab gives new text. In My text it moves on to the next passage, and in Practice these it
+// gives new drill text, so the drill goes on.
 function skipAhead() {
+  if (lesson && lesson.drill) {
+    startLesson(drillText(lesson.drill, state.settings), 1, lesson.drill);
+    renderFocus();
+    checkGoals();
+    return;
+  }
   const doc = state.settings.mode === "custom" && !(lesson && lesson.drill) ? activeDoc() : null;
   if (doc && doc.passages) {
     doc.at = (doc.at + 1) % doc.passages;
@@ -4327,6 +4335,8 @@ function finishLesson() {
   L.counted = true;
   const early = unfinished && unfinished.layout === L.layout ? unfinished.parts : [];
   unfinished = null;
+  // My text keeps no keystrokes, since its words are yours and must go when the text does.
+  const detailParts = L.mode === "custom" ? early : [...early, keyDetail(L)];
   p.history.push({
     ts: Date.now(),
     wpm: round(wpm, 1),
@@ -4336,7 +4346,7 @@ function finishLesson() {
     mode: L.mode,
     tries: L.attempt,
     ...testDetail(L),
-    ...joinDetail([...early, keyDetail(L)]),
+    ...(detailParts.length ? joinDetail(detailParts) : {}),
   });
   if (p.history.length > APP.historyLimit) p.history.splice(0, p.history.length - APP.historyLimit);
   trimDetail(p.history);
@@ -7267,7 +7277,7 @@ function detailedTests(h) {
     const miss = new Map();
     for (const m of e.mx) {
       if (!Array.isArray(m) || !Number.isInteger(m[0]) || m[0] < 0 || m[0] >= n || e.tx[m[0]] === "\n") continue;
-      if (typeof m[1] !== "string" || m[1].length !== 1 || m[1] === e.tx[m[0]] || miss.has(m[0])) continue;
+      if (typeof m[1] !== "string" || [...m[1]].length !== 1 || m[1] === e.tx[m[0]] || miss.has(m[0])) continue;
       miss.set(m[0], { got: m[1], ms: Number.isFinite(m[2]) && m[2] >= 0 ? m[2] : -1 });
     }
     const gaps = new Int16Array(n).fill(-1);
@@ -7398,7 +7408,14 @@ function rankRates(map, min, base) {
 
 const keyMin = (ch) => (isLetter(ch) || ch === " " ? ANALYSIS_MIN.key : ANALYSIS_MIN.symbol);
 const missedKeys = (A) => rankRates(A.chars, 0, A.rate).filter((r) => r.x > 0 && r.n >= keyMin(r.key));
-const trickyPairs = (A) => rankRates(A.pairs, ANALYSIS_MIN.pair, A.rate).filter((r) => r.x > 0 && r.rate > A.rate);
+// A key switch counts as tricky when it goes wrong clearly more often than the key it lands
+// on usually does, so a key that's weak after everything doesn't fill the list on its own.
+function trickyPairs(A) {
+  const own = (r) => Math.max(rateOf(A.chars.get(r.key.slice(1))), 0.005);
+  return rankRates(A.pairs, ANALYSIS_MIN.pair, A.rate)
+    .filter((r) => r.x >= 2 && r.score > own(r) * 1.25)
+    .sort((a, b) => b.score / own(b) - a.score / own(a) || b.n - a.n);
+}
 
 function slowSwitches(A) {
   return [...A.pairs.entries()]
