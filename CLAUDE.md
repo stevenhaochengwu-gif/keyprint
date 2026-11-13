@@ -181,6 +181,11 @@ The script changes the look mostly through root attributes (`data-theme`, `data-
 - **`keepPartial`** must run before `lesson` is replaced. `startLesson` does this, and `L.counted` stops double counting. Text is generated before it runs, so generation sees the stats from before the partial test.
 - **Stale settings refs.** A `const s = state.settings` captured before a `hydrate` goes stale.
 - **`coolUntil`** is shared by `failAttempt` (whose `hold` is captured after `checkGoals`) and `playCheer` (which adds `APP.cheerHold`). `checkGoals` must stay between tests.
+- **Celebrations come in three sizes, and they should stay different.**
+  - A perfect test (no mistakes) gets `flourishPerfect`, a small `#flourish` tag above the text and a light along the letter row (`.sequence.shine`, ordered by each key's `--i`). It never holds keys. `perfectRun` counts perfect tests in a row and isn't saved. `checkGoals` returns the goals it celebrated, and a test that reaches a goal shows that instead.
+  - The clean typing goal alone gets `flourishClean`, one line traced around the text (`.trace`, built once in the board) with the tag sitting on the line as a label. No overlay, no hold.
+  - The daily typing goal, alone or with the clean one, gets `playCheer`, the slow release overlay. `renderCharge` (called from `renderGoal`) builds up to it from `APP.chargeFrom` of the goal by setting `.charging`, `--charge` and `--breath` on the Typing today goal and the board.
+  - Sounds are `perfect`, `clean` and `release` in `sound()`, and play only with the Sound setting on.
 - **Docs in progress.** `finishLesson` and `skipAhead` advance whatever `activeDoc()` is at that moment, because the lesson stores no doc id.
 - **Logo and rings.**
   - The cheer overlay clones `.brand .logo`. Its CSS expects four rings followed by the SVG, and four paths, with `pathLength="100"` on the three ridges and the fourth as the core line.
@@ -195,7 +200,7 @@ The script changes the look mostly through root attributes (`data-theme`, `data-
 - **Copy that restates script values.** "three seconds" is `APP.idleGap` and "1 to 1,000" is `APP.maxWords`, so change copy and value together. The select and slider options cover fewer values than `hydrate` accepts.
 - **Reduced motion** uses `0.001ms` rather than `none`, so end events still fire.
 - **`.sink`** must stay focusable (opacity 0, not display none) and keep its 16px font size, or iOS zooms on focus.
-- **Z-index stack.** Toast 30, cheer 20, chart tip 15, zen hint 5, cue 3.
+- **Z-index stack.** Toast 30, cheer 20, chart tip 15, zen hint 5, cue 3. The board isolates its own stack (`isolation: isolate`), so its build up glow sits at -1 behind the text and `#flourish` at 1 above the traced line.
 
 ## Leftovers (safe to remove, easy to mistake for live code)
 
