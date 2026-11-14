@@ -1,15 +1,18 @@
 // How Cloudflare deploys this site. Once the site's Worker is connected to this repo
 // (Workers & Pages, the Worker, Settings, Build), every push to the production branch
 // runs "npx wrangler deploy". That publishes index.html as a static file and site-worker.js
-// as the script behind /api.
+// as the script behind /api and behind any path with no file.
 {
   // Must match the Worker's name in the Cloudflare dashboard exactly, or the build fails.
   "name": "typing",
   "main": "site-worker.js",
   "compatibility_date": "2026-11-01",
   // The site is the repo itself, and .assetsignore keeps everything but index.html off it.
-  // Only requests under /api run site-worker.js, so page loads stay free static files and
-  // keep working even when the day's Worker requests run out.
+  // Requests under /api run site-worker.js, and so does any path with no file (the script
+  // answers those with the same 404 through ASSETS), so crawlers and scanners asking for
+  // missing paths count as Worker requests. Page loads match index.html, so they stay free
+  // static files and keep working even when the day's Worker requests run out. If that noise
+  // ever matters, a WAF rule or rate limit on the zone is the lever.
   "assets": { "directory": ".", "binding": "ASSETS", "run_worker_first": ["/api/*"] },
   // Accounts live in Durable Objects, which the first deploy from main creates. Never rename
   // the classes, the bindings or the migration tag, and never remove the migration entry, or

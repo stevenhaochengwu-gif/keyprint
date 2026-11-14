@@ -1,27 +1,34 @@
 // The site Worker for Keyprint. Cloudflare serves index.html as a static file and runs this
-// script only for requests under /api, which hold accounts. Each account keeps its progress in
-// its own Durable Object (a Vault), and one more Durable Object (the Directory) knows every
-// username and Google account. CLAUDE.md lists the routes and every answer they give.
+// script for requests under /api, which hold accounts, and for paths with no file, which get the
+// usual 404 through ASSETS. Each account keeps its progress in its own Durable Object (a Vault),
+// and one more Durable Object (the Directory) knows every username and Google account and how
+// much every account stores. CLAUDE.md lists the routes and every answer they give.
 //
 // It has no imports and uses only Web APIs and the Durable Object SQL API, so a copy of it runs
 // in Node for the local tests. Both classes answer plain fetch requests from this script.
 
 /* 1. Configuration --------------------------------------------------------- */
 
-const FRESH = 15 * 60000;        // ms after signing in when adding Google and deleting the account are allowed, APP.freshSignIn in index.html
+const FRESH = 15 * 60000;        // ms after signing in when adding Google, adding a first password and deleting the account are allowed, APP.freshSignIn in index.html
 const IDLE = 90 * 86400000;      // ms a session lasts without being used
 const LIFE = 400 * 86400000;     // ms a session lasts at most
 const SESSIONS_MAX = 20;         // live sessions an account keeps, the most recently used
 const PART = 1048576;            // bytes in each stored part of a saved value
 const MAIN_MAX = 8000000;        // bytes in the main copy
-const SLOT_MAX = 1000000;        // bytes in a left copy
+const SLOT_MAX = 262144;         // bytes in a left copy, many times the app's 30 tests per layout and 15,000 characters of keystrokes
 const DOC_MAX = 12000000;        // bytes in one text, APP.docLimit characters at up to 3 bytes each
 const DOCS_BYTES = 24000000;     // bytes of texts an account keeps in all
 const DOCS_MAX = 200;            // texts an account keeps
 const SLOTS_MAX = 24;            // left copies an account keeps, the most recently written
 const KEEP_DAYS = 14;            // daily copies an account keeps, the Daily copies hint in index.html
+const ACCOUNT_BYTES = 40000000;  // bytes an account keeps in all, daily copies included, room for DOCS_BYTES of texts beside a heavy user's progress
+const YOUNG_BYTES = 4000000;     // bytes an account keeps in all while it's new, so accounts made only to fill storage hold little
+const YOUNG = 3 * 86400000;      // ms an account counts as new
+const STEP = 1048576;            // bytes an account grows or shrinks by before it tells the Directory its size
+const SITE_BYTES = 4000000000;   // bytes every account keeps in all before the site takes no more growth or new accounts, under the Free plan's 5 GB
 const PUTS_MAX = 120;            // writes an account may make in 10 minutes
 const SIGNUPS_PER_DAY = 500;     // new accounts across the site in one UTC day
+const SIGNUPS_PER_PLACE = 30;    // new accounts from one address (an IPv6 /48) in 24 hours, about one class signing up together
 const BODY_MAX = 8192;           // characters in a sign in request
 const GOOGLE_KEYS = "https://www.googleapis.com/oauth2/v3/certs";
 const RESERVED = ["admin", "administrator", "api", "help", "keyprint", "mod", "moderator", "null", "owner", "root", "staff", "support", "system", "undefined"];
@@ -98,9 +105,10 @@ function sameBytes(a, b) {
   return diff === 0;
 }
 
-// The part of an address that limits count. IPv6 keeps only its first four groups (the /64),
-// since one person usually holds a whole /64.
-function ipPrefix(ip) {
+// The part of an address that limits count. IPv6 keeps only its first groups, four (the /64)
+// for sign in attempts, since one person usually holds a whole /64, and three (the /48) for sign
+// ups, since one home or office is often given a whole /48 to make addresses from.
+function ipPrefix(ip, keep = 4) {
   const raw = String(ip || "unknown").trim().toLowerCase();
   if (!raw.includes(":")) return raw;
   if (raw.includes(".")) return raw.slice(raw.lastIndexOf(":") + 1); // an IPv4 address written as IPv6
@@ -111,7 +119,7 @@ function ipPrefix(ip) {
   const tail = halves.length === 2 ? groups(halves[1]) : [];
   const fill = halves.length === 2 ? Math.max(0, 8 - head.length - tail.length) : 0;
   const all = [...head, ...new Array(fill).fill("0"), ...tail];
-  return `${all.slice(0, 4).map((g) => (/^[0-9a-f]{1,4}$/.test(g) ? parseInt(g, 16).toString(16) : g)).join(":")}::/64`;
+  return `${all.slice(0, keep).map((g) => (/^[0-9a-f]{1,4}$/.test(g) ? parseInt(g, 16).toString(16) : g)).join(":")}::/${keep * 16}`;
 }
 
 // The password hash the server keeps. The browser has already run 600,000 rounds of PBKDF2,
@@ -216,8 +224,8 @@ function reached(map, key, span, max, now) {
 /* 4. Google sign in -------------------------------------------------------- */
 
 // Google's signing keys, kept for as long as Google says and fetched again for a key id it
-// hasn't seen, at most once a minute.
-const googleKeys = { keys: new Map(), until: 0, tried: -Infinity, loading: null };
+// hasn't seen, at most once a minute. Only settled keys and times are shared between requests.
+const googleKeys = { keys: new Map(), until: 0, tried: -Infinity };
 
 async function loadGoogleKeys() {
   const res = await fetch(GOOGLE_KEYS);
@@ -239,17 +247,15 @@ async function loadGoogleKeys() {
 }
 
 // The key for kid, or null when Google doesn't publish it. A failed fetch throws, which the
-// caller answers with 503.
+// caller answers with 503. Each request fetches for itself, because outside a Durable Object a
+// request that waits on another request's promise is cancelled as hung, and a cancelled
+// request's promise never settles. loadGoogleKeys swaps in the new keys only once it has them
+// all, so loads that overlap are safe, and a cold burst only makes a few extra fetches.
 async function googleKey(kid) {
   const now = Date.now();
   if (now >= googleKeys.until || (!googleKeys.keys.has(kid) && now - googleKeys.tried > MINUTE)) {
-    if (!googleKeys.loading) {
-      googleKeys.tried = now;
-      googleKeys.loading = loadGoogleKeys().finally(() => {
-        googleKeys.loading = null;
-      });
-    }
-    await googleKeys.loading;
+    googleKeys.tried = now;
+    await loadGoogleKeys();
   }
   return googleKeys.keys.get(kid) || null;
 }
@@ -406,7 +412,10 @@ async function link({ request, env, url, body, ip }) {
 }
 
 // Changes or adds the password, then signs out every other browser. Those see a plain sign
-// out, keep their progress and merge it back when the person signs in there again.
+// out, keep their progress and merge it back when the person signs in there again. Adding a
+// first password needs a fresh session, like adding Google, so a stolen token can't add a way
+// back in. The Directory decides that from whether the account has a password, never from the
+// body, which a token thief writes.
 async function password({ request, env, body, ip }) {
   const token = bearer(request);
   if (!token) return json(401, { error: "session" });
@@ -414,8 +423,9 @@ async function password({ request, env, body, ip }) {
   if (body.old !== undefined && !isProof(body.old)) return json(400, { error: "proof" });
   const check = await ask(vault(env, token.uid), "check", {}, keyHeaders(token));
   if (check.status !== 200) return json(check.status, check.data);
+  const fresh = Date.now() - Number(check.data.created) <= FRESH;
   const name = typeof body.username === "string" ? body.username : "";
-  const r = await ask(directory(env), "password", { uid: token.uid, proof: body.proof, old: body.old || "", name, ip });
+  const r = await ask(directory(env), "password", { uid: token.uid, proof: body.proof, old: body.old || "", name, ip, fresh });
   if (r.status !== 200) return json(r.status, r.data);
   const others = await ask(vault(env, token.uid), "end-others", {}, keyHeaders(token));
   if (others.status !== 200) return json(others.status, others.data);
@@ -479,11 +489,10 @@ async function data(request, env, url) {
   const ip = request.headers.get("CF-Connecting-IP") || "unknown";
   const now = Date.now();
   if (reached(badHits, ip, 10 * MINUTE, 20, now)) return text(429, "Slow down");
+  // A missing or malformed token never reaches a Vault, so it isn't counted. Any page can send
+  // those from a visitor's browser, and counting them would let it block that address.
   const token = bearer(request);
-  if (!token) {
-    tick(badHits, ip, 10 * MINUTE, 20, now);
-    return text(401, "Signed out");
-  }
+  if (!token) return text(401, "Signed out");
   let name = "";
   try {
     name = decodeURIComponent(url.pathname.slice(7));
@@ -501,7 +510,7 @@ async function data(request, env, url) {
   }
   const res = await vault(env, token.uid).fetch(`https://vault/data/${encodeURIComponent(name)}`, { method, headers: keyHeaders(token), body });
   if (res.status >= 500 && res.status !== 507) throw new Error(`vault ${res.status}`); // 507 is Full, the rest a fault
-  if (res.status === 401) tick(badHits, ip, 10 * MINUTE, 20, Date.now());
+  if (res.status === 401) tick(badHits, ip, 10 * MINUTE, 20, Date.now()); // only this site's pages can send a token
   return reply(res.status, res.body, res.headers.get("Content-Type") || "text/plain; charset=utf-8");
 }
 
@@ -646,12 +655,41 @@ export class Vault {
     const s = await this.session(request);
     if (s.fail) return text(401, s.fail === "revoked" ? "Revoked" : "Signed out");
     if (method === "GET") return this.read(name, kind);
-    if (method === "DELETE") return kind === "doc" ? this.write(s, name, kind, null) : text(403, "Not allowed");
+    if (method === "DELETE") {
+      if (kind !== "doc") return text(403, "Not allowed");
+      const after = this.total() - this.bytesOf(name);
+      const res = this.write(s, name, kind, null, {});
+      if (res.status === 200) await this.shrank(s.uid, after);
+      return res;
+    }
     if (method !== "PUT") return text(405, "Not allowed");
     if (!CAPS[kind]) return text(403, "Not allowed");
     const body = await request.arrayBuffer();
     if (body.byteLength > CAPS[kind]) return text(413, "Too large");
-    return this.write(s, name, kind, body);
+    const plan = this.plan(name, kind, body.byteLength, Date.now(), true);
+    if (plan.full) return text(507, "Full");
+    const opts = { daily: true };
+    const reported = this.reported();
+    // Growing well past what the Directory last heard needs its say, so the whole site stays
+    // under SITE_BYTES. A main copy is still saved while the Directory can't be reached.
+    if (plan.after > reported + STEP) {
+      let granted = null;
+      try {
+        granted = await this.tell(s.uid, plan.after);
+      } catch (err) {
+        if (kind !== "main") throw err;
+      }
+      if (granted) opts.reported = plan.after;
+      if (granted === false) {
+        // The site is full, so nothing grows. Progress that doesn't grow still saves.
+        if (kind !== "main") return text(507, "Full");
+        opts.daily = false;
+        if (this.plan(name, kind, body.byteLength, Date.now(), false).after > reported + STEP) return text(507, "Full");
+      }
+    }
+    const res = this.write(s, name, kind, body, opts);
+    if (res.status === 200 && !opts.reported) await this.shrank(s.uid, plan.after);
+    return res;
   }
 
   parts(name) {
@@ -695,9 +733,95 @@ export class Vault {
     return reply(200, out, "application/octet-stream");
   }
 
+  // The bytes this account keeps, daily copies included, and the bytes under one name.
+  total() {
+    return this.sql.exec("SELECT COALESCE(SUM(size), 0) AS bytes FROM blobs").one().bytes;
+  }
+
+  bytesOf(name) {
+    return this.sql.exec("SELECT COALESCE(SUM(size), 0) AS bytes FROM blobs WHERE name = ?", name).one().bytes;
+  }
+
+  // What the Directory last heard this account keeps.
+  reported() {
+    return Number(this.meta("reported")) || 0;
+  }
+
+  // A new account keeps less for its first days, so accounts made only to fill storage can't.
+  budget(now) {
+    const created = Number(this.meta("created")) || 0;
+    return now - created < YOUNG ? YOUNG_BYTES : ACCOUNT_BYTES;
+  }
+
+  // What a PUT of size bytes to name would do, worked out without writing. Gives {full} when it
+  // doesn't fit, otherwise {after, drop, daily}. after is the account's bytes once it's written,
+  // drop lists names to remove first, and daily says whether to make today's daily copy. Texts
+  // and left copies past the account's budget are refused. The main copy never is, because it's
+  // the progress itself. The oldest daily copies go to make room for it instead, and once that
+  // isn't enough, today's daily copy is skipped.
+  plan(name, kind, size, now, dailyOk) {
+    const here = this.sql.exec("SELECT COUNT(*) AS n, COALESCE(SUM(size), 0) AS bytes FROM blobs WHERE name = ?", name).one();
+    const budget = this.budget(now);
+    const drop = [];
+    let after = this.total() - here.bytes + size;
+    if (kind === "doc") {
+      const other = this.sql.exec("SELECT COALESCE(SUM(size), 0) AS bytes, COUNT(DISTINCT name) AS n FROM blobs WHERE name >= 'keyprint-doc:' AND name < 'keyprint-doc;' AND name <> ?", name).one();
+      if (other.bytes + size > DOCS_BYTES || (!here.n && other.n >= DOCS_MAX)) return { full: true };
+    }
+    if (kind === "slot" && !here.n) {
+      // A left copy is always one part, so part 0 holds all of it.
+      const slots = this.sql.exec("SELECT name, size FROM blobs WHERE name >= 'keyprint-pending-' AND name < 'keyprint-pending.' AND part = 0 ORDER BY at, name").toArray();
+      for (const slot of slots.slice(0, Math.max(0, slots.length - SLOTS_MAX + 1))) {
+        drop.push(slot.name);
+        after -= slot.size;
+      }
+    }
+    if (kind !== "main") return after > budget ? { full: true } : { after, drop, daily: false };
+    let daily = dailyOk && !this.sql.exec("SELECT 1 FROM blobs WHERE name = ? AND part = 0", `backup-${utcDay(now)}`).toArray().length;
+    if (daily) after += size;
+    if (after > budget) {
+      const days = this.sql.exec("SELECT name, SUM(size) AS bytes FROM blobs WHERE name >= 'backup-' AND name < 'backup.' GROUP BY name ORDER BY name").toArray();
+      for (const day of days) {
+        if (after <= budget) break;
+        drop.push(day.name);
+        after -= day.bytes;
+      }
+      if (after > budget && daily) {
+        daily = false;
+        after -= size;
+      }
+    }
+    return { after, drop, daily };
+  }
+
+  // The Directory keeps every account's size, so the whole site stays under SITE_BYTES. It hears
+  // only when this account has grown or shrunk by STEP since it last heard, which is rare. Gives
+  // false when it refuses growth because the site is full.
+  async tell(uid, bytes) {
+    const r = await ask(directory(this.env), "size", { uid, bytes });
+    if (r.status !== 200 && r.data.error !== "full") throw new Error("size");
+    return r.status === 200;
+  }
+
+  // After a write that shrank the account by STEP or more, the Directory hears so, as far as that
+  // goes. It hears again with the next change if it can't be reached now.
+  async shrank(uid, after) {
+    if (after >= this.reported() - STEP) return;
+    try {
+      if (await this.tell(uid, after)) this.ctx.storage.transactionSync(() => this.setMeta("reported", String(after)));
+    } catch (err) {
+      // the next change that big tells it again
+    }
+  }
+
+  setMeta(k, v) {
+    this.sql.exec("INSERT INTO meta (k, v) VALUES (?, ?) ON CONFLICT (k) DO UPDATE SET v = excluded.v", k, v);
+  }
+
   // Writes or deletes one name in a single transaction with no await inside, after checking
-  // the session again.
-  write(s, name, kind, body) {
+  // the session again. opts.daily false skips today's daily copy, and opts.reported is the size
+  // the Directory just agreed to.
+  write(s, name, kind, body, opts) {
     return this.ctx.storage.transactionSync(() => {
       const again = this.live(s.hash, s.uid, false);
       if (again.fail) return text(401, again.fail === "revoked" ? "Revoked" : "Signed out");
@@ -708,17 +832,9 @@ export class Vault {
         return text(200, "Deleted");
       }
       const size = body.byteLength;
-      const known = this.sql.exec("SELECT 1 FROM blobs WHERE name = ? AND part = 0", name).toArray().length > 0;
-      if (kind === "doc") {
-        const other = this.sql.exec("SELECT COALESCE(SUM(size), 0) AS bytes, COUNT(DISTINCT name) AS n FROM blobs WHERE name >= 'keyprint-doc:' AND name < 'keyprint-doc;' AND name <> ?", name).one();
-        if (other.bytes + size > DOCS_BYTES || (!known && other.n >= DOCS_MAX)) return text(507, "Full");
-      }
-      if (kind === "slot" && !known) {
-        const slots = this.sql.exec("SELECT COUNT(*) AS n FROM blobs WHERE name >= 'keyprint-pending-' AND name < 'keyprint-pending.' AND part = 0").one();
-        if (slots.n >= SLOTS_MAX) {
-          this.sql.exec("DELETE FROM blobs WHERE name IN (SELECT name FROM blobs WHERE name >= 'keyprint-pending-' AND name < 'keyprint-pending.' AND part = 0 ORDER BY at, name LIMIT ?)", slots.n - SLOTS_MAX + 1);
-        }
-      }
+      const plan = this.plan(name, kind, size, now, opts.daily !== false);
+      if (plan.full) return text(507, "Full");
+      for (const gone of plan.drop) this.sql.exec("DELETE FROM blobs WHERE name = ?", gone);
       const count = Math.max(1, Math.ceil(size / PART));
       for (let i = 0; i < count && size; i++) {
         const piece = body.slice(i * PART, Math.min(size, (i + 1) * PART));
@@ -727,7 +843,8 @@ export class Vault {
       // SQLite binds an empty buffer as NULL, so an empty copy is written as the empty BLOB.
       if (!size) this.sql.exec("INSERT INTO blobs (name, part, body, size, at) VALUES (?, 0, X'', 0, ?) ON CONFLICT (name, part) DO UPDATE SET body = excluded.body, size = excluded.size, at = excluded.at", name, now);
       this.sql.exec("DELETE FROM blobs WHERE name = ? AND part >= ?", name, count);
-      if (kind === "main") this.daily(now);
+      if (plan.daily) this.daily(now);
+      if (opts.reported) this.setMeta("reported", String(opts.reported));
       return text(200, "Saved");
     });
   }
@@ -815,13 +932,17 @@ export class Vault {
 // limits.k is a counter name, n the count, at the last counted attempt and until when the row
 // can go.
 // used.k is "n" and a colon, then the nonce of a Google sign in already taken.
-// meta holds key (for hashing addresses), signups (the UTC day and its count) and pruned.
+// sizes.bytes is what an account's Vault last said it keeps, and at when it said so, so the
+// biggest accounts are easy to find (SELECT * FROM sizes ORDER BY bytes DESC).
+// meta holds key (for hashing addresses), signups (the UTC day and its count), pruned and bytes
+// (the sum of sizes, kept as it changes so it's never added up again).
 const DIRECTORY_TABLES = [
   "CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, username TEXT NOT NULL DEFAULT '', email TEXT NOT NULL DEFAULT '', created INTEGER NOT NULL) WITHOUT ROWID",
   "CREATE TABLE IF NOT EXISTS logins (login TEXT PRIMARY KEY, user TEXT NOT NULL, salt TEXT, hash TEXT, alg TEXT, created INTEGER NOT NULL) WITHOUT ROWID",
   "CREATE INDEX IF NOT EXISTS logins_user ON logins (user)",
   "CREATE TABLE IF NOT EXISTS limits (k TEXT PRIMARY KEY, n INTEGER NOT NULL, at INTEGER NOT NULL, until INTEGER NOT NULL) WITHOUT ROWID",
   "CREATE TABLE IF NOT EXISTS used (k TEXT PRIMARY KEY, until INTEGER NOT NULL) WITHOUT ROWID",
+  "CREATE TABLE IF NOT EXISTS sizes (user TEXT PRIMARY KEY, bytes INTEGER NOT NULL, at INTEGER NOT NULL) WITHOUT ROWID",
   "CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT NOT NULL) WITHOUT ROWID",
 ];
 
@@ -878,8 +999,9 @@ export class Directory {
     return uid;
   }
 
-  // The first 16 characters of a keyed hash of the address. Raw addresses are never stored.
-  async ipHash(ip) {
+  // The first 16 characters of a keyed hash of the address, or of its /48 with keep 3. Raw
+  // addresses are never stored.
+  async ipHash(ip, keep = 4) {
     if (!this.ipKey) this.ipKey = crypto.subtle.importKey("raw", unb64url(this.meta("key")), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
     let key;
     try {
@@ -888,7 +1010,7 @@ export class Directory {
       this.ipKey = null;
       throw err;
     }
-    return b64url(await crypto.subtle.sign("HMAC", key, utf8(ipPrefix(ip)))).slice(0, 16);
+    return b64url(await crypto.subtle.sign("HMAC", key, utf8(ipPrefix(ip, keep)))).slice(0, 16);
   }
 
   // Deletes expired counters and used nonces, at most once every 10 minutes.
@@ -921,6 +1043,21 @@ export class Directory {
     }
     this.sql.exec("INSERT INTO limits (k, n, at, until) VALUES (?, 1, ?, ?) ON CONFLICT (k) DO UPDATE SET n = 1, at = excluded.at, until = excluded.until", k, now, now + span);
     return 0;
+  }
+
+  // Every account's bytes together, as their Vaults last said.
+  siteBytes() {
+    return Number(this.meta("bytes")) || 0;
+  }
+
+  // The checks before a new account, either kind. place is the hash of the address's /48. Gives
+  // an answer when it can't be made, or null.
+  canMake(place, now) {
+    const wait = this.count(`s:${place}`, SIGNUPS_PER_PLACE, DAY, now);
+    if (wait) return busy(wait);
+    if (this.signupsToday(now) >= SIGNUPS_PER_DAY) return json(429, { error: "closed" });
+    if (this.siteBytes() >= SITE_BYTES) return json(429, { error: "full" });
+    return null;
   }
 
   signupsToday(now) {
@@ -986,6 +1123,7 @@ export class Directory {
     if (route === "link") return this.link(await request.json());
     if (route === "password") return this.password(await request.json());
     if (route === "remove") return this.remove(await request.json());
+    if (route === "size") return this.size(await request.json());
     return json(404, { error: "route" });
   }
 
@@ -993,13 +1131,12 @@ export class Directory {
     const name = normalName(body.name);
     if (!name) return json(400, { error: "username" });
     if (!isProof(body.proof)) return json(400, { error: "proof" });
-    const h = await this.ipHash(body.ip);
+    const place = await this.ipHash(body.ip, 3);
     const now = Date.now();
     const first = this.ctx.storage.transactionSync(() => {
       this.prune(now);
-      const wait = this.count(`s:${h}`, 40, HOUR, now);
-      if (wait) return busy(wait);
-      if (this.signupsToday(now) >= SIGNUPS_PER_DAY) return json(429, { error: "closed" });
+      const no = this.canMake(place, now);
+      if (no) return no;
       if (RESERVED.includes(name) || this.login(`pw:${name}`)) return json(409, { error: "taken" });
       return null;
     });
@@ -1008,6 +1145,7 @@ export class Directory {
     return this.ctx.storage.transactionSync(() => {
       if (this.login(`pw:${name}`)) return json(409, { error: "taken" });
       if (this.signupsToday(now) >= SIGNUPS_PER_DAY) return json(429, { error: "closed" });
+      if (this.siteBytes() >= SITE_BYTES) return json(429, { error: "full" });
       const uid = this.freshUid();
       this.sql.exec("INSERT INTO users (id, username, email, created) VALUES (?, ?, '', ?)", uid, name, now);
       this.sql.exec("INSERT INTO logins (login, user, salt, hash, alg, created) VALUES (?, ?, ?, ?, ?, ?)", `pw:${name}`, uid, made.salt, made.hash, made.alg, now);
@@ -1062,6 +1200,7 @@ export class Directory {
     const exp = Number(body.exp);
     if (!SUB_RE.test(sub) || !nonce || !Number.isFinite(exp)) return json(401, { error: "google" });
     const h = await this.ipHash(body.ip);
+    const place = await this.ipHash(body.ip, 3);
     const now = Date.now();
     return this.ctx.storage.transactionSync(() => {
       const first = this.spend(h, nonce, exp, now);
@@ -1071,9 +1210,8 @@ export class Directory {
         if (email) this.sql.exec("UPDATE users SET email = ? WHERE id = ? AND email <> ?", email, login.user, email);
         return json(200, { uid: login.user, user: this.user(login.user), created: false });
       }
-      const wait = this.count(`s:${h}`, 40, HOUR, now);
-      if (wait) return busy(wait);
-      if (this.signupsToday(now) >= SIGNUPS_PER_DAY) return json(429, { error: "closed" });
+      const no = this.canMake(place, now);
+      if (no) return no;
       const uid = this.freshUid();
       this.sql.exec("INSERT INTO users (id, username, email, created) VALUES (?, '', ?, ?)", uid, email, now);
       this.sql.exec("INSERT INTO logins (login, user, created) VALUES (?, ?, ?)", `g:${sub}`, uid, now);
@@ -1106,7 +1244,8 @@ export class Directory {
   }
 
   // With a password, the current one is checked under the sign in limits, keyed by the
-  // account's username. A Google only account names its username here instead.
+  // account's username. A Google only account names its username here instead, and only from a
+  // fresh session, since a first password is a new way in that the owner can't take back.
   async password(body) {
     const uid = String(body.uid || "");
     if (!this.user(uid)) return json(401, { error: "session" });
@@ -1129,6 +1268,7 @@ export class Directory {
       });
       return json(200, { user: this.user(uid) });
     }
+    if (body.fresh !== true) return json(403, { error: "recent" });
     const name = normalName(body.name);
     if (!name) return json(400, { error: "username" });
     if (RESERVED.includes(name) || this.login(`pw:${name}`)) return json(409, { error: "taken" });
@@ -1149,7 +1289,35 @@ export class Directory {
     this.ctx.storage.transactionSync(() => {
       this.sql.exec("DELETE FROM logins WHERE user = ?", uid);
       this.sql.exec("DELETE FROM users WHERE id = ?", uid);
+      this.setSize(uid, 0);
     });
     return json(200, { ok: true });
+  }
+
+  // Notes the bytes an account keeps, as its Vault says. Growth that would take every account
+  // past SITE_BYTES is refused with 409 full, so the site stops growing well before its storage
+  // runs out, and shrinking always goes through.
+  size(body) {
+    const uid = String(body.uid || "");
+    const bytes = Math.max(0, Math.floor(Number(body.bytes) || 0));
+    if (!UID_RE.test(uid)) return json(400, { error: "body" });
+    return this.ctx.storage.transactionSync(() => {
+      if (!this.sql.exec("SELECT 1 FROM users WHERE id = ?", uid).toArray().length) return json(200, { ok: true }); // deleted, so nothing to keep
+      const row = this.sql.exec("SELECT bytes FROM sizes WHERE user = ?", uid).toArray()[0];
+      const old = row ? row.bytes : 0;
+      if (bytes > old && this.siteBytes() - old + bytes > SITE_BYTES) return json(409, { error: "full" });
+      this.setSize(uid, bytes);
+      return json(200, { ok: true });
+    });
+  }
+
+  // Changes one account's size and the site's sum together. Size 0 removes the row.
+  setSize(uid, bytes) {
+    const row = this.sql.exec("SELECT bytes FROM sizes WHERE user = ?", uid).toArray()[0];
+    const old = row ? row.bytes : 0;
+    if (!row && !bytes) return;
+    if (bytes) this.sql.exec("INSERT INTO sizes (user, bytes, at) VALUES (?, ?, ?) ON CONFLICT (user) DO UPDATE SET bytes = excluded.bytes, at = excluded.at", uid, bytes, Date.now());
+    else this.sql.exec("DELETE FROM sizes WHERE user = ?", uid);
+    this.setMeta("bytes", String(Math.max(0, this.siteBytes() - old + bytes)));
   }
 }
