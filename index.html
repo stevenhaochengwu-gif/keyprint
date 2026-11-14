@@ -348,6 +348,8 @@ h2, h3, p { margin: 0; }
   line-height: 1;
 }
 
+.focus-head { display: flex; align-items: center; gap: 8px; }
+.focus-head .btn { padding: 2px 8px 2px 7px; font-size: 12.5px; }
 .focus-title { font-size: 14px; font-weight: 600; }
 .focus-detail { color: var(--ink-2); font-size: 13.5px; font-variant-numeric: tabular-nums; }
 .meter { width: 180px; max-width: 100%; height: 2px; margin-top: 6px; background: var(--track); }
@@ -748,6 +750,8 @@ kbd {
 .btn.main, .btn.main:hover { border-color: var(--ink); background: var(--ink); color: var(--bg); }
 .btn.danger { color: var(--miss); }
 .btn.armed { border-color: var(--miss); background: var(--miss); color: var(--miss-ink); }
+.btn.back { display: inline-flex; align-items: center; gap: 6px; }
+.btn.back svg { flex: none; width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 
 textarea {
   width: 100%;
@@ -1094,13 +1098,17 @@ button.cal-day:not(:disabled):not(.picked):hover { box-shadow: 0 0 0 1.5px var(-
 
 .ana-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 14px; margin-top: 18px; }
 .ana-pair { display: inline-flex; align-items: center; gap: 4px; }
-.ana-center { text-align: center; }
+.ana-on { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px 7px; margin-top: 16px; color: var(--ink-2); font-size: 13px; }
+.ana-on::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--good); }
+.ana-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
 .focus-detail.chips { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 3px; }
 .focus-detail.chips .kc { min-width: 20px; height: 20px; font-size: 12.5px; }
 .bn .kc,
-.slip-got .kc { min-width: 17px; height: 17px; padding: 0 4px; font-size: 12px; vertical-align: -3px; }
+.slip-got .kc,
+.ana-on .kc { min-width: 17px; height: 17px; padding: 0 4px; font-size: 12px; vertical-align: -3px; }
 .bn .kc.sp,
-.slip-got .kc.sp { font-size: 10.5px; }
+.slip-got .kc.sp,
+.ana-on .kc.sp { font-size: 10.5px; }
 .slip .kc { background: var(--bg); }
 
 .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; max-width: 720px; margin: 18px auto 0; }
@@ -1784,7 +1792,10 @@ label.row { cursor: pointer; }
         <div class="focus" id="focus">
           <span class="focus-cap" id="focusCap" aria-hidden="true"><span></span></span>
           <div>
-            <p class="focus-title" id="focusTitle"></p>
+            <div class="focus-head">
+              <p class="focus-title" id="focusTitle"></p>
+              <button class="btn back" type="button" id="focusBack" hidden><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 2.5 2 6l3.5 3.5M2.5 6h7.25a3.75 3.75 0 0 1 0 7.5H7"/></svg>Back to your tests</button>
+            </div>
             <p class="focus-detail" id="focusDetail"></p>
             <div class="meter" id="focusMeter" aria-hidden="true"><span id="focusFill"></span></div>
           </div>
@@ -1999,7 +2010,7 @@ label.row { cursor: pointer; }
       </div>
 
       <div id="anaBody" hidden>
-        <div class="card">
+        <div class="card" id="anaOverview">
           <h3 class="card-title">Overview</h3>
           <p class="card-lede">Every test you finish keeps each key you pressed, so this page can show where your mistakes come from. A key counts as missed when your first try at it was wrong.</p>
           <dl class="stats four" id="anaStats"></dl>
@@ -2007,11 +2018,18 @@ label.row { cursor: pointer; }
           <p class="card-note" id="anaTrendNote"></p>
         </div>
 
-        <div class="card">
+        <!-- Practice these tests keep coming, all from the keys picked at the start, until Back
+             to your tests. While they do, renderDrillOn moves this card to the top, says so
+             and shows that button too. -->
+        <div class="card" id="anaDrillCard">
           <h3 class="card-title">Practice these</h3>
-          <p class="card-lede">A test made of words full of your most missed keys and trickiest key switches, picked from the cards below. It changes as you improve.</p>
+          <p class="card-lede">Tests made of words full of your most missed keys and trickiest key switches, picked from the cards below when you start. They keep coming until you go back to your tests.</p>
           <div class="ana-chips" id="anaDrillKeys"></div>
-          <p class="empty-action ana-center"><button class="btn" type="button" id="anaDrill">Practice these keys</button></p>
+          <p class="ana-on" id="anaDrillOn" hidden>Practice these is on.</p>
+          <p class="empty-action ana-actions">
+            <button class="btn" type="button" id="anaDrill">Practice these keys</button>
+            <button class="btn back" type="button" id="anaBack" hidden><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 2.5 2 6l3.5 3.5M2.5 6h7.25a3.75 3.75 0 0 1 0 7.5H7"/></svg>Back to your tests</button>
+          </p>
         </div>
 
         <div class="card">
@@ -3095,6 +3113,7 @@ let state = {
   removed: [],
   step: { day: "", words: 0 }, // how far Step up has grown today
   restoredAt: 0, // when this progress was last restored from a copy, which then wins over anything older
+  drillBack: "", // "zh" while Practice these has switched Chinese off, see startDrill
   devices: [],   // browsers that save to the cloud, see Cloud save
   welcomed: 0,   // when the welcome for someone new was closed, 0 for never
   savedAt: 0,
@@ -3421,6 +3440,7 @@ function mergeSaves(mine, theirs, keepMine) {
   const newer = (theirs.savedAt || 0) > (mine.savedAt || 0) ? theirs : mine;
   const out = JSON.parse(JSON.stringify(newer));
   if (keepMine) out.settings = JSON.parse(JSON.stringify(mine.settings || {}));
+  if (keepMine) out.drillBack = mine.drillBack || ""; // it goes with the settings, as it puts one back
   out.profiles = {};
   for (const id of new Set([...Object.keys(mine.profiles || {}), ...Object.keys(theirs.profiles || {})])) {
     const a = (mine.profiles || {})[id];
@@ -3978,6 +3998,13 @@ function hydrate(saved) {
   const st = saved.step;
   state.step = st && typeof st.day === "string" ? { day: st.day, words: Math.max(0, Math.round(st.words) || 0) } : { day: "", words: 0 };
   state.restoredAt = Number(saved.restoredAt) || 0;
+  // Practice these switches Chinese off and isn't saved, so a copy saved during it comes
+  // back in Chinese. A drill still on here keeps going in English, and Back to your tests
+  // brings Chinese back after it.
+  const back = saved.drillBack === "zh" ? "zh" : "";
+  const drilling = Boolean(lesson && lesson.drill);
+  if (back && !drilling) s.language = back;
+  state.drillBack = drilling ? back : "";
   state.devices = [];
   for (const d of Array.isArray(saved.devices) ? saved.devices : []) {
     if (!d || !isDeviceId(d.id) || state.devices.some((x) => x.id === d.id)) continue;
@@ -4846,10 +4873,10 @@ function newLesson(attempt = 1) {
 }
 
 // Tab gives new text. In My text it moves on to the next passage, and in Practice these it
-// gives new drill text, so the drill goes on.
+// gives new text from the same plan, so you stay in Practice these until you go back.
 function skipAhead() {
   if (lesson && lesson.drill) {
-    startLesson(drillText(lesson.drill, state.settings), 1, lesson.drill);
+    drillLesson(lesson.drill);
     renderFocus();
     checkGoals();
     return;
@@ -4864,11 +4891,13 @@ function skipAhead() {
 }
 
 // A drill is a Practice these test from the Analysis tab. It counts as a Words test, so it
-// never moves My text along or unlocks a letter, and it goes back to your usual tests after.
+// never grows Step up, moves My text along or unlocks a letter. Drills follow one another
+// until Back to your tests or anything else that starts a usual test, like a setting.
 // A Chinese test comes with zh, the pinyin and word ends from zhText. It counts as Step up
 // or Words, so it never moves My text along or unlocks a letter either.
 function startLesson(text, attempt = 1, drill = null, zh = null) {
   if (lesson && !lesson.done) keepPartial(lesson);
+  if (!drill) dropDrillBack();
   const wordAt = new Uint32Array(text.length + 1);
   const ends = zh ? new Set(zh.ends) : null;
   for (let i = 0; i < text.length; i++) wordAt[i + 1] = wordAt[i] + ((zh ? ends.has(i) : text[i] === " ") ? 1 : 0);
@@ -4910,12 +4939,16 @@ function startLesson(text, attempt = 1, drill = null, zh = null) {
   updateVeil();
   updateHands();
   wakeCue();
+  renderDrillOn();
 }
 
 function restartLesson() {
   if (lesson) startLesson(lesson.text, lesson.attempt, lesson.drill, lesson.zh);
   checkGoals();
 }
+
+// The next Practice these test, new text from the same plan.
+const drillLesson = (plan, attempt = 1) => startLesson(drillText(plan, state.settings), attempt, plan);
 
 // Notes the first wrong key at a position for the Analysis tab. Wrong keys typed after it,
 // before the mistake is fixed, follow from that one and aren't noted again.
@@ -5043,7 +5076,7 @@ function failAttempt() {
   markNextKey();
   clearTimeout(coolTimer);
   coolTimer = setTimeout(() => {
-    if (lesson === L && L.drill) startLesson(drillText(L.drill, state.settings), L.attempt + 1, L.drill);
+    if (lesson === L && L.drill) drillLesson(L.drill, L.attempt + 1);
     else if (lesson === L) newLesson(L.attempt + 1);
     coolUntil = hold;
     el.board.style.setProperty("--fade", `${Math.round(total * 0.6)}ms`);
@@ -5141,7 +5174,9 @@ function finishLesson() {
     step = was < s.stepTop ? stepWords() : -1; // -1 means it was already at the top
     scheduleSave();
   }
-  newLesson();
+  // Practice these goes on with new text from the same plan until you go back to your tests.
+  if (L.drill) drillLesson(L.drill);
+  else newLesson();
   // A goal celebration says more than a perfect test, so a test that reaches a goal shows that.
   if (!checkGoals().length && perfect) flourishPerfect(perfectRun, step);
 }
@@ -5154,6 +5189,7 @@ const el = {
   focusTitle: $("#focusTitle"),
   focusDetail: $("#focusDetail"),
   focusMeter: $("#focusMeter"),
+  focusBack: $("#focusBack"),
   focusFill: $("#focusFill"),
   figures: $("#figures"),
   statSpeed: $("#statSpeed"),
@@ -5227,8 +5263,12 @@ const el = {
   anaStats: $("#anaStats"),
   anaTrend: $("#anaTrend"),
   anaTrendNote: $("#anaTrendNote"),
+  anaOverview: $("#anaOverview"),
+  anaDrillCard: $("#anaDrillCard"),
   anaDrillKeys: $("#anaDrillKeys"),
   anaDrill: $("#anaDrill"),
+  anaDrillOn: $("#anaDrillOn"),
+  anaBack: $("#anaBack"),
   anaKeys: $("#anaKeys"),
   anaSwaps: $("#anaSwaps"),
   anaPairs: $("#anaPairs"),
@@ -6265,8 +6305,11 @@ function updateVeil() {
   el.veil.hidden = focused || !ready || !lesson;
 }
 
-// My text with nothing loaded shows a prompt to add something instead of a test.
+// My text with nothing loaded shows a prompt to add something instead of a test. What you
+// typed of the test before still counts, as in startLesson.
 function clearLesson() {
+  if (lesson && !lesson.done) keepPartial(lesson);
+  dropDrillBack();
   lesson = null;
   charEls = [];
   caretEl = null;
@@ -6278,6 +6321,7 @@ function clearLesson() {
   renderFocus();
   updateVeil();
   updateHands();
+  renderDrillOn();
 }
 
 function focusSink() {
@@ -8452,6 +8496,7 @@ const SHIFT_SLIPS = {
   extra: { name: "Shift by mistake", note: "Shift came down on a key that needs none" },
 };
 let analysisNow = null; // the analysis on screen, which Practice these builds its test from
+let anaPlan = null;     // the plan its Practice these card shows
 
 const needsShift = (ch) => (ch >= "A" && ch <= "Z") || Boolean(UNSHIFT[ch]);
 const baseKey = (ch) => (ch >= "A" && ch <= "Z" ? ch.toLowerCase() : UNSHIFT[ch] || ch);
@@ -8844,9 +8889,11 @@ function renderAnaOverview(A) {
 }
 
 function renderAnaDrill(A) {
-  const chips = drillChips(drillPlan(A));
+  anaPlan = drillPlan(A);
+  const chips = drillChips(anaPlan);
   el.anaDrillKeys.replaceChildren(...(chips.length ? chips : [node("p", "ana-none", "Nothing stands out yet, so keep typing and check back.")]));
   el.anaDrill.hidden = !chips.length;
+  renderDrillOn();
 }
 
 function renderAnaKeys(A) {
@@ -9028,17 +9075,78 @@ function renderAnaRecent(A) {
   el.anaRecent.replaceChildren(...(chips.length ? chips : [node("p", "ana-none", "No mistakes in your detailed tests. Well done.")]));
 }
 
-// Practice these starts a test built from the analysis on screen, back on the Practice tab.
+// Practice these starts tests built from the analysis on screen, back on the Practice tab.
+// They all come from the keys picked now, and they keep coming until you choose Back to your
+// tests. Their keys are English, so they switch Chinese off, and state.drillBack keeps the
+// language to go back to. It's saved, so leaving during a drill brings Chinese back next
+// time too (see hydrate). Starting again during a drill keeps it.
 function startDrill() {
   if (!ready) return;
   const A = analysisNow || analyze(profile().history, state.settings);
   const plan = drillPlan(A);
   if (!plan.keys.length && !plan.pairs.length) return;
-  if (zhOn()) setSetting("language", "en");
+  const zh = zhOn();
+  if (zh) setSetting("language", "en");
   showView("practice");
-  startLesson(drillText(plan, state.settings), 1, plan);
+  // The card can sit partway down Analysis. This brings the top of Practice into view, and on
+  // a phone it moves what's on screen too, which can sit apart from the page's own scroll.
+  document.body.scrollIntoView({ block: "start" });
+  drillLesson(plan);
+  if (zh) {
+    state.drillBack = "zh"; // after the switch, whose usual test would have dropped it
+    scheduleSave();
+  }
   renderFocus();
   checkGoals();
+}
+
+// Back to your tests ends Practice these and starts your usual next test, in Chinese again
+// if Practice these switched it off. What you typed of the drill still counts, and the next
+// key you press types into the new test.
+function endDrill() {
+  if (!ready || !(lesson && lesson.drill)) return;
+  if (view !== "practice") {
+    showView("practice");
+    document.body.scrollIntoView({ block: "start" }); // from the Analysis card, as in startDrill
+  }
+  if (state.drillBack === "zh" && !zhOn()) {
+    setSetting("language", "zh"); // which starts the new test too
+  } else {
+    newLesson();
+    refreshKeyboard();
+  }
+  checkGoals();
+  focusSink();
+}
+
+// Once Practice these is over, there's no language to go back to.
+function dropDrillBack() {
+  if (!state.drillBack) return;
+  state.drillBack = "";
+  scheduleSave();
+}
+
+// Keys and switches of a plan, to tell whether two plans show the same chips.
+const planName = (plan) => `${plan.keys.join("")}|${plan.pairs.join(" ")}`;
+
+// While Practice these is on, Practice and the Analysis card both show Back to your tests.
+// The card comes first on Analysis, so a phone shows it without scrolling, with a line that
+// says it's on. The line names the drill's keys when the card's, from the analysis on
+// screen, have moved on since. Every new test, tab change and card render runs this, so it
+// all goes away whenever something else starts a usual test. It never runs the analysis.
+function renderDrillOn() {
+  const drill = lesson && lesson.drill;
+  el.focusBack.hidden = !drill;
+  el.anaDrillOn.hidden = !drill;
+  el.anaBack.hidden = !drill;
+  if (drill) {
+    const same = anaPlan && planName(anaPlan) === planName(drill);
+    el.anaDrillOn.replaceChildren(...(same ? ["Practice these is on."] : ["Practice these is on, with", ...drillChips(drill)]));
+  }
+  if (Boolean(drill) !== (el.anaBody.firstElementChild === el.anaDrillCard)) {
+    if (drill) el.anaBody.prepend(el.anaDrillCard);
+    else el.anaOverview.after(el.anaDrillCard);
+  }
 }
 
 /* 11. Settings ------------------------------------------------------------- */
@@ -10476,6 +10584,7 @@ function showView(name) {
     });
     focusSink();
   }
+  renderDrillOn();
   updateHands();
 }
 
@@ -10595,6 +10704,7 @@ function onKeyDown(e) {
   if (view !== "practice") return;
   const t = e.target;
   if (t !== el.sink && t instanceof Element && t.closest("input, textarea, select, [contenteditable='true']")) return;
+  if (t === el.focusBack && (e.key === " " || e.key === "Enter")) return; // presses the button instead of typing
   updateCaps(e);
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   // A key the input method takes is left to it. What it types comes through the hidden input.
@@ -10779,6 +10889,8 @@ function bindEvents() {
   }, 30000);
   el.unlockNext.addEventListener("click", unlockNextKey);
   el.anaDrill.addEventListener("click", startDrill);
+  el.anaBack.addEventListener("click", endDrill);
+  el.focusBack.addEventListener("click", endDrill);
   el.calPrev.addEventListener("click", () => {
     calOffset = Math.min(calOffset + 1, 60);
     renderCalendar();
