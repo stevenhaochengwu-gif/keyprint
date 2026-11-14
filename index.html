@@ -1138,6 +1138,8 @@ label.row { cursor: pointer; }
 .row.stack .row-text { flex: none; }
 .saved-note { padding: 4px 0 6px; color: var(--ink-2); font-size: 13px; }
 .saved-note.warn { color: var(--miss); }
+/* Google draws its button in a frame, which would show an opaque box in the dark theme. */
+.g-btn { min-height: 44px; color-scheme: light; }
 
 .field {
   width: 100%;
@@ -2260,7 +2262,133 @@ label.row { cursor: pointer; }
         </label>
       </div>
 
-      <div class="group">
+      <div class="group" id="accountGroup">
+        <h3>Account</h3>
+        <p class="saved-note" id="accountNote" aria-live="polite"></p>
+        <form id="accountForm" novalidate hidden>
+          <div class="row" id="googleRow" hidden>
+            <div class="row-text">
+              <span class="row-label">Google</span>
+              <span class="row-hint" id="googleHint">Sign in or create an account with nothing new to remember. Already have a username? Sign in with it, then add Google.</span>
+            </div>
+            <div class="g-btn" id="googleBtn"></div>
+          </div>
+          <label class="row stack" for="accountName">
+            <span class="row-text">
+              <span class="row-label">Username</span>
+              <span class="row-hint">3 to 32 letters, numbers, dots, dashes or underscores.</span>
+            </span>
+            <input class="field" id="accountName" type="text" autocomplete="username" autocapitalize="off" spellcheck="false" maxlength="32">
+          </label>
+          <label class="row stack" for="accountPass">
+            <span class="row-text">
+              <span class="row-label">Password</span>
+              <span class="row-hint">At least 8 characters. Nobody can reset it for you, so keep it in a password manager.</span>
+            </span>
+            <input class="field" id="accountPass" type="password" autocomplete="current-password" maxlength="200">
+          </label>
+          <label class="row stack" for="accountPass2" id="accountPass2Row" hidden>
+            <span class="row-text">
+              <span class="row-label">Type it again</span>
+              <span class="row-hint">So a typo can't lock you out.</span>
+            </span>
+            <input class="field" id="accountPass2" type="password" autocomplete="new-password" maxlength="200">
+          </label>
+          <div class="row">
+            <div class="tool">
+              <button class="btn" type="button" id="accountSignIn">Sign in</button>
+              <button class="btn quiet" type="button" id="accountCreate">Create account</button>
+              <button class="btn quiet" type="button" id="accountClear" hidden>Clear this browser</button>
+            </div>
+          </div>
+        </form>
+        <div class="row" id="accountMerge" hidden>
+          <div class="row-text">
+            <span class="row-label">Progress in this browser</span>
+            <span class="row-hint" id="accountMergeHint"></span>
+          </div>
+          <div class="tool">
+            <button class="btn" type="button" id="accountKeep">Add it</button>
+            <button class="btn quiet" type="button" id="accountDrop">Leave it out</button>
+          </div>
+        </div>
+        <div id="accountPanel" hidden>
+          <div class="row">
+            <div class="row-text">
+              <span class="row-label">Signed in with</span>
+              <span class="row-hint" id="accountMethods"></span>
+            </div>
+            <button class="btn quiet" type="button" id="accountNow">Save now</button>
+          </div>
+          <div class="row">
+            <div class="row-text">
+              <span class="row-label">Sign out</span>
+              <span class="row-hint" id="accountOutHint">Saves your progress to your account, then clears it from this browser so the next person starts fresh.</span>
+            </div>
+            <button class="btn" type="button" id="accountOut">Sign out</button>
+          </div>
+          <div class="row">
+            <div class="row-text">
+              <span class="row-label">Sign out everywhere</span>
+              <span class="row-hint">Signs out every browser, this one too. Each one clears your progress the next time it opens Keyprint, which helps if you forgot to sign out on a shared computer. Changes a browser hadn't saved yet are lost.</span>
+            </div>
+            <button class="btn" type="button" id="accountOutAll">Sign out everywhere</button>
+          </div>
+          <div class="row" id="accountLinkRow" hidden>
+            <div class="row-text">
+              <span class="row-label">Add Google</span>
+              <span class="row-hint" id="accountLinkHint">Lets you sign in with Google too, which is your way back in if you forget your password.</span>
+            </div>
+            <div class="g-btn" id="accountLinkBtn"></div>
+          </div>
+          <div class="row" id="accountPwRow">
+            <div class="row-text">
+              <span class="row-label" id="accountPwLabel">Change password</span>
+              <span class="row-hint" id="accountPwHint">Your other browsers are signed out, and keep their progress until you sign in there again.</span>
+            </div>
+            <button class="btn" type="button" id="accountPwOpen">Change</button>
+          </div>
+          <form id="accountPwForm" novalidate hidden>
+            <label class="row stack" for="accountPwName" id="accountPwNameRow" hidden>
+              <span class="row-text">
+                <span class="row-label">Username</span>
+                <span class="row-hint">3 to 32 letters, numbers, dots, dashes or underscores. It can't be changed later.</span>
+              </span>
+              <input class="field" id="accountPwName" type="text" autocomplete="username" autocapitalize="off" spellcheck="false" maxlength="32">
+            </label>
+            <label class="row stack" for="accountPwOld" id="accountPwOldRow" hidden>
+              <span class="row-text"><span class="row-label">Current password</span></span>
+              <input class="field" id="accountPwOld" type="password" autocomplete="current-password" maxlength="200">
+            </label>
+            <label class="row stack" for="accountPwNew">
+              <span class="row-text">
+                <span class="row-label">New password</span>
+                <span class="row-hint">At least 8 characters.</span>
+              </span>
+              <input class="field" id="accountPwNew" type="password" autocomplete="new-password" maxlength="200">
+            </label>
+            <label class="row stack" for="accountPwNew2">
+              <span class="row-text"><span class="row-label">Type it again</span></span>
+              <input class="field" id="accountPwNew2" type="password" autocomplete="new-password" maxlength="200">
+            </label>
+            <div class="row">
+              <div class="tool">
+                <button class="btn" type="button" id="accountPwSave">Save password</button>
+                <button class="btn quiet" type="button" id="accountPwCancel">Cancel</button>
+              </div>
+            </div>
+          </form>
+          <div class="row">
+            <div class="row-text">
+              <span class="row-label">Delete account</span>
+              <span class="row-hint">Deletes your account and everything in it, then clears this browser. Other browsers clear themselves the next time they open Keyprint. Download a backup first if you want to keep anything.</span>
+            </div>
+            <button class="btn danger" type="button" id="accountDelete">Delete account</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="group" id="cloudGroup">
         <h3>Cloud save</h3>
         <p class="saved-note" id="cloudNote"></p>
         <label class="row stack" for="cloudUrl">
@@ -2284,16 +2412,6 @@ label.row { cursor: pointer; }
             <button class="btn quiet" type="button" id="cloudOff" hidden>Disconnect</button>
           </div>
         </div>
-        <div class="row" id="cloudDaysRow" hidden>
-          <div class="row-text">
-            <span class="row-label">Daily copies</span>
-            <span class="row-hint">Your Cloudflare account keeps the first copy of each day. Restoring one brings back the progress it had, and undoes a Reset progress made since, on every device.</span>
-          </div>
-          <div class="tool">
-            <select id="cloudDays"></select>
-            <button class="btn" type="button" id="cloudRestore">Restore this copy</button>
-          </div>
-        </div>
       </div>
 
       <div class="group">
@@ -2313,6 +2431,16 @@ label.row { cursor: pointer; }
           </div>
           <button class="btn" type="button" id="restoreBtn">Choose backup file</button>
           <input type="file" id="restoreInput" accept=".json,application/json" hidden>
+        </div>
+        <div class="row" id="cloudDaysRow" hidden>
+          <div class="row-text">
+            <span class="row-label">Daily copies</span>
+            <span class="row-hint" id="cloudDaysHint">Your Cloudflare account keeps the first copy of each day. Restoring one brings back the progress it had, and undoes a Reset progress made since, on every device.</span>
+          </div>
+          <div class="tool">
+            <select id="cloudDays"></select>
+            <button class="btn" type="button" id="cloudRestore">Restore this copy</button>
+          </div>
         </div>
         <div class="row">
           <div class="row-text">
@@ -2550,11 +2678,20 @@ const APP = {
   name: "Keyprint",
   storageKey: "keyprint-state-v1",
   cloudConfig: "keyprint-cloud", // where this browser remembers the cloud save address and key
-  cloudDelay: 20000,   // ms between saves to your Cloudflare account while you practice
+  cloudDelay: 20000,   // ms between saves to your own save Worker while you practice
   cloudPending: "keyprint-pending", // cloud names for the copy a hidden or closing page sends at once, one per browser
   cloudDevices: 12,    // browsers whose left copies a cloud save reads, the ones seen most recently
   pendingTests: 30,    // newest tests per layout in that copy, so it stays small enough to send while closing
   cloudTimeout: 20000, // ms a cloud request may wait for an answer to start, plus 1 s per 10,000 characters it uploads
+  accountApi: "/api",  // the account service at this page's own address, see site-worker.js
+  accountSync: "keyprint-sync", // cloud name that reads an account's main copy and every left copy in one request
+  accountDelay: 120000, // ms between saves to your account while you practice
+  accountRetry: 600000, // ms, the longest wait between tries when your account can't be reached
+  passwordRounds: 600000, // PBKDF2 rounds your browser runs on a password before sending it. Never change it, or every password stops working
+  passwordMin: 8,      // characters a new password needs at least
+  freshSignIn: 900000, // ms after signing in when adding Google or deleting the account is allowed, FRESH in site-worker.js
+  googleScript: "https://accounts.google.com/gsi/client",
+  site: "https://type.stevenwu.org", // where accounts and Sign in with Google work, named in notes
   letterOrder: "etaoinshrdlcumwfgypbvkjxqz", // adaptive tests unlock letters in this order
   minSamples: 12,      // timed keystrokes a letter needs before it can count as learned
   minInterval: 25,     // ms. Faster gaps between keys are ignored as noise
@@ -2577,6 +2714,7 @@ const APP = {
   docLimit: 4000000,   // characters kept from one document
   pdfScript: "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js",
   pdfWorker: "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js",
+  pdfIntegrity: "",    // SRI hash of pdfScript from cdnjs. Empty loads it without one
   cheerHold: 2000,     // ms at the start of a goal celebration when keys wait, so it can't vanish unseen
   chargeFrom: 0.75,    // share of the daily typing goal where the build up toward it begins
   version: 8,
@@ -2856,6 +2994,13 @@ let localDirty = false; // typing time added since the last save
 let cloudDirty = false; // changes not yet in the cloud copy
 
 function saveLocal() {
+  if (!ready) return; // a tab that's signing out or leaving never writes progress back
+  // Another tab may have signed in or out since this one last looked. Then this tab's progress
+  // belongs to someone else, so it reloads instead of writing it back.
+  if (!Account.switching && accountChange(cloudIdentity(cloudSeen), cloudIdentity(readConfigNow()))) {
+    leaveTab();
+    return;
+  }
   state.savedAt = Date.now();
   localDirty = false;
   Store.save(state);
@@ -2886,11 +3031,15 @@ function flushSaves() {
 
 const snapshot = () => JSON.parse(JSON.stringify(state));
 
-// Cloud save keeps a second copy of everything in your own Cloudflare account, through the
+// Cloud save keeps a second copy of everything in the cloud. That's either your account, at
+// this page's own address through site-worker.js, or your own Cloudflare account through the
 // small save Worker in save-worker.js. Its address and key are remembered in this browser only.
 const Cloud = {
+  kind: "",     // "account", "key" for your own save Worker, or "" when off
   url: "",
-  key: "",
+  key: "",      // the save key, or the account's session token
+  user: null,   // the account this browser's progress belongs to, kept after a session ends
+  retry: 60000, // ms before the next try when the account can't be reached, doubling each time
   seen: 0,      // savedAt of the cloud copy the last time this browser read or wrote it
   lastOk: 0,    // when the last save to the cloud worked
   putAt: -1e9,  // performance.now() of that save, for spacing writes without trusting the clock
@@ -2903,7 +3052,7 @@ const Cloud = {
   // save after it. It gives up after APP.cloudTimeout instead, with more time for a bigger
   // upload. Once the answer starts arriving it can take as long as it needs, and a closing
   // page can't wait for an answer at all.
-  async call(method, name, body, keepalive = false) {
+  async call(method, name, body, keepalive = false, bytes = false) {
     const stop = keepalive ? null : new AbortController();
     const limit = APP.cloudTimeout + (body ? body.length / 10 : 0);
     const timer = stop ? setTimeout(() => stop.abort(), limit) : 0;
@@ -2918,17 +3067,48 @@ const Cloud = {
       });
       clearTimeout(timer);
       if (method === "GET" && res.status === 404) return null;
-      if (res.status === 401) throw new Error("key");
+      // An account answers Revoked when this session was signed out on purpose, which clears
+      // this browser, and Signed out for anything else, which keeps its progress.
+      if (res.status === 401) throw new Error(this.kind === "account" && (await res.text()) === "Revoked" ? "revoked" : "key");
       if (res.status === 500) throw new Error("setup");
+      if (this.kind === "account" && (res.status === 413 || res.status === 507)) throw new Error("full");
       if (!res.ok) throw new Error("reach");
-      return method === "GET" ? await res.text() : true;
+      if (method !== "GET") return true;
+      return bytes ? await res.arrayBuffer() : await res.text();
     } finally {
       clearTimeout(timer);
     }
   },
 };
 
-const cloudProblem = (err) => (err && ["key", "setup"].includes(err.message) ? err.message : "reach");
+const cloudProblem = (err) => (err && ["key", "setup", "revoked", "full"].includes(err.message) ? err.message : "reach");
+
+let cloudSeen = ""; // the keyprint-cloud text this tab last read or wrote, to notice other tabs signing in or out
+
+// Accounts, see the Accounts subsection in Settings.
+const Account = {
+  conf: null,         // what this site's account service offers, once asked
+  confLoading: null,
+  confFailed: false,
+  marker: null,       // { out, why, fresh } after signing out, which keeps Cloud save off
+  due: new Set(),     // ids of texts not yet in the account
+  pending: null,      // a sign in waiting on what to do with the progress here
+  busy: false,
+  switching: false,   // progress is moving into an account, so the tab checks are paused
+  leaving: false,     // this tab is reloading and never saves again
+  uploading: false,
+  message: null,      // { text, warn } shown in place of the account note
+  note: "",           // the note after a sign out from another browser
+  toast: "",
+  proof: "",          // the secret behind the nonce of the current Google attempt
+  gis: 0,             // Google's script, 0 not loaded, 1 loading, 2 ready, 3 failed
+  gisDrawn: "",
+  outArmed: 0,
+  allArmed: 0,
+  deleteArmed: 0,
+  clearArmed: 0,
+  createStep: false,  // Create account asked for the password a second time
+};
 
 function cloudAddress(raw) {
   let url = String(raw || "").trim().replace(/\/+$/, "");
@@ -2937,14 +3117,32 @@ function cloudAddress(raw) {
   return url;
 }
 
+// The config is your own save Worker's address and key, an account, or a note that this
+// browser signed out of one, which keeps Cloud save off.
 async function loadCloudConfig() {
   try {
     const raw = await Store.read(APP.cloudConfig);
+    cloudSeen = raw || "";
     const cfg = raw ? JSON.parse(raw) : null;
-    if (cfg && typeof cfg.url === "string" && typeof cfg.key === "string") {
+    if (cfg && isDeviceId(cfg.device)) Cloud.device = cfg.device;
+    if (cfg && cfg.out > 0) {
+      const why = ["out", "deleted", "revoked", "cleared"].includes(cfg.why) ? cfg.why : "out";
+      Account.marker = { out: Number(cfg.out), why, fresh: cfg.fresh === true };
+    } else if (cfg && cfg.kind === "account") {
+      // The token is only ever used where accounts work, and never as a save key.
+      const user = cleanUser(cfg.user);
+      if (user && accountPlace() === "ok") {
+        Cloud.kind = "account";
+        Cloud.user = user;
+        Cloud.key = isToken(cfg.key, user.id) ? cfg.key : "";
+        Cloud.url = accountBase();
+        const ids = Array.isArray(cfg.due) ? cfg.due : [];
+        Account.due = new Set(ids.filter((id) => typeof id === "string" && /^[a-z0-9]{4,40}$/.test(id)).slice(0, 300));
+      }
+    } else if (cfg && typeof cfg.url === "string" && typeof cfg.key === "string") {
       Cloud.url = cfg.url;
       Cloud.key = cfg.key;
-      if (isDeviceId(cfg.device)) Cloud.device = cfg.device;
+      Cloud.kind = cfg.url && cfg.key ? "key" : "";
     }
   } catch (err) {
     // nothing remembered yet
@@ -2955,7 +3153,14 @@ async function loadCloudConfig() {
   }
 }
 
-const saveCloudConfig = () => Store.write(APP.cloudConfig, JSON.stringify({ url: Cloud.url, key: Cloud.key, device: Cloud.device }));
+function saveCloudConfig() {
+  let cfg;
+  if (Cloud.kind === "account") cfg = { kind: "account", url: "", key: Cloud.key, device: Cloud.device, user: Cloud.user, due: [...Account.due].slice(0, 300) };
+  else if (Account.marker) cfg = { device: Cloud.device, out: Account.marker.out, why: Account.marker.why, fresh: Account.marker.fresh };
+  else cfg = { kind: Cloud.kind, url: Cloud.url, key: Cloud.key, device: Cloud.device };
+  cloudSeen = JSON.stringify(cfg);
+  return Store.write(APP.cloudConfig, cloudSeen);
+}
 const isDeviceId = (id) => typeof id === "string" && /^[a-z0-9]{8,24}$/.test(id);
 const newDeviceId = () => (Math.random().toString(36).slice(2, 10) + Date.now().toString(36)).replace(/[^a-z0-9]/g, "").slice(0, 24);
 
@@ -3081,10 +3286,11 @@ let cloudTimer = 0;
 let cloudRun = null;  // the cloud save running now
 let cloudNext = null; // one more cloud save, asked for while that one runs
 
-// Changes reach the cloud within APP.cloudDelay, and never more often than that.
+// Changes reach the cloud within APP.cloudDelay, or APP.accountDelay for an account, and never
+// more often than that.
 function scheduleCloud() {
   if (!Cloud.on || !ready || cloudTimer) return;
-  cloudTimer = setTimeout(() => pushCloud(), APP.cloudDelay);
+  cloudTimer = setTimeout(() => pushCloud(), Cloud.kind === "account" ? APP.accountDelay : APP.cloudDelay);
 }
 
 // Cloud saves run one at a time, so two can't read the same copy and then both write it.
@@ -3122,6 +3328,7 @@ function markDevice(copy, id, { seen = 0, left = 0 } = {}) {
 
 // Reads the main cloud copy and the copy each known browser left the last time it went away.
 async function readCloud(known) {
+  if (Cloud.kind === "account") return readAccount();
   const ids = [...new Set([Cloud.device, ...deviceIds(known)])].filter(isDeviceId);
   const got = await Promise.all([APP.storageKey, ...ids.map(slotName)].map((name) => Cloud.call("GET", name)));
   const theirs = got[0] ? JSON.parse(got[0]) : null;
@@ -3153,8 +3360,10 @@ async function sendCloud() {
   clearTimeout(cloudTimer);
   cloudTimer = 0;
   if (!Cloud.on) return false;
-  const { url, key } = Cloud;
-  const sameCloud = () => Cloud.url === url && Cloud.key === key; // Disconnect may come mid-save
+  // While progress moves into an account, the account gets nothing until it's merged.
+  if (Account.switching && Cloud.kind === "account") return false;
+  const { url, key, kind } = Cloud;
+  const sameCloud = () => Cloud.url === url && Cloud.key === key && Cloud.kind === kind; // Disconnect or sign out may come mid-save
   try {
     // Workers KV takes only one write a second to the same name, so a save right after
     // another one waits out the rest of that second. It waits before reading, so the copy
@@ -3175,17 +3384,29 @@ async function sendCloud() {
     markDevice(state, Cloud.device, { seen: Date.now() });
     state.savedAt = Math.max(state.savedAt || 0, Date.now());
     await Cloud.call("PUT", APP.storageKey, JSON.stringify(state));
+    // A disconnect or sign out during the write wins, so nothing here is put back.
+    if (!sameCloud() || !ready) return false;
+    if (!Account.switching && accountChange(cloudIdentity(cloudSeen), cloudIdentity(readConfigNow()))) {
+      leaveTab();
+      return false;
+    }
     Cloud.putAt = performance.now();
     Store.save(state);
     Cloud.seen = state.savedAt;
     Cloud.lastOk = Date.now();
     Cloud.error = "";
+    Cloud.retry = 60000;
     cloudDirty = false;
+    if (Cloud.kind === "account" && Account.due.size) uploadDue();
     return true;
   } catch (err) {
     if (!sameCloud()) return false;
-    Cloud.error = cloudProblem(err);
-    cloudTimer = setTimeout(() => pushCloud(), 60000); // try again in a minute
+    if (!cloudFailed(err)) return false;
+    // An account waits longer after each failure, so a site that's out of requests for the
+    // day isn't kept busy.
+    const delay = Cloud.kind === "account" ? Cloud.retry : 60000;
+    if (Cloud.kind === "account") Cloud.retry = Math.min(Cloud.retry * 2, APP.accountRetry);
+    cloudTimer = setTimeout(() => pushCloud(), delay); // key mode tries again in a minute, as always
     return false;
   } finally {
     renderCloudStatus();
@@ -3200,7 +3421,7 @@ let leftCopy = false; // this page already sent the cloud a copy of its latest c
 // from any browser, or the next start, merges it in. Tabs of one browser share the name, and
 // each tab folds in what the others save in this browser, so the latest copy has them all.
 function sendLeaving() {
-  if (!Cloud.on || !isDeviceId(Cloud.device) || leftCopy) return;
+  if (!Cloud.on || !isDeviceId(Cloud.device) || leftCopy || Account.switching) return;
   leftCopy = true;
   // Merging only ever adds, so the copy leaves out what the main copy already has, which keeps
   // it small enough for the browser to finish sending after the page is gone. That's tests
@@ -3235,9 +3456,164 @@ async function cloudDoc(method, id, text) {
   try {
     return await Cloud.call(method, Store.docKey(id), text);
   } catch (err) {
-    Cloud.error = cloudProblem(err);
+    // A text that didn't reach the account goes up later, unless there's no room for it.
+    const account = Cloud.kind === "account" && method === "PUT";
+    const problem = cloudProblem(err);
+    if (account && problem === "full") showToast("No room for this text in your account");
+    else if (account && problem !== "revoked") Account.due.add(id);
+    cloudFailed(err);
+    if (account && Cloud.kind === "account" && !Account.leaving) saveCloudConfig();
     renderCloudStatus();
     return null;
+  }
+}
+
+/* Accounts in the save pipeline -------------------------------------------- */
+
+// An account uses the same save pipeline as Cloud save, at this page's own address. Its
+// session token takes the place of the save key, and one read brings the main copy and every
+// left copy together.
+const accountBase = () => location.origin + APP.accountApi + "/u";
+
+// The account a saved config or a sign in names, with anything odd left out.
+function cleanUser(u) {
+  if (!u || typeof u !== "object" || typeof u.id !== "string" || !/^[a-z0-9]{20}$/.test(u.id)) return null;
+  const username = typeof u.username === "string" && nameOk(u.username) ? u.username : "";
+  const email = typeof u.email === "string" ? u.email.slice(0, 254) : "";
+  const name = (typeof u.name === "string" ? u.name.trim() : "").slice(0, 120) || "Google account";
+  return { id: u.id, name, username, email, google: Boolean(u.google), password: Boolean(u.password) };
+}
+
+const isToken = (t, uid) => typeof t === "string" && /^kp1\.[a-z0-9]{20}\.[A-Za-z0-9_-]{43}$/.test(t) && t.split(".")[1] === uid;
+
+// What another tab may have written since this one last looked.
+function readConfigNow() {
+  if (Store.kind !== "browser") return cloudSeen;
+  try {
+    return window.localStorage.getItem(APP.cloudConfig) || "";
+  } catch (err) {
+    return cloudSeen;
+  }
+}
+
+// Whose progress a config stands for. Tabs compare these to notice a sign in or out elsewhere.
+function cloudIdentity(raw) {
+  let cfg = null;
+  try {
+    cfg = raw ? JSON.parse(raw) : null;
+  } catch (err) {
+    // a config that doesn't read counts as none
+  }
+  if (!cfg || typeof cfg !== "object") return "none";
+  if (cfg.out > 0) return `out ${cfg.out}`;
+  if (cfg.kind === "account") return `account ${cfg.user && typeof cfg.user === "object" ? cfg.user.id : ""} ${cfg.key}`;
+  if (cfg.url && cfg.key) return "key";
+  return "none";
+}
+
+// Connecting or disconnecting your own save Worker, or a device id written at start, never
+// reloads other tabs. Any change to an account or a sign out does.
+const accountChange = (a, b) => a !== b && [a, b].some((x) => x.startsWith("account") || x.startsWith("out"));
+
+// Another tab signed in or out, so this tab's progress may belong to someone else. It stops
+// saving and reloads, and never saves on the way out.
+function leaveTab() {
+  if (Account.leaving) return;
+  Account.leaving = true;
+  ready = false;
+  clearTimeout(saveTimer);
+  saveTimer = 0;
+  localDirty = false;
+  clearTimeout(cloudTimer);
+  cloudTimer = 0;
+  cloudDirty = false;
+  setTimeout(() => location.reload(), 300);
+}
+
+// Notes what went wrong with a cloud request, and says whether to try again. An account that
+// signed this browser out on purpose clears it. One whose session just ran out keeps the
+// progress here and stops trying until you sign in again.
+function cloudFailed(err) {
+  const problem = cloudProblem(err);
+  if (Cloud.kind !== "account") {
+    Cloud.error = problem;
+    return true;
+  }
+  if (problem === "revoked") {
+    setTimeout(() => clearBrowser("revoked"), 0);
+    return false;
+  }
+  if (problem === "key") {
+    sessionEnded();
+    return false;
+  }
+  Cloud.error = problem;
+  return true;
+}
+
+// The session ran out or was pushed out. The progress here still belongs to the same account,
+// so kind and user stay, and signing in again as that account merges it back.
+function sessionEnded() {
+  clearTimeout(cloudTimer);
+  cloudTimer = 0;
+  Cloud.key = "";
+  Cloud.error = "";
+  Cloud.seen = 0;
+  Cloud.lastOk = 0;
+  if (accountChange(cloudIdentity(cloudSeen), cloudIdentity(readConfigNow()))) {
+    leaveTab(); // another tab already signed in again
+    return;
+  }
+  saveCloudConfig();
+  renderCloudStatus();
+}
+
+// Waits for a cloud save that's running, and cancels any that's waiting.
+async function settleCloud() {
+  clearTimeout(cloudTimer);
+  cloudTimer = 0;
+  try {
+    await (cloudNext || cloudRun);
+  } catch (err) {
+    // a failed save is the next owner's to retry
+  }
+  clearTimeout(cloudTimer);
+  cloudTimer = 0;
+}
+
+// One request brings the account's main copy and every left copy. The reply is a short JSON
+// header with the length of each, then their bytes one after another.
+async function readAccount() {
+  const buf = await Cloud.call("GET", APP.accountSync, undefined, false, true);
+  const all = new Uint8Array(buf || new ArrayBuffer(0));
+  const cut = all.indexOf(10);
+  if (cut < 0) throw new Error("reach");
+  const text = new TextDecoder();
+  const head = JSON.parse(text.decode(all.subarray(0, cut)));
+  let at = cut + 1;
+  const take = (n) => text.decode(all.subarray(at, (at += n)));
+  const theirs = head.main >= 0 ? JSON.parse(take(head.main)) : null;
+  const left = [];
+  for (const [id, n] of Array.isArray(head.slots) ? head.slots : []) {
+    const raw = take(n);
+    if (isDeviceId(id)) left.push([id, JSON.parse(raw)]);
+  }
+  return { theirs, left };
+}
+
+// Removes progress and texts from this browser. Settings go with the progress, and the
+// config with this browser's device id stays.
+function wipeLocal() {
+  try {
+    const prefix = Store.docKey("");
+    const keys = [APP.storageKey];
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const k = window.localStorage.key(i);
+      if (k && k.startsWith(prefix)) keys.push(k);
+    }
+    for (const k of keys) window.localStorage.removeItem(k);
+  } catch (err) {
+    // storage that can't be listed is left as it is, and a reload shows what's there
   }
 }
 
@@ -3796,6 +4172,7 @@ async function deleteDoc(id) {
   if (state.docId === id) state.docId = "";
   await Store.removeDoc(id);
   cloudDoc("DELETE", id);
+  if (Account.due.delete(id)) saveCloudConfig(); // a removed text no longer waits to go up
   scheduleSave(0);
 }
 
@@ -4677,6 +5054,48 @@ const el = {
   cloudDaysRow: $("#cloudDaysRow"),
   cloudDays: $("#cloudDays"),
   cloudRestore: $("#cloudRestore"),
+  cloudGroup: $("#cloudGroup"),
+  cloudDaysHint: $("#cloudDaysHint"),
+  accountGroup: $("#accountGroup"),
+  accountNote: $("#accountNote"),
+  accountForm: $("#accountForm"),
+  googleRow: $("#googleRow"),
+  googleHint: $("#googleHint"),
+  googleBtn: $("#googleBtn"),
+  accountName: $("#accountName"),
+  accountPass: $("#accountPass"),
+  accountPass2Row: $("#accountPass2Row"),
+  accountPass2: $("#accountPass2"),
+  accountSignIn: $("#accountSignIn"),
+  accountCreate: $("#accountCreate"),
+  accountClear: $("#accountClear"),
+  accountMerge: $("#accountMerge"),
+  accountMergeHint: $("#accountMergeHint"),
+  accountKeep: $("#accountKeep"),
+  accountDrop: $("#accountDrop"),
+  accountPanel: $("#accountPanel"),
+  accountMethods: $("#accountMethods"),
+  accountNow: $("#accountNow"),
+  accountOut: $("#accountOut"),
+  accountOutHint: $("#accountOutHint"),
+  accountOutAll: $("#accountOutAll"),
+  accountLinkRow: $("#accountLinkRow"),
+  accountLinkHint: $("#accountLinkHint"),
+  accountLinkBtn: $("#accountLinkBtn"),
+  accountPwRow: $("#accountPwRow"),
+  accountPwLabel: $("#accountPwLabel"),
+  accountPwHint: $("#accountPwHint"),
+  accountPwOpen: $("#accountPwOpen"),
+  accountPwForm: $("#accountPwForm"),
+  accountPwNameRow: $("#accountPwNameRow"),
+  accountPwName: $("#accountPwName"),
+  accountPwOldRow: $("#accountPwOldRow"),
+  accountPwOld: $("#accountPwOld"),
+  accountPwNew: $("#accountPwNew"),
+  accountPwNew2: $("#accountPwNew2"),
+  accountPwSave: $("#accountPwSave"),
+  accountPwCancel: $("#accountPwCancel"),
+  accountDelete: $("#accountDelete"),
 };
 
 let view = "practice";
@@ -5783,6 +6202,12 @@ function loadPdfReader() {
     pdfReader = new Promise((resolve, reject) => {
       const script = document.createElement("script");
       script.src = APP.pdfScript;
+      // The account's token sits in this browser's storage, so a script from elsewhere is
+      // checked against its known hash where one is set.
+      if (APP.pdfIntegrity) {
+        script.integrity = APP.pdfIntegrity;
+        script.crossOrigin = "anonymous";
+      }
       script.onload = () => {
         if (!window.pdfjsLib) {
           reject(new Error("reader"));
@@ -8135,6 +8560,7 @@ function applyTheme() {
   el.board.classList.toggle("dots", s.spaceDots);
   el.board.classList.toggle("full", s.textView === "full");
   el.board.classList.toggle("nopy", !s.pinyin);
+  if (Account.gis === 2) drawGoogle(); // Google's button follows the page theme
 }
 
 function buildLayoutOptions() {
@@ -8362,6 +8788,10 @@ async function restoreBackup(data) {
       await uploadDocs();
     } catch (err) {
       // texts follow on the next save
+      if (Cloud.kind === "account") {
+        for (const doc of state.docs) Account.due.add(doc.id);
+        saveCloudConfig();
+      }
     }
     cloudDirty = true;
     pushCloud();
@@ -8412,7 +8842,9 @@ function timeAgo(ts) {
 
 function renderCloudStatus() {
   if (!el || !el.cloudNote) return;
-  const on = Cloud.on;
+  // One cloud per browser, so your own save Worker steps aside while an account is in use.
+  el.cloudGroup.hidden = Cloud.kind === "account";
+  const on = Cloud.on && Cloud.kind !== "account";
   el.cloudNow.hidden = !on;
   el.cloudOff.hidden = !on;
   el.cloudConnect.textContent = on ? "Reconnect" : "Connect";
@@ -8422,11 +8854,16 @@ function renderCloudStatus() {
     reach: "Couldn't reach the save address. Your progress is safe in this browser, and it will keep trying.",
   };
   let note = "Not connected. Right now your progress lives only in this browser.";
+  if (!on && accountPlace() === "ok" && Account.conf && Account.conf.ready) note = "For people who run their own save Worker in Cloudflare. Most people want an account instead.";
   if (on && Cloud.error) note = problems[Cloud.error];
   else if (on && Cloud.lastOk) note = `Connected. Last saved to your Cloudflare account ${timeAgo(Cloud.lastOk)}.`;
   else if (on) note = "Connected.";
   el.cloudNote.textContent = note;
   el.cloudNote.classList.toggle("warn", on && Boolean(Cloud.error));
+  el.cloudDaysHint.textContent = Cloud.kind === "account"
+    ? "Your account keeps the first copy of each of the last 14 days you practiced. Restoring one brings back the progress it had, and undoes a Reset progress made since, on every device."
+    : "Your Cloudflare account keeps the first copy of each day. Restoring one brings back the progress it had, and undoes a Reset progress made since, on every device.";
+  renderAccount();
 }
 
 async function uploadDocs() {
@@ -8452,6 +8889,8 @@ async function loadCloudDays() {
     el.cloudDaysRow.hidden = !days.length;
   } catch (err) {
     el.cloudDaysRow.hidden = true;
+    // An account that signed this browser out says so here too, and nothing tries again.
+    if (Cloud.kind === "account" && ["key", "revoked"].includes(cloudProblem(err))) cloudFailed(err);
   }
 }
 
@@ -8462,9 +8901,10 @@ async function onCloudConnect() {
     el.cloudNote.textContent = "Add both the save address and the save key first.";
     return;
   }
-  const before = { url: Cloud.url, key: Cloud.key };
+  const before = { url: Cloud.url, key: Cloud.key, kind: Cloud.kind };
   Cloud.url = url;
   Cloud.key = key;
+  Cloud.kind = "key";
   el.cloudNote.textContent = "Connecting";
   try {
     const remote = await Cloud.call("GET", APP.storageKey);
@@ -8478,6 +8918,7 @@ async function onCloudConnect() {
     }
     await uploadDocs();
     if (!Cloud.device) Cloud.device = newDeviceId();
+    Account.marker = null;
     await saveCloudConfig();
     Cloud.error = "";
     cloudDirty = true;
@@ -8487,6 +8928,7 @@ async function onCloudConnect() {
   } catch (err) {
     Cloud.url = before.url;
     Cloud.key = before.key;
+    Cloud.kind = before.kind;
     Cloud.error = "";
     renderCloudStatus();
     const problems = {
@@ -8504,9 +8946,11 @@ async function onCloudOff() {
   cloudTimer = 0;
   Cloud.url = "";
   Cloud.key = "";
+  Cloud.kind = "";
   Cloud.error = "";
   Cloud.lastOk = 0;
   Cloud.seen = 0;
+  cloudSeen = "";
   await Store.remove(APP.cloudConfig);
   el.cloudKey.value = "";
   el.cloudDaysRow.hidden = true;
@@ -8515,7 +8959,7 @@ async function onCloudOff() {
 
 async function onCloudNow() {
   cloudDirty = true;
-  if (await pushCloud()) showToast("Saved to your Cloudflare account");
+  if (await pushCloud()) showToast(Cloud.kind === "account" ? "Saved to your account" : "Saved to your Cloudflare account");
 }
 
 let cloudRestoreArmed = 0;
@@ -8548,7 +8992,7 @@ async function onCloudRestore() {
     newLesson();
     showToast("Daily copy restored");
   } catch (err) {
-    Cloud.error = cloudProblem(err);
+    cloudFailed(err);
     renderCloudStatus();
   }
 }
@@ -8579,6 +9023,902 @@ function onResetClick() {
   showToast("Progress reset");
 }
 
+/* Accounts ----------------------------------------------------------------- */
+
+// Accounts keep your progress on every device. They live at this page's own address, run by
+// site-worker.js, so they work on the site itself and not in a Claude artifact, a file opened
+// from disk or a page without the account service.
+function accountPlace() {
+  const kind = Store.kind || Store.detect();
+  if (kind === "claude") return "claude";
+  if (location.protocol === "file:") return "file";
+  try {
+    if (window.top !== window) return "frame";
+  } catch (err) {
+    return "frame";
+  }
+  if (!window.isSecureContext || !window.crypto || !crypto.subtle) return "insecure";
+  if (kind !== "browser") return "none";
+  return "ok";
+}
+
+const siteName = () => APP.site.replace(/^https:\/\//, "");
+
+// Asks the site once per page what it offers. A failure to reach it asks again the next time
+// Settings opens.
+function loadAccountConfig() {
+  if (Account.confLoading) return Account.confLoading;
+  Account.confFailed = false;
+  Account.confLoading = authCall("config", undefined, "", 8000).then((res) => {
+    const data = res.data;
+    // A site that's out of requests for the day answers with an error page, which isn't the
+    // same as having no accounts at all.
+    if (!res.status || res.status === 429 || res.status >= 500) {
+      Account.confFailed = true;
+      Account.confLoading = null;
+    } else if (res.status === 404 || data.v !== 1) {
+      Account.conf = { missing: true };
+    } else {
+      Account.conf = {
+        ready: data.ready === true,
+        google: typeof data.google === "string" ? data.google : "",
+        googleAt: typeof data.googleAt === "string" ? data.googleAt : "",
+      };
+    }
+    renderCloudStatus();
+  });
+  return Account.confLoading;
+}
+
+function openAccount() {
+  if (accountPlace() === "ok" && !Account.conf) loadAccountConfig();
+  renderAccount();
+}
+
+// Account requests go to this page's own address, with the session token only when one is
+// needed. A reply that isn't JSON comes back as an empty object, and a request that fails or
+// takes too long as status 0.
+async function authCall(path, body, token, ms = APP.cloudTimeout) {
+  const stop = new AbortController();
+  const timer = setTimeout(() => stop.abort(), ms);
+  try {
+    const headers = {};
+    if (body !== undefined) headers["Content-Type"] = "application/json";
+    if (token) headers.Authorization = `Bearer ${token}`;
+    const res = await fetch(`${APP.accountApi}/auth/${path}`, {
+      method: body === undefined ? "GET" : "POST",
+      headers,
+      body: body === undefined ? undefined : JSON.stringify(body),
+      cache: "no-store",
+      signal: stop.signal,
+    });
+    let data = {};
+    try {
+      data = await res.json();
+    } catch (err) {
+      // a reply that isn't JSON, like a plain error page
+    }
+    return { status: res.status, data: data && typeof data === "object" ? data : {} };
+  } catch (err) {
+    return { status: 0, data: { error: "reach" } };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// Usernames are matched without regard to case or look alike characters.
+const normalName = (raw) => String(raw || "").normalize("NFKC").trim().toLowerCase();
+const nameOk = (name) => /^[a-z0-9][a-z0-9._-]{2,31}$/.test(name);
+
+function b64url(bytes) {
+  const all = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+  let bin = "";
+  for (let i = 0; i < all.length; i++) bin += String.fromCharCode(all[i]);
+  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+const randomToken = () => b64url(crypto.getRandomValues(new Uint8Array(32)));
+
+// The password never leaves this browser. What's sent is a slow hash of it, salted with the
+// username. Never change the rounds, the salt text or the NFKC step, or every password stops
+// working.
+async function passwordProof(name, password) {
+  const enc = new TextEncoder();
+  const base = await crypto.subtle.importKey("raw", enc.encode(password.normalize("NFKC")), "PBKDF2", false, ["deriveBits"]);
+  const bits = await crypto.subtle.deriveBits(
+    { name: "PBKDF2", hash: "SHA-256", salt: enc.encode(`keyprint:v1:${name}`), iterations: APP.passwordRounds },
+    base,
+    256,
+  );
+  return b64url(bits);
+}
+
+// The server never sees the password, so the browser is the only place to check it.
+const EASY_PASSWORDS = ["password", "password1", "12345678", "123456789", "1234567890", "qwertyui", "qwerty123", "iloveyou", "keyprint", "abcdefgh", "11111111", "00000000", "letmein1", "sunshine", "princess", "football", "baseball", "welcome1", "admin123", "trustno1"];
+
+function passwordProblem(name, password, creating) {
+  if (password.length < APP.passwordMin) return `Use a password of at least ${APP.passwordMin} characters.`;
+  if (!creating) return "";
+  const plain = password.normalize("NFKC").trim().toLowerCase();
+  if (plain === name) return "Your password can't be your username.";
+  if (EASY_PASSWORDS.includes(plain) || /^(.)\1*$/.test(password)) return "That password is too easy to guess. Try a longer one.";
+  return "";
+}
+
+function localProgress() {
+  let tests = 0;
+  for (const p of Object.values(state.profiles)) tests += p && Array.isArray(p.history) ? p.history.length : 0;
+  return { tests, texts: state.docs.length };
+}
+
+const count = (n, one, many) => `${n.toLocaleString("en-US")} ${n === 1 ? one : many}`;
+
+function methodsText(u) {
+  if (u.google && u.email && u.username) return `Google, ${u.email}, and username ${u.username}.`;
+  if (u.google && u.username) return `Google and username ${u.username}.`;
+  if (u.username) return `Username ${u.username}.`;
+  if (u.google && u.email) return `Google, ${u.email}.`;
+  return "Google.";
+}
+
+function waitText(seconds) {
+  const s = Math.max(1, Math.ceil(Number(seconds) || 1));
+  if (s < 60) return count(s, "second", "seconds");
+  return count(Math.ceil(s / 60), "minute", "minutes");
+}
+
+// An error or a step hint takes the place of the account note until the next action.
+function setAccountNote(text, warn = false) {
+  Account.message = { text, warn };
+  el.accountNote.textContent = text;
+  el.accountNote.classList.toggle("warn", warn);
+  el.accountNote.hidden = false;
+}
+
+const signedIn = () => Cloud.kind === "account" && Cloud.on;
+
+// Signing in, or a sign in that worked, puts the form back to one password field.
+function endCreateStep() {
+  el.accountPass2Row.hidden = true;
+  el.accountPass2.value = "";
+  el.accountPass.autocomplete = "current-password";
+  Account.createStep = false;
+}
+
+async function onAccountSubmit(creating) {
+  if (Account.busy || signedIn()) return;
+  Account.message = null;
+  if (!creating) endCreateStep();
+  const name = normalName(el.accountName.value);
+  const password = el.accountPass.value;
+  const stop = (text) => {
+    setAccountNote(text, true);
+    renderAccount();
+  };
+  if (!name || !password) return stop("Add a username and a password first.");
+  if (!nameOk(name)) return stop("Use 3 to 32 letters, numbers, dots, dashes or underscores for your username, starting with a letter or number.");
+  const problem = passwordProblem(name, password, creating);
+  if (problem) return stop(problem);
+  // A new password is typed twice, so a typo can't lock you out.
+  if (creating && !Account.createStep) {
+    Account.createStep = true;
+    el.accountPass2Row.hidden = false;
+    el.accountPass.autocomplete = "new-password";
+    setAccountNote("Type your password again, then click Create account.");
+    renderAccount();
+    el.accountPass2.focus();
+    return;
+  }
+  if (creating && el.accountPass2.value !== password) return stop("The two passwords don't match.");
+  Account.busy = true;
+  setAccountNote(creating ? "Creating your account" : "Signing in");
+  renderAccount();
+  let res;
+  try {
+    const proof = await passwordProof(name, password);
+    res = await authCall(creating ? "signup" : "signin", { username: name, proof });
+  } catch (err) {
+    res = { status: 0, data: { error: "reach" } };
+  } finally {
+    Account.busy = false;
+  }
+  el.accountPass.value = "";
+  el.accountPass2.value = "";
+  if (res.status === 200 || res.status === 201) {
+    await askAboutProgress(res.data);
+    return;
+  }
+  stop(authProblem(res));
+}
+
+// Progress already in this browser is only added to an account when you say it's yours, and
+// never to someone else's account than the one it came from.
+async function askAboutProgress(result) {
+  const user = cleanUser(result && result.user);
+  if (!user || !isToken(result.token, user.id)) {
+    setAccountNote("Something went wrong. Try again in a moment.", true);
+    renderAccount();
+    return;
+  }
+  const signin = { token: result.token, user, created: result.created === true };
+  const owner = Cloud.kind === "account" && Cloud.user ? Cloud.user.id : "";
+  if (owner === user.id) return adoptAccount(signin, true); // the session had ended, and it's the same person
+  const here = localProgress();
+  if (!here.tests && !here.texts) return adoptAccount(signin, !owner);
+  Account.message = null;
+  Account.pending = signin;
+  renderAccount();
+}
+
+function mergeOwner() {
+  return Cloud.kind === "account" && Cloud.user && Account.pending && Cloud.user.id !== Account.pending.user.id ? Cloud.user : null;
+}
+
+function onAccountKeep() {
+  if (!Account.pending || Account.busy) return;
+  adoptAccount(Account.pending, !mergeOwner());
+}
+
+function onAccountDrop() {
+  if (!Account.pending || Account.busy) return;
+  if (mergeOwner()) {
+    // The new session isn't used, so it's signed out again, as far as that goes.
+    authCall("signout", { all: false }, Account.pending.token, 5000);
+    Account.pending = null;
+    Account.message = null;
+    renderAccount();
+    return;
+  }
+  adoptAccount(Account.pending, false);
+}
+
+// Texts that only your own save Worker has come along when your progress moves into an
+// account, including ones added on another device and never opened here.
+async function fetchCloudDocs() {
+  if (Cloud.kind !== "key") return;
+  for (const doc of state.docs) {
+    if (docCache.has(doc.id) || (await Store.loadDoc(doc.id))) continue;
+    const text = await Cloud.call("GET", Store.docKey(doc.id));
+    if (!text) continue; // no copy exists anywhere
+    docCache.set(doc.id, { text, passages: splitPassages(text) });
+    await Store.saveDoc(doc.id, text); // best effort, since docCache holds it either way
+  }
+}
+
+function clearLocalInPlace() {
+  wipeLocal();
+  docCache.clear();
+  unfinished = null;
+  hydrate(JSON.parse(JSON.stringify({ version: APP.version, settings: DEFAULTS })));
+}
+
+// Every sign in, new account and Google sign in ends here. Nothing changes until the account
+// has been read, and then the config is written first, so other tabs stop before anything
+// here changes.
+async function adoptAccount(result, keep) {
+  if (Account.busy) return;
+  Account.busy = true;
+  Account.switching = true;
+  const moving = keep && Cloud.kind === "key" && Cloud.on;
+  const sameOwner = Boolean(Cloud.kind === "account" && Cloud.user && Cloud.user.id === result.user.id);
+  setAccountNote(moving ? "Bringing your Cloud save progress along" : result.created ? "Creating your account" : "Signing in");
+  renderAccount();
+  try {
+    if (moving) {
+      // A last read, merge and write to your own save Worker, which folds its left copies in.
+      if (saveTimer || localDirty) {
+        clearTimeout(saveTimer);
+        saveTimer = 0;
+        saveLocal();
+      }
+      cloudDirty = true;
+      if (!(await pushCloud())) throw new Error("move");
+      try {
+        await fetchCloudDocs();
+      } catch (err) {
+        throw new Error("move");
+      }
+    }
+    await settleCloud();
+    // Taken after the move, so a failed read puts back exactly what the last save left.
+    const before = { kind: Cloud.kind, url: Cloud.url, key: Cloud.key, user: Cloud.user, seen: Cloud.seen, lastOk: Cloud.lastOk, putAt: Cloud.putAt, error: Cloud.error };
+    Object.assign(Cloud, { kind: "account", url: accountBase(), key: result.token, user: result.user, seen: 0, lastOk: 0, putAt: -1e9, error: "", retry: 60000 });
+    leftCopy = false;
+    if (!isDeviceId(Cloud.device)) Cloud.device = newDeviceId();
+    let got;
+    try {
+      got = await readCloud(state);
+    } catch (err) {
+      Object.assign(Cloud, before);
+      throw err;
+    }
+    Account.marker = null;
+    await saveCloudConfig();
+    if (!keep) clearLocalInPlace();
+    // Left marks from another cloud mean nothing here, and could make foldLeft skip a real slot.
+    const here = snapshot();
+    here.devices = [];
+    // The account's settings and open text win when it has a copy, and every test is kept.
+    let start = got.theirs ? mergeSaves(got.theirs, here, true) : here;
+    start = foldLeft(start, got.left, true);
+    hydrate(start);
+    Cloud.seen = got.theirs ? got.theirs.savedAt || 0 : 0;
+    const listed = new Set((got.theirs && Array.isArray(got.theirs.docs) ? got.theirs.docs : []).map((d) => d && d.id));
+    const missing = state.docs.map((d) => d.id).filter((id) => !listed.has(id));
+    Account.due = new Set([...(sameOwner ? Account.due : []), ...missing]);
+    await saveCloudConfig();
+    el.cloudKey.value = ""; // the save key isn't kept once you're in an account
+    el.cloudUrl.value = "";
+    Account.switching = false;
+    saveLocal();
+    if (state.docId && !(await openDoc(state.docId))) state.docId = "";
+    afterMerge();
+    newLesson();
+    cloudDirty = true;
+    await pushCloud(); // a failure shows in the note and tries again
+    uploadDue();
+    loadCloudDays();
+    endCreateStep();
+    Account.message = null;
+    showToast(result.created ? "Account created" : "Signed in");
+  } catch (err) {
+    const move = err && err.message === "move";
+    setAccountNote(move ? "Couldn't reach your Cloud save to bring its newest progress along. Try again in a moment." : "Couldn't reach your account. Check your connection and try again.", true);
+  } finally {
+    Account.busy = false;
+    Account.switching = false;
+    Account.pending = null;
+    renderAccount();
+  }
+}
+
+// Texts go up one at a time in the background, and a failure never undoes a sign in.
+async function uploadDue() {
+  if (Account.uploading || !signedIn()) return;
+  Account.uploading = true;
+  const key = Cloud.key;
+  const same = () => Cloud.kind === "account" && Cloud.key === key && !Account.leaving;
+  try {
+    for (const id of [...Account.due]) {
+      if (!same()) break;
+      const doc = state.docs.find((d) => d.id === id);
+      const text = !doc ? "" : docCache.has(id) ? docCache.get(id).text : await Store.loadDoc(id);
+      if (!text) {
+        Account.due.delete(id);
+        if (same()) saveCloudConfig();
+        continue;
+      }
+      let failed = null;
+      try {
+        await Cloud.call("PUT", Store.docKey(id), text);
+      } catch (err) {
+        failed = err;
+      }
+      if (!same()) break;
+      const problem = failed ? cloudProblem(failed) : "";
+      // The account still has your progress, and only a text waits, so a passing problem
+      // leaves the note alone. The next save that works tries again.
+      if (problem && problem !== "full") {
+        if (problem === "key" || problem === "revoked") cloudFailed(failed);
+        break;
+      }
+      if (problem === "full") showToast("No room for this text in your account");
+      Account.due.delete(id);
+      saveCloudConfig();
+    }
+  } finally {
+    Account.uploading = false;
+    renderAccount();
+  }
+}
+
+// Signing out writes the note first, so every other tab stops, then clears this browser and
+// reloads. It never waits on the cloud queue, so a cloud save can call it.
+async function clearBrowser(why) {
+  if (Account.leaving) return;
+  Account.leaving = true;
+  Account.switching = true;
+  ready = false;
+  clearTimeout(saveTimer);
+  saveTimer = 0;
+  localDirty = false;
+  clearTimeout(cloudTimer);
+  cloudTimer = 0;
+  cloudDirty = false;
+  leftCopy = true; // nothing more goes to the cloud from this page
+  if (window.google && google.accounts && google.accounts.id) {
+    try {
+      google.accounts.id.disableAutoSelect();
+    } catch (err) {
+      // Google's script may be half loaded, and signing out goes on without it
+    }
+  }
+  Account.marker = { out: Date.now(), why, fresh: true };
+  Object.assign(Cloud, { kind: "", url: "", key: "", user: null });
+  Account.due = new Set();
+  await saveCloudConfig(); // first, so every other tab stops before anything is removed
+  wipeLocal();
+  location.reload();
+}
+
+// The first start after a sign out clears anything a tab that hadn't stopped yet wrote back.
+async function finishSignOut() {
+  wipeLocal();
+  Account.marker.fresh = false;
+  await saveCloudConfig();
+  const why = Account.marker.why;
+  if (why === "revoked") Account.note = "You were signed out from another browser, so your progress was cleared here. It's safe in your account.";
+  Account.toast = { out: "Signed out", revoked: "Signed out", deleted: "Account deleted", cleared: "Browser cleared" }[why] || "Signed out";
+}
+
+// Two click buttons change their label for a few seconds, then go back.
+function armAccount(slot, btn, label, rest, mode) {
+  clearTimeout(Account[slot]);
+  btn.textContent = label;
+  btn.classList.add("armed");
+  btn.dataset.armed = mode;
+  Account[slot] = setTimeout(() => disarmAccount(slot, btn, rest), 4000);
+}
+
+function disarmAccount(slot, btn, rest) {
+  clearTimeout(Account[slot]);
+  Account[slot] = 0;
+  btn.textContent = rest;
+  btn.classList.remove("armed");
+  btn.dataset.armed = "";
+}
+
+async function onAccountOut(all) {
+  if (Account.busy || !signedIn()) return;
+  const btn = all ? el.accountOutAll : el.accountOut;
+  const slot = all ? "allArmed" : "outArmed";
+  const rest = all ? "Sign out everywhere" : "Sign out";
+  const anyway = Boolean(Account[slot]) && btn.dataset.armed === "anyway";
+  disarmAccount(slot, btn, rest);
+  Account.message = null;
+  Account.busy = true;
+  setAccountNote("Saving your progress first");
+  renderAccount();
+  try {
+    if (!anyway) {
+      if (saveTimer || localDirty) {
+        clearTimeout(saveTimer);
+        saveTimer = 0;
+        saveLocal();
+      }
+      if (Cloud.on) {
+        cloudDirty = true;
+        const ok = await pushCloud();
+        if (Account.leaving || !signedIn()) {
+          Account.message = null; // the session ended meanwhile, which the note says
+          return;
+        }
+        if (!ok) {
+          setAccountNote("Your newest progress hasn't reached your account yet. Try again in a moment, or click Sign out anyway to clear this browser now.", true);
+          Account.busy = false;
+          renderAccount();
+          armAccount(slot, btn, "Sign out anyway", rest, "anyway");
+          return;
+        }
+      }
+    }
+    setAccountNote("Signing out");
+    renderAccount();
+    await settleCloud();
+    const res = await authCall("signout", { all }, Cloud.key, all ? APP.cloudTimeout : 5000);
+    if (all && res.status !== 200) {
+      setAccountNote("Couldn't reach your account, so your other browsers are still signed in. Try again in a moment.", true);
+      if (cloudDirty) scheduleCloud();
+      return;
+    }
+    await clearBrowser("out");
+  } finally {
+    if (!Account.leaving) {
+      Account.busy = false;
+      renderAccount();
+    }
+  }
+}
+
+function onAccountOutAll() {
+  if (Account.busy) return;
+  if (!Account.allArmed) {
+    armAccount("allArmed", el.accountOutAll, "Click again to sign out everywhere", "Sign out everywhere", "again");
+    return;
+  }
+  onAccountOut(true);
+}
+
+async function onAccountDelete() {
+  if (Account.busy || !signedIn()) return;
+  if (!Account.deleteArmed) {
+    armAccount("deleteArmed", el.accountDelete, "Click again to delete", "Delete account", "again");
+    return;
+  }
+  disarmAccount("deleteArmed", el.accountDelete, "Delete account");
+  Account.message = null;
+  Account.busy = true;
+  setAccountNote("Deleting your account");
+  renderAccount();
+  try {
+    // A save still running would otherwise come back as Revoked and clear this browser first.
+    await settleCloud();
+    const res = await authCall("delete", { confirm: "delete" }, Cloud.key);
+    if (res.status === 200) {
+      await clearBrowser("deleted");
+      return;
+    }
+    if (res.data.error === "recent" || res.status === 401) setAccountNote(authProblem(res, true), true);
+    else setAccountNote("Couldn't reach your account, so it isn't deleted. Try again in a moment.", true);
+    if (cloudDirty) scheduleCloud();
+  } finally {
+    if (!Account.leaving) {
+      Account.busy = false;
+      renderAccount();
+    }
+  }
+}
+
+function onAccountClear() {
+  if (Account.busy) return;
+  if (!Account.clearArmed) {
+    armAccount("clearArmed", el.accountClear, "Click again to clear", "Clear this browser", "again");
+    return;
+  }
+  disarmAccount("clearArmed", el.accountClear, "Clear this browser");
+  clearBrowser("cleared");
+}
+
+// A password account changes its password here, and a Google only account adds one.
+function openPasswordForm() {
+  if (!signedIn()) return;
+  const has = Cloud.user.password;
+  el.accountPwOldRow.hidden = !has;
+  el.accountPwNameRow.hidden = has;
+  el.accountPwForm.hidden = false;
+  (has ? el.accountPwOld : el.accountPwName).focus();
+}
+
+function closePasswordForm() {
+  el.accountPwForm.hidden = true;
+  for (const f of [el.accountPwName, el.accountPwOld, el.accountPwNew, el.accountPwNew2]) f.value = "";
+}
+
+async function onPasswordSave() {
+  if (Account.busy || !signedIn()) return;
+  Account.message = null;
+  const user = Cloud.user;
+  const has = user.password;
+  const name = has ? user.username : normalName(el.accountPwName.value);
+  const fresh = el.accountPwNew.value;
+  const stop = (text) => {
+    setAccountNote(text, true);
+    renderAccount();
+  };
+  if (!has && !nameOk(name)) return stop("Use 3 to 32 letters, numbers, dots, dashes or underscores for your username, starting with a letter or number.");
+  if (has && !el.accountPwOld.value) return stop("Your current password doesn't match.");
+  const problem = passwordProblem(name, fresh, true);
+  if (problem) return stop(problem);
+  if (fresh !== el.accountPwNew2.value) return stop("The two passwords don't match.");
+  Account.busy = true;
+  setAccountNote("Saving your password");
+  renderAccount();
+  let res;
+  try {
+    const body = { proof: await passwordProof(name, fresh) };
+    if (has) body.old = await passwordProof(user.username, el.accountPwOld.value);
+    else body.username = name;
+    res = await authCall("password", body, Cloud.key);
+  } catch (err) {
+    res = { status: 0, data: { error: "reach" } };
+  } finally {
+    Account.busy = false;
+  }
+  if (res.status === 200) {
+    const next = cleanUser(res.data.user);
+    if (next && next.id === user.id && signedIn()) {
+      Cloud.user = next;
+      saveCloudConfig();
+    }
+    closePasswordForm();
+    Account.message = null;
+    renderAccount();
+    showToast("Password saved");
+    return;
+  }
+  if (res.status === 401 && res.data.error === "wrong") return stop("Your current password doesn't match.");
+  stop(authProblem(res, true));
+}
+
+// Google's script loads only while Settings shows one of its buttons, and only on a site
+// registered with Google.
+function loadGoogle() {
+  if (view !== "settings" || !Account.conf || !Account.conf.google || Account.gis !== 0 || !googleTarget()) return;
+  Account.gis = 1;
+  const script = document.createElement("script");
+  script.src = APP.googleScript;
+  script.async = true;
+  let timer = 0;
+  const fail = () => {
+    if (Account.gis !== 1) return;
+    clearTimeout(timer);
+    Account.gis = 3;
+    renderAccount();
+  };
+  timer = setTimeout(fail, 15000);
+  script.onerror = fail;
+  script.onload = () => {
+    if (Account.gis !== 1) return;
+    if (!(window.google && google.accounts && google.accounts.id)) {
+      fail();
+      return;
+    }
+    clearTimeout(timer);
+    Account.gis = 2;
+    startGoogle();
+  };
+  document.head.appendChild(script);
+}
+
+// Each attempt gets a new secret that only this page holds. Google signs its hash into the
+// token, so a token seen anywhere else can't be used again.
+async function startGoogle() {
+  if (Account.gis !== 2) return;
+  const proof = randomToken();
+  const nonce = b64url(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(proof)));
+  Account.proof = proof;
+  try {
+    google.accounts.id.initialize({
+      client_id: Account.conf.google,
+      callback: onGoogleCredential,
+      nonce,
+      ux_mode: "popup",
+      auto_select: false,
+      context: "signin",
+      itp_support: true,
+      cancel_on_tap_outside: true,
+    });
+  } catch (err) {
+    Account.gis = 3;
+    renderAccount();
+    return;
+  }
+  Account.gisDrawn = "";
+  drawGoogle();
+}
+
+// The Google button that shows now, if any.
+function googleTarget() {
+  if (view !== "settings") return null;
+  if (!el.accountPanel.hidden && !el.accountLinkRow.hidden) return el.accountLinkBtn;
+  if (!el.accountForm.hidden && !el.googleRow.hidden && !el.googleBtn.hidden) return el.googleBtn;
+  return null;
+}
+
+function drawGoogle() {
+  if (Account.gis !== 2) return;
+  const target = googleTarget();
+  if (!target) return;
+  const set = document.documentElement.dataset.theme;
+  const dark = set ? set === "dark" : Boolean(window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
+  const theme = dark ? "filled_black" : "outline";
+  if (Account.gisDrawn === target.id + theme) return;
+  try {
+    google.accounts.id.renderButton(target, { type: "standard", theme, size: "large", text: "continue_with", shape: "rectangular", logo_alignment: "left", width: 260, locale: "en" });
+    Account.gisDrawn = target.id + theme;
+  } catch (err) {
+    Account.gis = 3;
+    renderAccount();
+  }
+}
+
+async function onGoogleCredential(res) {
+  if (Account.busy) return;
+  const proof = Account.proof;
+  const credential = String((res && res.credential) || "");
+  const linking = signedIn();
+  Account.message = null;
+  Account.busy = true;
+  setAccountNote(linking ? "Adding Google" : "Signing in");
+  renderAccount();
+  let out;
+  try {
+    out = await authCall(linking ? "link" : "google", { credential, proof }, linking ? Cloud.key : "");
+  } finally {
+    Account.busy = false;
+  }
+  startGoogle(); // a fresh nonce for the next attempt
+  if (linking && out.status === 200) {
+    const user = cleanUser(out.data.user);
+    if (user && signedIn() && user.id === Cloud.user.id) {
+      Cloud.user = user;
+      saveCloudConfig();
+    }
+    Account.message = null;
+    renderAccount();
+    showToast("Google added");
+    return;
+  }
+  if (!linking && (out.status === 200 || out.status === 201)) {
+    await askAboutProgress(out.data);
+    return;
+  }
+  setAccountNote(authProblem(out, linking), true);
+  renderAccount();
+}
+
+// What an account answer means, in words. On requests with a session, a session that ended
+// is handled here too.
+function authProblem(res, bearer = false) {
+  const error = res && res.data && typeof res.data.error === "string" ? res.data.error : "";
+  const reach = "Couldn't reach your account. Check your connection and try again.";
+  if (!res || !res.status || error === "later" || error === "reach") return reach;
+  if (bearer && (error === "session" || error === "revoked")) {
+    const name = Cloud.user ? Cloud.user.name : "";
+    if (error === "revoked") setTimeout(() => clearBrowser("revoked"), 0);
+    else sessionEnded();
+    return `Your sign in ran out. Sign in again as ${name} to keep saving. Your progress is safe in this browser.`;
+  }
+  const copy = {
+    username: "Use 3 to 32 letters, numbers, dots, dashes or underscores for your username, starting with a letter or number.",
+    taken: "That username is taken. Pick another, or sign in if it's yours.",
+    wrong: "That username and password don't match.",
+    closed: "Too many new accounts today. Try again tomorrow.",
+    google: "Sign in with Google didn't work. Try again, or use a username and password.",
+    credential: "Sign in with Google didn't work. Try again, or use a username and password.",
+    linked: "That Google account already has its own Keyprint account.",
+    has: "This account already has Google.",
+    recent: `For your safety, sign out and sign in again, then do this within ${APP.freshSignIn / 60000} minutes.`,
+    setup: "Accounts aren't set up on this site yet.",
+  };
+  if (error === "busy") return `Too many tries. Wait ${waitText(res.data.retry)}, then try again.`;
+  if (copy[error]) return copy[error];
+  if (!error && (res.status === 429 || res.status >= 500)) return reach;
+  return "Something went wrong. Try again in a moment.";
+}
+
+// The Account group shows one thing at a time, the first of these that applies.
+function renderAccount() {
+  if (!el || !el.accountNote) return;
+  const place = accountPlace();
+  const site = siteName();
+  const conf = Account.conf;
+  const user = Cloud.user;
+  const ended = Cloud.kind === "account" && !Cloud.on && Boolean(user);
+  let show = "";
+  let note = "";
+  let warn = false;
+  if (place !== "ok") {
+    note = place === "claude" ? `Accounts work at ${site}. Here, Claude keeps your progress.` : `Accounts work at ${site}. Here, your progress stays in this browser.`;
+  } else if (Account.message && Account.busy) {
+    note = Account.message.text; // the step in progress
+  } else if (Account.pending) {
+    show = "merge";
+    const owner = mergeOwner();
+    const here = localProgress();
+    const parts = [];
+    if (here.tests) parts.push(count(here.tests, "test", "tests"));
+    if (here.texts) parts.push(count(here.texts, "text", "texts"));
+    const what = parts.join(" and ");
+    if (owner) el.accountMergeHint.textContent = `This browser still has progress from ${owner.name} that may not be in their account. Signing in as someone else removes it from this browser.`;
+    else if (Cloud.kind === "key" && Cloud.on) el.accountMergeHint.textContent = `This browser has your Cloud save progress, ${what}. Add it to move it into this account. Your save Worker keeps its copy either way.`;
+    else el.accountMergeHint.textContent = `This browser already has progress, ${what}. Add it to your account if it's yours, or leave it out and it's cleared from this browser.`;
+    el.accountKeep.textContent = owner ? "Remove it and sign in" : "Add it";
+    el.accountDrop.textContent = owner ? "Cancel" : "Leave it out";
+  } else if (signedIn()) {
+    show = "panel";
+    el.accountMethods.textContent = methodsText(user);
+    el.accountOutHint.textContent = "Saves your progress to your account, then clears it from this browser so the next person starts fresh."
+      + (user.google ? " Keyprint can't sign you out of Google, so on a shared computer sign out of Google too." : "");
+    el.accountLinkRow.hidden = !(conf && conf.google && !user.google && Account.gis !== 3);
+    el.accountPwLabel.textContent = user.password ? "Change password" : "Add a password";
+    el.accountPwHint.textContent = user.password
+      ? "Your other browsers are signed out, and keep their progress until you sign in there again."
+      : "Lets you sign in with a username too, where Sign in with Google doesn't work.";
+    el.accountPwOpen.textContent = user.password ? "Change" : "Add";
+    el.accountPwOldRow.hidden = !user.password;
+    el.accountPwNameRow.hidden = user.password;
+    const problems = {
+      reach: "Couldn't reach your account. Your progress is safe in this browser, and it will keep trying.",
+      setup: "Accounts aren't working on this site right now. Your progress is safe in this browser.",
+      full: "Your account is full. Remove a text in My text to make room.",
+    };
+    if (problems[Cloud.error]) {
+      note = problems[Cloud.error];
+      warn = true;
+    } else if (Account.due.size) {
+      note = `Signed in as ${user.name}. Saving your texts to your account.`;
+    } else if (Cloud.lastOk) {
+      note = `Signed in as ${user.name}. Last saved to your account ${timeAgo(Cloud.lastOk)}.`;
+    } else {
+      note = `Signed in as ${user.name}.`;
+    }
+  } else if (!conf) {
+    note = Account.confFailed ? "Couldn't reach Keyprint to check for accounts. Try again in a moment." : "Checking";
+    warn = Account.confFailed;
+  } else if (conf.missing) {
+    note = `Accounts aren't available at this address. They work at ${site}.`;
+  } else if (!conf.ready) {
+    note = "Accounts aren't set up on this site yet.";
+  } else {
+    show = "form";
+    el.googleRow.hidden = !(conf.google || conf.googleAt);
+    el.googleBtn.hidden = !conf.google || Account.gis === 3;
+    if (conf.google && Account.gis === 3) el.googleHint.textContent = "Sign in with Google couldn't load here. You can still use a username and password.";
+    else if (conf.google) el.googleHint.textContent = "Sign in or create an account with nothing new to remember. Already have a username? Sign in with it, then add Google.";
+    else el.googleHint.textContent = `Sign in with Google works at ${site}. Here, use a username and password.`;
+    el.accountClear.hidden = !ended;
+    if (ended && !el.accountName.value && user.username) el.accountName.value = user.username;
+    if (ended) {
+      note = `Your sign in ran out. Sign in again as ${user.name} to keep saving. Your progress is safe in this browser.`;
+      warn = true;
+    } else if (Cloud.kind === "key" && Cloud.on) {
+      note = "Cloud save is on with your own key. Signing in moves your progress into an account instead, and your save Worker keeps its copy.";
+    } else {
+      note = Account.note || "Sign in to keep your progress on every device. Without an account it stays in this browser.";
+    }
+  }
+  if (Account.message && place === "ok") {
+    note = Account.message.text;
+    warn = Account.message.warn;
+  }
+  el.accountForm.hidden = show !== "form";
+  el.accountMerge.hidden = show !== "merge";
+  el.accountPanel.hidden = show !== "panel";
+  el.accountNote.textContent = note;
+  el.accountNote.classList.toggle("warn", warn);
+  el.accountNote.hidden = !note;
+  if (googleTarget()) {
+    if (Account.gis === 0) loadGoogle();
+    else drawGoogle();
+  }
+  renderSavedNote();
+}
+
+function renderSavedNote() {
+  if (!el || !el.savedNote) return;
+  const kind = Store.kind || Store.detect();
+  if (kind === "browser" && accountPlace() === "ok" && signedIn()) {
+    el.savedNote.textContent = "Everything saves in this browser and in your account.";
+    return;
+  }
+  if (kind === "browser" && accountPlace() === "ok" && Account.conf && Account.conf.ready) {
+    el.savedNote.textContent = "Everything saves automatically in this browser. Sign in under Account to have it on every device, or use a backup file to move it.";
+    return;
+  }
+  const savedNotes = {
+    claude: "Everything saves automatically and stays here between visits. A backup file is extra insurance.",
+    browser: "Everything saves automatically in this browser. Use a backup file to move your progress to another browser or computer.",
+    none: "This copy can't save on its own. Download a backup before you close it, then restore it next time.",
+  };
+  el.savedNote.textContent = savedNotes[kind];
+}
+
+function bindAccount() {
+  for (const form of [el.accountForm, el.accountPwForm]) form.addEventListener("submit", (e) => e.preventDefault());
+  el.accountSignIn.addEventListener("click", () => onAccountSubmit(false));
+  el.accountCreate.addEventListener("click", () => onAccountSubmit(true));
+  const onEnter = (input, run) => input.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    run();
+  });
+  onEnter(el.accountName, () => onAccountSubmit(!el.accountPass2Row.hidden));
+  onEnter(el.accountPass, () => onAccountSubmit(!el.accountPass2Row.hidden));
+  onEnter(el.accountPass2, () => onAccountSubmit(true));
+  onEnter(el.accountPwNew2, onPasswordSave);
+  el.accountClear.addEventListener("click", onAccountClear);
+  el.accountKeep.addEventListener("click", onAccountKeep);
+  el.accountDrop.addEventListener("click", onAccountDrop);
+  el.accountNow.addEventListener("click", onCloudNow);
+  el.accountOut.addEventListener("click", () => onAccountOut(false));
+  el.accountOutAll.addEventListener("click", onAccountOutAll);
+  el.accountPwOpen.addEventListener("click", openPasswordForm);
+  el.accountPwSave.addEventListener("click", onPasswordSave);
+  el.accountPwCancel.addEventListener("click", closePasswordForm);
+  el.accountDelete.addEventListener("click", onAccountDelete);
+}
+
 /* 12. Events --------------------------------------------------------------- */
 
 function showView(name) {
@@ -8599,6 +9939,7 @@ function showView(name) {
     renderLibrary();
     renderCloudStatus();
     loadCloudDays();
+    openAccount();
   }
   if (name === "practice") {
     measureLines();
@@ -8871,8 +10212,17 @@ function bindEvents() {
     if (document.visibilityState === "hidden") flushSaves();
   });
   // Another tab of this browser saved. Its progress is folded into this tab, so this tab's
-  // next save can't write over it.
+  // next save can't write over it. If it signed in or out instead, this tab's progress may be
+  // someone else's, so this tab reloads without saving.
   window.addEventListener("storage", (e) => {
+    if (e.key === APP.cloudConfig) {
+      if (accountChange(cloudIdentity(cloudSeen), cloudIdentity(e.newValue))) leaveTab();
+      return;
+    }
+    if (e.key === APP.storageKey && !e.newValue && Cloud.kind === "account") {
+      leaveTab();
+      return;
+    }
     if (!ready || e.key !== APP.storageKey || !e.newValue) return;
     try {
       hydrate(mergeSaves(snapshot(), JSON.parse(e.newValue), true));
@@ -8888,6 +10238,11 @@ function bindEvents() {
   el.cloudNow.addEventListener("click", onCloudNow);
   el.cloudOff.addEventListener("click", onCloudOff);
   el.cloudRestore.addEventListener("click", onCloudRestore);
+  bindAccount();
+  // A page kept in the back forward cache may come back after a sign in or out elsewhere.
+  window.addEventListener("pageshow", (e) => {
+    if (e.persisted && accountChange(cloudIdentity(cloudSeen), cloudIdentity(readConfigNow()))) leaveTab();
+  });
   setInterval(() => {
     if (view === "settings") renderCloudStatus();
   }, 30000);
@@ -8942,8 +10297,11 @@ async function init() {
   el.text.replaceChildren(node("span", "loading", "Loading your progress"));
 
   applyTheme();
-  const local = await Store.load();
+  // The config comes first, so the first start after a sign out clears whatever a tab that
+  // hadn't stopped yet wrote back, before anything is read.
   await loadCloudConfig();
+  if (Account.marker && Account.marker.fresh) await finishSignOut();
+  const local = await Store.load();
   let start = local;
   let listed = true; // whether the cloud copy lists this browser, so others can find its left copies
   if (Cloud.on) {
@@ -8958,31 +10316,36 @@ async function init() {
       // Browsers that were hidden or closed may have left copies newer than the main one.
       start = foldLeft(start, left, false);
     } catch (err) {
-      Cloud.error = cloudProblem(err);
+      // An account that signed this browser out on purpose clears it before drawing anything.
+      if (Cloud.kind === "account" && cloudProblem(err) === "revoked") {
+        await clearBrowser("revoked");
+        return;
+      }
+      cloudFailed(err); // a session that ran out keeps the progress here
     }
   }
   hydrate(start);
   applyTheme();
   applyZoom();
+  if (Account.leaving) return; // another tab signed in or out meanwhile, and this one reloads
   ready = true;
   if (start !== local) saveLocal(); // keeps this browser and the cloud copy in step
   // Other browsers only read the left copies of browsers the cloud copy lists, so a browser
   // that isn't listed yet saves to the cloud straight away instead of waiting for a change.
   if (!listed) pushCloud();
-  el.cloudUrl.value = Cloud.url.replace(/^https:\/\//, "");
-  el.cloudKey.value = Cloud.key;
+  if (Cloud.kind === "account" && Cloud.on && Account.due.size) uploadDue();
+  // The account's token never goes into the page.
+  if (Cloud.kind === "key") {
+    el.cloudUrl.value = Cloud.url.replace(/^https:\/\//, "");
+    el.cloudKey.value = Cloud.key;
+  }
   renderCloudStatus();
   if (legacyText) {
     await addDoc("", legacyText);
     legacyText = "";
   }
   if (state.docId && !(await openDoc(state.docId))) state.docId = "";
-  const savedNotes = {
-    claude: "Everything saves automatically and stays here between visits. A backup file is extra insurance.",
-    browser: "Everything saves automatically in this browser. Use a backup file to move your progress to another browser or computer.",
-    none: "This copy can't save on its own. Download a backup before you close it, then restore it next time.",
-  };
-  el.savedNote.textContent = savedNotes[Store.kind || Store.detect()];
+  renderSavedNote();
   buildKeyboard();
   renderPractice();
   syncSettingsUI(true);
@@ -8991,6 +10354,7 @@ async function init() {
   if (document.fonts && document.fonts.ready) {
     document.fonts.ready.then(() => { measureLines(); scrollToCursor(); drawHands(); markNextKey(); moveCaret(true); }).catch(() => {});
   }
+  if (Account.toast) showToast(Account.toast);
 }
 
 init();

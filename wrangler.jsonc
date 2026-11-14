@@ -1,12 +1,29 @@
 // How Cloudflare deploys this site. Once the site's Worker is connected to this repo
 // (Workers & Pages, the Worker, Settings, Build), every push to the production branch
-// runs "npx wrangler deploy", which publishes index.html as a static file.
+// runs "npx wrangler deploy". That publishes index.html as a static file and site-worker.js
+// as the script behind /api.
 {
   // Must match the Worker's name in the Cloudflare dashboard exactly, or the build fails.
   "name": "typing",
+  "main": "site-worker.js",
   "compatibility_date": "2026-11-01",
   // The site is the repo itself, and .assetsignore keeps everything but index.html off it.
-  "assets": { "directory": "." },
+  // Only requests under /api run site-worker.js, so page loads stay free static files and
+  // keep working even when the day's Worker requests run out.
+  "assets": { "directory": ".", "binding": "ASSETS", "run_worker_first": ["/api/*"] },
+  // Accounts live in Durable Objects, which the first deploy from main creates. Never rename
+  // the classes, the bindings or the migration tag, and never remove the migration entry, or
+  // the site points at empty storage.
+  "durable_objects": {
+    "bindings": [
+      { "name": "DIRECTORY", "class_name": "Directory" },
+      { "name": "VAULT", "class_name": "Vault" }
+    ]
+  },
+  "migrations": [{ "tag": "accounts-1", "new_sqlite_classes": ["Directory", "Vault"] }],
+  // Public settings. The Google client ID isn't a secret, and leaving it empty turns Sign in
+  // with Google off. GOOGLE_ORIGINS lists the pages registered with that client, comma separated.
+  "vars": { "GOOGLE_CLIENT_ID": "", "GOOGLE_ORIGINS": "https://type.stevenwu.org" },
   // Keep the workers.dev address and the custom domain, which the save Worker lists in SITES.
   "workers_dev": true,
   "routes": [{ "pattern": "type.stevenwu.org", "custom_domain": true }]
