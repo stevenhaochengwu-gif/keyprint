@@ -171,6 +171,11 @@
 [hidden] { display: none !important; }
 html { -webkit-text-size-adjust: 100%; }
 
+/* The build up glow behind the text reaches past the sides of a phone's screen. Clipping it
+   here keeps the page from scrolling sideways, and keeps the screen and the page the same
+   width, so a dialog centers on what you can see. */
+html, body { overflow-x: clip; }
+
 body {
   margin: 0;
   background: var(--bg);
@@ -740,6 +745,7 @@ kbd {
 .btn:disabled:hover { border-color: var(--line); }
 .btn.quiet { border-color: transparent; color: var(--ink-2); }
 .btn.quiet:hover { color: var(--ink); }
+.btn.main, .btn.main:hover { border-color: var(--ink); background: var(--ink); color: var(--bg); }
 .btn.danger { color: var(--miss); }
 .btn.armed { border-color: var(--miss); background: var(--miss); color: var(--miss-ink); }
 
@@ -1532,6 +1538,182 @@ label.row { cursor: pointer; }
   border: 0;
 }
 
+/* Welcome ------------------------------------------------------------- */
+
+/* The walkthrough for someone new, in a native dialog above everything else. Each step has a
+   small picture made of the page's own pieces, so it follows the theme. */
+.welcome {
+  width: min(440px, calc(100% - 24px));
+  max-width: none;
+  max-height: calc(100vh - 24px);
+  max-height: calc(100dvh - 24px);
+  padding: 14px 22px 0;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--ink);
+  box-shadow: 0 24px 60px -24px color-mix(in oklab, var(--hand-shadow) 60%, transparent);
+}
+
+.welcome[open] { animation: welcome-in 0.28s cubic-bezier(0.2, 0.8, 0.25, 1); }
+.welcome:focus-visible { outline: none; } /* it takes focus itself, so stray keys press nothing */
+
+.welcome::backdrop {
+  background: color-mix(in oklab, var(--bg) 76%, transparent);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+}
+
+@keyframes welcome-in { from { opacity: 0; transform: translateY(8px) scale(0.98); } }
+
+.welcome-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 -10px 10px 0; }
+.welcome-name { color: var(--ink-2); font-size: 13px; font-weight: 600; }
+
+.welcome-close {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: none;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+
+.welcome-close:hover { background: var(--surface); color: var(--ink); }
+.welcome-close svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; }
+
+/* Every step sits in the same grid cell, so the dialog keeps the height of the longest one
+   and Back and Next stay put. The steps not showing are only invisible. */
+.welcome-pages { display: grid; grid-template-columns: minmax(0, 1fr); }
+.welcome-page { grid-area: 1 / 1; }
+.welcome-page:not(.on) { visibility: hidden; }
+.welcome-page.on .welcome-art > * { animation: art-in 0.4s ease both; }
+
+@keyframes art-in { from { opacity: 0; transform: translateY(6px); } }
+
+.welcome-art {
+  display: grid;
+  place-items: center;
+  height: 132px;
+  margin-bottom: 16px;
+  padding-inline: 12px;
+  overflow: hidden;
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.welcome-title { font-size: 17px; font-weight: 600; line-height: 1.3; }
+.welcome-text { margin-top: 6px; font-size: 14.5px; line-height: 1.55; }
+.welcome-note { margin-top: 8px; color: var(--ink-2); font-size: 13px; }
+/* The buttons stay at the bottom when a short screen makes the dialog scroll. */
+.welcome-foot {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 8px;
+  padding: 12px 0 18px;
+  background: var(--bg);
+}
+
+.welcome-dots { display: flex; gap: 5px; }
+.welcome-dots i { width: 6px; height: 6px; border-radius: 3px; background: var(--track); transition: width 0.2s ease, background-color 0.2s ease; }
+.welcome-dots i.on { width: 18px; background: var(--ink); }
+.welcome-nav { display: flex; gap: 6px; }
+
+/* Typing. The letters you've typed fade, and the underline waits under the next one. */
+.wa-type { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+.wa-line { color: var(--text); font-family: var(--font-text); font-size: 25px; line-height: 1.2; white-space: pre; }
+.wa-line > span { position: relative; display: inline-block; }
+.wa-line .ok { color: var(--ink-3); }
+.wa-line .cur::after { content: ""; position: absolute; right: 0; bottom: -4px; left: 0; height: 2px; border-radius: 1px; background: var(--ink); opacity: 0.85; }
+.wa-line.dots .sp::before { content: "\00B7"; position: absolute; inset: 0; text-align: center; opacity: 0.4; }
+.wa-keys { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 20px; color: var(--ink-2); font-size: 12.5px; }
+.wa-hint { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.wa-tap { width: 14px; height: 14px; border: 2px solid var(--cue); border-radius: 50%; }
+
+/* A Chinese word, with its pinyin above each character and the letters typed so far in blue. */
+.wa-line.zh { margin-bottom: -0.3em; line-height: 2.4; }
+.wa-line.zh .gap { margin-left: 0.45em; }
+.wa-line.zh .cur::after { bottom: 0.45em; } /* the taller line leaves room for the pinyin */
+.wa-line .ok .py { opacity: 0.55; }
+.wa-line.nopy .py { color: transparent; }
+.wa-line.nopy .py b { color: var(--cue); }
+
+/* Step up. Each bar is a test. The one in red had a mistake, so the next test kept its length. */
+.wa-step { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.wa-bars { display: flex; align-items: flex-end; gap: 6px; height: 64px; }
+.wa-bars i { width: 18px; height: calc(var(--h) * 100%); border-radius: 3px; background: var(--ink-3); transform-origin: bottom; }
+.wa-bars i.miss { background: color-mix(in oklab, var(--miss) 60%, var(--surface)); }
+.wa-bars i.top { background: var(--ink); }
+.welcome-page.on .wa-bars i { animation: bar-in 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) calc(0.1s + var(--i) * 0.06s) both; }
+.wa-scale { display: flex; justify-content: space-between; gap: 12px; width: 100%; color: var(--ink-2); font-size: 12px; font-variant-numeric: tabular-nums; }
+
+@keyframes bar-in { from { opacity: 0; transform: scaleY(0.2); } }
+
+/* Keys in their finger colors, with the blue ring of the real keyboard around the next one. */
+.wa-kb { display: flex; gap: 5px; }
+
+.wa-key {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 4px;
+  background: var(--key);
+  color: var(--key-ink);
+  font-family: var(--font-text);
+  font-size: 13px;
+  line-height: 1;
+}
+
+.wa-key[data-f="0"], .wa-key[data-f="7"] { background: var(--f-pinky); }
+.wa-key[data-f="1"], .wa-key[data-f="6"] { background: var(--f-ring); }
+.wa-key[data-f="2"], .wa-key[data-f="5"] { background: var(--f-middle); }
+.wa-key[data-f="3"] { background: var(--f-index); }
+.wa-key[data-f="4"] { background: var(--f-index-2); }
+.wa-key.home::after { content: ""; position: absolute; right: 40%; bottom: 17%; left: 40%; height: 2px; border-radius: 1px; background: currentColor; opacity: 0.7; }
+.wa-key.next::before { content: ""; position: absolute; inset: -6px; border: 3px solid var(--cue); border-radius: 999px; opacity: 0.9; }
+.wa-gap { width: 14px; }
+
+/* Goals and progress. The goal rings from the practice screen beside a few bars of a chart. */
+.wa-goals { display: flex; align-items: center; gap: 28px; }
+.wa-rings { display: flex; flex-direction: column; gap: 10px; }
+.wa-chart { display: flex; align-items: flex-end; gap: 4px; height: 58px; }
+.wa-chart i { width: 8px; height: calc(var(--h) * 100%); border-radius: 2px; background: var(--c-speed); }
+
+/* On a phone the keys are a little smaller, and the close button is big enough for a thumb. */
+@media (max-width: 480px) {
+  .welcome-head { margin: -6px -16px 4px 0; }
+  .welcome-close { width: 40px; height: 40px; }
+  .wa-kb { gap: 4px; }
+  .wa-key { width: 27px; height: 27px; }
+  .wa-gap { width: 10px; }
+}
+
+/* The narrowest phones need smaller keys and a tighter chart to fit the pictures. */
+@media (max-width: 360px) {
+  .welcome-art { padding-inline: 8px; }
+  .wa-kb { gap: 3px; }
+  .wa-key { width: 24px; height: 24px; font-size: 12px; }
+  .wa-gap { width: 8px; }
+  .wa-goals { gap: 16px; }
+  .wa-chart { gap: 3px; }
+  .wa-chart i { width: 6px; }
+}
+
+/* A phone on its side has little height, so the pictures shrink to leave room for the words. */
+@media (max-height: 480px) {
+  .welcome-art { height: 96px; margin-bottom: 12px; }
+}
+
 /* Small screens and reduced motion ------------------------------------ */
 
 @media (max-width: 720px) {
@@ -1567,6 +1749,7 @@ label.row { cursor: pointer; }
   .goal.charging .ring, .board.charging::before { animation: none !important; }
   .flourish.show { animation: none !important; opacity: 1; }
   .trace.play rect { animation: none !important; opacity: 1; }
+  .welcome, .welcome * { animation: none !important; }
 }
 </style>
 </head>
@@ -1936,6 +2119,14 @@ label.row { cursor: pointer; }
 
       <div class="group">
         <h3>Test</h3>
+        <div class="row">
+          <div class="row-text">
+            <span class="row-label">How Keyprint works</span>
+            <span class="row-hint">A short tour of Step up, the keyboard, mistakes and daily goals.</span>
+          </div>
+          <button class="btn" type="button" id="welcomeShow">Show</button>
+        </div>
+
         <div class="row">
           <div class="row-text"><span class="row-label">Text to type</span></div>
           <div class="seg" data-setting="mode" role="group" aria-label="Text to type">
@@ -2458,6 +2649,21 @@ label.row { cursor: pointer; }
 <div class="chart-tip" id="chartTip" hidden></div>
 <button class="zen-hint" id="zenHint" type="button" tabindex="-1"><span class="zen-key">Press <kbd>Esc</kbd> to leave Text only</span><span class="zen-tap">Leave Text only</span></button>
 <p class="sr-only" id="announce" role="status" aria-live="polite"></p>
+<dialog class="welcome" id="welcome" aria-labelledby="welcomeName" tabindex="-1">
+  <div class="welcome-head">
+    <h2 class="welcome-name" id="welcomeName">Welcome to Keyprint</h2>
+    <button class="welcome-close" type="button" id="welcomeClose" aria-label="Close"><svg viewBox="0 0 18 18" aria-hidden="true"><path d="M5 5 13 13M13 5 5 13"/></svg></button>
+  </div>
+  <div class="welcome-pages" id="welcomePages"></div>
+  <div class="welcome-foot">
+    <p class="welcome-dots" id="welcomeDots" aria-hidden="true"></p>
+    <div class="welcome-nav">
+      <button class="btn quiet" type="button" id="welcomeBack">Back</button>
+      <button class="btn main" type="button" id="welcomeNext">Next</button>
+    </div>
+  </div>
+  <p class="sr-only" id="welcomeLive" aria-live="polite"></p>
+</dialog>
 <script>
 /* Common English words for typing tests, grouped by how often they show up in everyday
    English. Each group is alphabetical and builds on the ones before it, so a test can draw
@@ -2890,6 +3096,7 @@ let state = {
   step: { day: "", words: 0 }, // how far Step up has grown today
   restoredAt: 0, // when this progress was last restored from a copy, which then wins over anything older
   devices: [],   // browsers that save to the cloud, see Cloud save
+  welcomed: 0,   // when the welcome for someone new was closed, 0 for never
   savedAt: 0,
 };
 let ready = false;
@@ -3277,6 +3484,8 @@ function mergeSaves(mine, theirs, keepMine) {
   if ((sa.day || "") === (sb.day || "")) out.step = { day: sa.day || "", words: Math.max(sa.words || 0, sb.words || 0) };
   else out.step = (sa.day || "") > (sb.day || "") ? { ...sa } : { ...sb };
   out.restoredAt = restoredAt;
+  // The welcome closed on any device counts on every device.
+  out.welcomed = Math.max(Number(mine.welcomed) || 0, Number(theirs.welcomed) || 0);
   out.devices = mergeDevices(mine.devices, theirs.devices);
   out.savedAt = Math.max(mine.savedAt || 0, theirs.savedAt || 0);
   return out;
@@ -3775,6 +3984,10 @@ function hydrate(saved) {
     state.devices.push({ id: d.id, seen: Number(d.seen) || 0, left: Number(d.left) || 0 });
   }
   state.devices = state.devices.sort((a, b) => b.seen - a.seen).slice(0, APP.cloudDevices);
+  // A save from before the welcome that already holds a test counts as welcomed, so only
+  // someone new ever sees it on their own.
+  state.welcomed = clamp(Math.round(Number(saved.welcomed)) || 0, 0, Number.MAX_SAFE_INTEGER);
+  if (!state.welcomed && Object.values(state.profiles).some((p) => p.history.length)) state.welcomed = state.savedAt || 1;
 }
 
 /* 5. Text generation ------------------------------------------------------- */
@@ -5096,6 +5309,15 @@ const el = {
   accountPwSave: $("#accountPwSave"),
   accountPwCancel: $("#accountPwCancel"),
   accountDelete: $("#accountDelete"),
+  welcome: $("#welcome"),
+  welcomeName: $("#welcomeName"),
+  welcomeClose: $("#welcomeClose"),
+  welcomePages: $("#welcomePages"),
+  welcomeDots: $("#welcomeDots"),
+  welcomeBack: $("#welcomeBack"),
+  welcomeNext: $("#welcomeNext"),
+  welcomeLive: $("#welcomeLive"),
+  welcomeShow: $("#welcomeShow"),
 };
 
 let view = "practice";
@@ -5170,36 +5392,24 @@ function renderFocus() {
     return;
   }
   if (zhOn()) {
+    // Chinese names its language, and Step up keeps quiet about itself the way it does in
+    // English. The word count under the text shows how far it has grown.
     const n = s.mode === "step" ? stepWords() : s.lessonWords;
-    const words = node("strong", null, `${n.toLocaleString("en-US")} ${n === 1 ? "word" : "words"}`);
     el.focus.hidden = false;
     el.focusCap.hidden = true;
     el.focusMeter.hidden = true;
     el.focusDetail.hidden = false;
-    if (s.mode === "step") {
-      el.focusTitle.replaceChildren("Step up in Chinese, ", words);
-      el.focusDetail.textContent = n < s.stepTop
-        ? `Each perfect test adds a word, up to ${s.stepTop.toLocaleString("en-US")}.`
-        : "At the top. Tomorrow starts short again.";
-    } else {
-      el.focusTitle.replaceChildren("Chinese, ", words);
-      el.focusDetail.textContent = "Type each word with your Chinese input method.";
-    }
+    el.focusTitle.replaceChildren("Chinese, ", node("strong", null, `${n.toLocaleString("en-US")} ${n === 1 ? "word" : "words"}`));
+    el.focusDetail.textContent = "Type each word with your Chinese input method.";
     return;
   }
-  el.focus.hidden = s.mode === "words";
+  // Words and Step up need no label, so the figures and goals have the row to themselves.
+  const plain = s.mode === "words" || s.mode === "step";
+  el.focus.hidden = plain;
   el.focusCap.hidden = !adaptive;
   el.focusMeter.hidden = !adaptive;
   el.focusDetail.hidden = false;
-  if (s.mode === "words") return;
-  if (s.mode === "step") {
-    const n = stepWords();
-    el.focusTitle.replaceChildren("Step up, ", node("strong", null, `${n.toLocaleString("en-US")} ${n === 1 ? "word" : "words"}`));
-    el.focusDetail.textContent = n < s.stepTop
-      ? `Each perfect test adds a word, up to ${s.stepTop.toLocaleString("en-US")}.`
-      : "At the top. Tomorrow starts short again.";
-    return;
-  }
+  if (plain) return;
   if (s.mode === "custom") {
     const doc = activeDoc();
     el.focusTitle.textContent = doc ? doc.title : "My text";
@@ -6433,6 +6643,321 @@ function bindLibrary() {
     e.preventDefault();
     addFiles([...(e.dataTransfer ? e.dataTransfer.files : [])]);
   });
+}
+
+/* Welcome ------------------------------------------------------------------ */
+
+// Someone new gets a short walkthrough on their first visit, right after the first test is
+// drawn. It's a native modal dialog, so the page behind it takes no focus (a click on it
+// closes the welcome), and onKeyDown, onSinkInput and the input method listeners ignore
+// every key while it's open. Closing it in any way counts as seen, in state.welcomed, which
+// merges like the rest of the save, so seeing it on one device is enough. Settings shows it
+// again, from the top of the Test group.
+let welcomeAt = 0;        // the step showing now
+let welcomeAuto = false;  // it opened by itself, not from Settings
+let welcomeStart = false; // Start typing closed it, so it goes on to the test
+
+const MODE_NAMES = { step: "Step up", words: "Words", adaptive: "Adaptive", custom: "My text" };
+const welcomeOpen = () => Boolean(el.welcome && el.welcome.open);
+const wordsOf = (n) => `${n.toLocaleString("en-US")} ${n === 1 ? "word" : "words"}`;
+const passagesOn = (s) => s.mode === "custom" && !zhOn(); // Chinese never types My text
+
+// Someone new has never closed the welcome and has no test on any layout.
+const isNewcomer = () => !state.welcomed && !Object.values(state.profiles).some((p) => p.history.length);
+
+// The four steps. Every number and name comes from the settings as they are now, and from
+// the screen (a touch screen has no Esc or Tab), so the words always match what you'll see.
+function welcomeSteps() {
+  const s = state.settings;
+  const zh = zhOn();
+  const touch = coarse();
+  const next = passagesOn(s) ? "the next passage" : "new text";
+  const tap = touch ? "Tap the text to bring up your keyboard, then type" : "Type";
+  const lead = zh
+    ? `${tap} each word with your Chinese input method${s.pinyin ? ", spelling out the pinyin above it" : ""}.`
+    : `${tap} ${touch ? "it" : "the text"} as you see it.`;
+  let keys = `Press Esc to try the same text again, or Tab for ${next}.`;
+  if (touch && s.zoom === "text") keys = "Tap Leave Text only at the top to bring back the rest of the page.";
+  else if (touch) keys = `With a keyboard attached, press Esc to try the same text again, or Tab for ${next}.`;
+  else if (s.zoom === "text") keys = `Press Tab for ${next}, and Esc to leave Text only.`;
+  // My text is typed just as it was written, so these switches only change the other tests.
+  let marks = "";
+  const decorated = !zh && s.mode !== "custom";
+  if (decorated && s.capitals && s.punctuation) marks = "Tests have capitals and punctuation, and you can turn either off in Settings.";
+  else if (decorated && s.capitals) marks = "Tests have capital letters, and you can turn them off in Settings.";
+  else if (decorated && s.punctuation) marks = "Tests have punctuation, and you can turn it off in Settings.";
+
+  const start = Math.min(s.stepStart, s.stepTop);
+  const grow = start >= s.stepTop
+    ? `Step up is set to start at its top, so every test has ${wordsOf(s.stepTop)}. Lower Start in Settings, and each test with no mistakes adds a word until it gets there.`
+    : `${s.mode === "step" ? "Each" : "In Step up, each"} day starts with a test of ${wordsOf(start)}, and every test with no mistakes adds a word, up to ${s.stepTop.toLocaleString("en-US")}. After a mistake, the next test stays the same length. Tomorrow starts short again.`;
+  const kinds = s.mode === "step"
+    ? "Settings has other kinds of test too (Words, Adaptive and My text)."
+    : `You're on ${MODE_NAMES[s.mode]} now. To try Step up, pick it under Text to type in Settings.`;
+
+  // The keyboard shows with Show keyboard on and Zoom on Normal, and takes its colors from
+  // Finger colors.
+  const fixes = [];
+  if (s.zoom !== "normal") fixes.push("set Zoom to Normal");
+  if (!s.showKeyboard) fixes.push(s.fingerColors ? "turn on Show keyboard" : "turn on Show keyboard and Finger colors");
+  else if (fixes.length && !s.fingerColors) fixes.push("turn on Finger colors");
+  const todo = fixes.join(" and ");
+  let board = "Each key takes the color of the finger that presses it, and when you pause, a blue ring shows the next key.";
+  if (todo) board = `${todo[0].toUpperCase()}${todo.slice(1)} in Settings to see each key in the color of the finger that presses it, with a blue ring on the next key when you pause.`;
+  else if (!s.fingerColors) board = "When you pause, a blue ring on the keyboard shows the next key. Turn on Finger colors in Settings to color each key by the finger that presses it.";
+  const ways = {
+    clear: "With Right key clears, a wrong key shows in red and the right key wipes it away, but it still counts as a mistake.",
+    delete: "With Backspace to delete, a wrong key and every key after it stay in red, each one a mistake, until you delete them with Backspace.",
+    move: "With Move on, the cursor carries on past a wrong key, and it counts as a mistake even if you go back with Backspace to fix it.",
+  };
+  const more = s.suddenDeath
+    ? "One mistake restarts is on too, so outside My text any wrong key starts a new test."
+    : "You can pick another way under Mistakes in Settings.";
+
+  let goals = "Daily goals are off now, and you can set them under Daily goal in Settings.";
+  if (s.dailyGoal && s.cleanGoal) goals = `The rings fill toward today's goals, ${fmtGoal(s.dailyGoal)} of typing and ${fmtGoal(s.cleanGoal)} of clean typing (in tests with no mistakes). Reaching either one completes the day.`;
+  else if (s.dailyGoal) goals = `The ring fills toward today's goal of ${fmtGoal(s.dailyGoal)} of typing.`;
+  else if (s.cleanGoal) goals = `The ring fills toward today's goal of ${fmtGoal(s.cleanGoal)} of clean typing, in tests with no mistakes.`;
+
+  return [
+    { title: "Just start typing", text: [`${lead} The clock starts with your first key, so there's no rush to begin.`, keys], note: marks, art: artType(s, touch) },
+    { title: "Step up, one word at a time", text: [grow], note: kinds, art: artStep(s) },
+    { title: "Keys and mistakes", text: [board, `${ways[s.mistakes]} ${more}`], art: artKeys(s) },
+    {
+      title: "Goals and progress",
+      text: [goals, "Progress charts your speed and accuracy, and Analysis finds your mistakes and builds a test to practice them."],
+      note: welcomeSaves(),
+      art: artGoals(s),
+    },
+  ];
+}
+
+// Where your progress is kept, and how Settings can keep it safe too.
+function welcomeSaves() {
+  const kind = Store.kind || Store.detect();
+  if (typeof signedIn === "function" && signedIn()) return "Everything saves as you go, in this browser and in your account.";
+  if (Cloud.on) return "Everything saves as you go, in this browser and in your Cloud save.";
+  if (kind === "none") return "This copy can't save on its own, so download a backup in Settings before you close it.";
+  if (typeof accountPlace === "function" && accountPlace() === "ok") return "Everything saves in this browser as you go, and you can sign in under Settings to have it on every device.";
+  if (kind === "claude") return "Everything saves as you go, and a backup file from Settings keeps a copy of your own.";
+  return "Everything saves in this browser as you go, and a backup file from Settings takes it to another browser.";
+}
+
+// The pictures are built from the page's own pieces, so they follow the theme and the font.
+// Typing fades the letters you've typed, with the underline under the next one. In Chinese
+// it's a word with its pinyin, part way through the second character. A touch screen gets
+// a tap in place of Esc and Tab.
+function artType(s, touch) {
+  const box = node("div", "wa-type");
+  const line = node("p", "wa-line");
+  if (zhOn()) {
+    line.classList.add("zh");
+    line.classList.toggle("nopy", !s.pinyin);
+    [["明", "ming"], ["天", "tian"], ["见", "jian"], ["面", "mian"]].forEach(([ch, py], i) => {
+      const c = node("span", i === 0 ? "ok" : i === 1 ? "cur" : i === 2 ? "gap" : "");
+      const label = node("span", "py");
+      if (i === 1) label.append(node("b", null, py.slice(0, 2)), py.slice(2));
+      else label.textContent = py;
+      c.append(label, ch);
+      line.append(c);
+    });
+  } else {
+    line.classList.toggle("dots", s.spaceDots);
+    [..."a quiet river"].forEach((ch, i) => {
+      const c = node("span", i < 4 ? "ok" : i === 4 ? "cur" : "", ch);
+      if (ch === " ") c.classList.add("sp");
+      line.append(c);
+    });
+  }
+  const keys = node("p", "wa-keys");
+  if (touch) {
+    const hint = node("span", "wa-hint");
+    hint.append(node("span", "wa-tap"), "Tap the text to type");
+    keys.append(hint);
+  } else {
+    const hints = [["Esc", s.zoom === "text" ? "Leave Text only" : "Same text"], ["Tab", passagesOn(s) ? "Next passage" : "New text"]];
+    for (const [key, what] of hints) {
+      const hint = node("span", "wa-hint");
+      hint.append(node("kbd", null, key), what);
+      keys.append(hint);
+    }
+  }
+  box.append(line, keys);
+  return box;
+}
+
+// Step up is a staircase of tests, each a word longer, apart from the one after a test with
+// a mistake, which kept its length.
+function artStep(s) {
+  const box = node("div", "wa-step");
+  const bars = node("div", "wa-bars");
+  const start = Math.min(s.stepStart, s.stepTop);
+  const flat = start >= s.stepTop;
+  const rise = flat ? [6, 6, 6, 6, 6, 6, 6] : [1, 2, 3, 3, 4, 5, 6];
+  rise.forEach((h, i) => {
+    const bar = node("i", !flat && i === 2 ? "miss" : i === rise.length - 1 ? "top" : null);
+    bar.style.setProperty("--h", (h / 6).toFixed(3));
+    bar.style.setProperty("--i", i);
+    bars.append(bar);
+  });
+  const scale = node("p", "wa-scale");
+  scale.append(node("span", null, wordsOf(start)));
+  if (!flat) scale.append(node("span", null, wordsOf(s.stepTop)));
+  box.append(bars, scale);
+  return box;
+}
+
+// The home row of your layout in its finger colors, with the blue ring on the next key.
+function artKeys(s) {
+  const row = node("div", "wa-kb");
+  const home = LAYOUTS[s.layout].rows[2];
+  const fingers = FINGER_PATTERNS[s.fingerPattern][2];
+  for (const i of [0, 1, 2, 3, 6, 7, 8, 9]) {
+    const key = node("span", "wa-key", home[i]);
+    key.dataset.f = fingers[i];
+    if (i === 3 || i === 6) key.classList.add("home");
+    if (i === 6) key.classList.add("next");
+    row.append(key);
+    if (i === 3) row.append(node("span", "wa-gap"));
+  }
+  return row;
+}
+
+// The goal rings of the practice screen, part way there, beside a few bars of a speed chart.
+function artGoals(s) {
+  const box = node("div", "wa-goals");
+  const rings = node("div", "wa-rings");
+  for (const [goal, share, label] of [[s.dailyGoal, 0.4, "Typing today"], [s.cleanGoal, 0.6, "Clean typing today"]]) {
+    if (!goal) continue;
+    const g = node("div", "goal");
+    const ring = svgEl("svg", { class: "ring", viewBox: "0 0 36 36", "aria-hidden": "true" });
+    ring.append(svgEl("circle", { class: "ring-track", cx: 18, cy: 18, r: 15.5 }), svgEl("circle", { class: "ring-fill", cx: 18, cy: 18, r: 15.5 }));
+    const text = node("div", "goal-text");
+    text.append(node("span", "goal-value"), node("span", "goal-note"));
+    g.append(ring, text);
+    fillGoal(g, goal * share * 60000, goal, label, false);
+    rings.append(g);
+  }
+  const chart = node("div", "wa-chart");
+  for (const h of [0.34, 0.3, 0.44, 0.5, 0.42, 0.58, 0.66, 0.8]) {
+    const bar = node("i");
+    bar.style.setProperty("--h", h);
+    chart.append(bar);
+  }
+  if (rings.children.length) box.append(rings);
+  box.append(chart);
+  return box;
+}
+
+// auto is true for the welcome that opens by itself, and false when Settings shows it.
+function openWelcome(auto) {
+  const d = el.welcome;
+  if (!d || d.open || typeof d.showModal !== "function") return;
+  el.welcomeName.textContent = auto ? `Welcome to ${APP.name}` : `How ${APP.name} works`;
+  const steps = welcomeSteps();
+  el.welcomePages.replaceChildren(...steps.map((step) => {
+    const page = node("div", "welcome-page");
+    const art = node("div", "welcome-art");
+    art.setAttribute("aria-hidden", "true");
+    art.append(step.art);
+    page.append(art, node("h3", "welcome-title", step.title), ...step.text.map((t) => node("p", "welcome-text", t)));
+    if (step.note) page.append(node("p", "welcome-note", step.note));
+    return page;
+  }));
+  el.welcomeDots.replaceChildren(...steps.map(() => node("i")));
+  el.welcomeLive.textContent = "";
+  welcomeAuto = auto;
+  welcomeStart = false;
+  showWelcomeStep(0, false);
+  d.showModal();
+  // The dialog itself takes focus, not Next, so someone who starts typing without noticing
+  // it presses nothing. Enter and the arrow keys still page through it.
+  d.focus({ preventScroll: true });
+  d.scrollTop = 0;
+}
+
+function showWelcomeStep(i, announce) {
+  const pages = [...el.welcomePages.children];
+  welcomeAt = clamp(i, 0, pages.length - 1);
+  pages.forEach((page, n) => page.classList.toggle("on", n === welcomeAt));
+  [...el.welcomeDots.children].forEach((dot, n) => dot.classList.toggle("on", n === welcomeAt));
+  el.welcomeBack.hidden = welcomeAt === 0;
+  el.welcomeNext.textContent = welcomeAt === pages.length - 1 ? "Start typing" : "Next";
+  el.welcome.scrollTop = 0; // on a short screen each step starts from its picture
+  if (announce) el.welcomeLive.textContent = `Step ${welcomeAt + 1} of ${pages.length}. ${pages[welcomeAt].querySelector(".welcome-title").textContent}`;
+}
+
+function moveWelcome(by) {
+  const to = welcomeAt + by;
+  if (to < 0 || to >= el.welcomePages.children.length) return;
+  const onBack = document.activeElement === el.welcomeBack;
+  showWelcomeStep(to, true);
+  if (onBack && el.welcomeBack.hidden) el.welcomeNext.focus(); // Back is gone on the first step
+}
+
+// Next goes on a step, and on the last step Start typing closes it and goes to the test.
+function nextWelcome() {
+  if (welcomeAt < el.welcomePages.children.length - 1) {
+    moveWelcome(1);
+    return;
+  }
+  welcomeStart = true;
+  el.welcome.close();
+}
+
+// Esc closes the dialog by itself. Tab and Shift Tab go round its buttons, even from a click
+// that left focus outside them, the arrow keys page through the steps, and Enter on the
+// dialog itself works like Next.
+function onWelcomeKey(e) {
+  if (!welcomeOpen() || e.altKey || e.ctrlKey || e.metaKey) return;
+  if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+    e.preventDefault();
+    moveWelcome(e.key === "ArrowRight" ? 1 : -1);
+  } else if (e.key === "Enter" && document.activeElement === el.welcome) {
+    e.preventDefault();
+    if (!e.repeat) nextWelcome();
+  } else if (e.key === "Tab") {
+    e.preventDefault();
+    const stops = [el.welcomeClose, el.welcomeBack, el.welcomeNext].filter((b) => !b.hidden);
+    const at = stops.indexOf(document.activeElement);
+    const to = at < 0 ? stops.length - 1 : (at + (e.shiftKey ? -1 : 1) + stops.length) % stops.length;
+    stops[to].focus();
+  }
+}
+
+// However it closes, the welcome counts as seen. Closed before its last step, it says where
+// to find it again. On Practice the next key types into the test, and Start typing from
+// Settings goes there first.
+function onWelcomeClosed() {
+  state.welcomed = Date.now();
+  scheduleSave(0);
+  if (welcomeAuto && welcomeAt < el.welcomePages.children.length - 1) showToast("You'll find this tour in Settings");
+  if (welcomeStart && view !== "practice") showView("practice");
+  else if (view === "practice") focusSink();
+  welcomeAuto = false;
+  welcomeStart = false;
+}
+
+function bindWelcome() {
+  const d = el.welcome;
+  el.welcomeShow.addEventListener("click", () => openWelcome(false));
+  el.welcomeClose.addEventListener("click", () => d.close());
+  el.welcomeBack.addEventListener("click", () => moveWelcome(-1));
+  el.welcomeNext.addEventListener("click", nextWelcome);
+  // A click on the dimmed page around it closes it too, but not one that started inside it,
+  // like a drag to select its words. Clicks on the backdrop come to the dialog itself.
+  let fromOutside = false;
+  const outside = (e) => {
+    const r = d.getBoundingClientRect();
+    return e.target === d && (e.clientX < r.left || e.clientX >= r.right || e.clientY < r.top || e.clientY >= r.bottom);
+  };
+  d.addEventListener("pointerdown", (e) => { fromOutside = outside(e); });
+  d.addEventListener("click", (e) => {
+    if (fromOutside && outside(e)) d.close();
+    fromOutside = false;
+  });
+  document.addEventListener("keydown", onWelcomeKey);
+  d.addEventListener("close", onWelcomeClosed);
 }
 
 /* 9. Keyboard -------------------------------------------------------------- */
@@ -10065,6 +10590,8 @@ function zhInput(text) {
 }
 
 function onKeyDown(e) {
+  // The welcome takes every key while it's open, so Esc closes it and Tab moves through it.
+  if (welcomeOpen()) return;
   if (view !== "practice") return;
   const t = e.target;
   if (t !== el.sink && t instanceof Element && t.closest("input, textarea, select, [contenteditable='true']")) return;
@@ -10117,6 +10644,10 @@ function onKeyDown(e) {
 // While an input method is still building a word, its text waits in the input, except in
 // English on a phone, where each letter goes in at once.
 function onSinkInput() {
+  if (welcomeOpen()) {
+    if (!composing) el.sink.value = ""; // nothing typed behind the welcome reaches the test
+    return;
+  }
   if (composing && (zhOn() || !coarse())) return;
   const v = el.sink.value;
   if (!v) return;
@@ -10158,7 +10689,7 @@ function bindEvents() {
   document.addEventListener("keyup", updateCaps);
   el.sink.addEventListener("input", onSinkInput);
   el.sink.addEventListener("beforeinput", (e) => {
-    if (e.inputType !== "deleteContentBackward") return;
+    if (e.inputType !== "deleteContentBackward" || welcomeOpen()) return;
     // While an input method builds a word, Backspace takes back its letters instead.
     if ((composing || e.isComposing) && (zhOn() || !coarse())) return;
     e.preventDefault();
@@ -10167,11 +10698,11 @@ function bindEvents() {
   el.sink.addEventListener("compositionstart", () => {
     composing = true;
     imeText = "";
-    if (zhOn()) imeActivity();
+    if (zhOn() && !welcomeOpen()) imeActivity();
   });
   el.sink.addEventListener("compositionupdate", (e) => {
     imeText = e.data || "";
-    if (!zhOn()) return;
+    if (!zhOn() || welcomeOpen()) return;
     imeActivity();
     paintPinyin();
     markNextKey();
@@ -10182,7 +10713,7 @@ function bindEvents() {
     // Some browsers send the finished word just before this event and some just after, so
     // it's read from the input once both have had their turn.
     setTimeout(onSinkInput, 0);
-    if (!zhOn()) return;
+    if (!zhOn() || welcomeOpen()) return;
     paintPinyin();
     markNextKey();
   });
@@ -10260,6 +10791,7 @@ function bindEvents() {
   el.restoreBtn.addEventListener("click", () => el.restoreInput.click());
   el.restoreInput.addEventListener("change", onRestoreFile);
   bindLibrary();
+  bindWelcome();
   el.resetBtn.addEventListener("click", onResetClick);
 
   let resizeTimer = 0;
@@ -10354,6 +10886,10 @@ async function init() {
   if (document.fonts && document.fonts.ready) {
     document.fonts.ready.then(() => { measureLines(); scrollToCursor(); drawHands(); markNextKey(); moveCaret(true); }).catch(() => {});
   }
+  // Someone new meets the welcome right after their first test is drawn. A browser that was
+  // signed out has been used before, so it skips the welcome, and the toast saying so shows.
+  // Test scripts that only want to type set window.keyprintNoWelcome before the page loads.
+  if (window.keyprintNoWelcome !== true && isNewcomer() && !Account.marker) openWelcome(true);
   if (Account.toast) showToast(Account.toast);
 }
 
