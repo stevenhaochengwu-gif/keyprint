@@ -3362,6 +3362,12 @@ async function sendCloud() {
   if (!Cloud.on) return false;
   // While progress moves into an account, the account gets nothing until it's merged.
   if (Account.switching && Cloud.kind === "account") return false;
+  // A tab that missed another tab signing in or out stops here, before it reads with a session
+  // that may be gone and clears the browser over the other tab's sign out.
+  if (!Account.switching && accountChange(cloudIdentity(cloudSeen), cloudIdentity(readConfigNow()))) {
+    leaveTab();
+    return false;
+  }
   const { url, key, kind } = Cloud;
   const sameCloud = () => Cloud.url === url && Cloud.key === key && Cloud.kind === kind; // Disconnect or sign out may come mid-save
   try {
@@ -3450,8 +3456,21 @@ function sendLeaving() {
   });
 }
 
+// Texts on their way up, kept until each one is through, so signing out can wait for them.
+const textSends = new Set();
+
 // Saved texts go to the cloud as soon as they are added, each under its own name.
-async function cloudDoc(method, id, text) {
+function cloudDoc(method, id, text) {
+  const send = sendDoc(method, id, text);
+  if (method === "PUT") {
+    textSends.add(send);
+    const done = () => textSends.delete(send);
+    send.then(done, done);
+  }
+  return send;
+}
+
+async function sendDoc(method, id, text) {
   if (!Cloud.on) return null;
   try {
     return await Cloud.call(method, Store.docKey(id), text);
@@ -8882,7 +8901,7 @@ async function loadCloudDays() {
     const raw = await Cloud.call("GET", "backups");
     const days = raw ? JSON.parse(raw) : [];
     el.cloudDays.replaceChildren(...days.map((day) => {
-      const option = node("option", null, new Date(`${day}T12:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }));
+      const option = node("option", null, new Date(`${day}T12:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }));
       option.value = day;
       return option;
     }));
@@ -9372,9 +9391,16 @@ async function adoptAccount(result, keep) {
   }
 }
 
-// Texts go up one at a time in the background, and a failure never undoes a sign in.
-async function uploadDue() {
-  if (Account.uploading || !signedIn()) return;
+let dueRun = Promise.resolve(); // the latest uploadDue, which signing out waits for
+
+// Texts go up one at a time in the background, and a failure never undoes a sign in. Asking
+// while a run is going hands back that run.
+function uploadDue() {
+  if (!Account.uploading && signedIn()) dueRun = sendDue();
+  return dueRun;
+}
+
+async function sendDue() {
   Account.uploading = true;
   const key = Cloud.key;
   const same = () => Cloud.kind === "account" && Cloud.key === key && !Account.leaving;
@@ -9410,6 +9436,22 @@ async function uploadDue() {
     Account.uploading = false;
     renderAccount();
   }
+}
+
+// Waits for texts on their way to the account, then sends any still waiting, and says whether
+// the account has them all. Signing out clears this browser's only copy of a text, so it asks
+// first.
+async function settleTexts() {
+  await Promise.all([...textSends]);
+  try {
+    const going = Account.uploading;
+    await uploadDue();
+    // A run that was already going may have started before a text joined the list.
+    if (going && Account.due.size) await uploadDue();
+  } catch (err) {
+    // a run that broke leaves its texts waiting, which the answer below says
+  }
+  return !Account.due.size;
 }
 
 // Signing out writes the note first, so every other tab stops, then clears this browser and
@@ -9488,7 +9530,10 @@ async function onAccountOut(all) {
       }
       if (Cloud.on) {
         cloudDirty = true;
-        const ok = await pushCloud();
+        let ok = await pushCloud();
+        // A text is progress too, and this browser may have the only copy, so the account
+        // needs every one before this browser is cleared.
+        if (ok && !Account.leaving && signedIn()) ok = await settleTexts();
         if (Account.leaving || !signedIn()) {
           Account.message = null; // the session ended meanwhile, which the note says
           return;
