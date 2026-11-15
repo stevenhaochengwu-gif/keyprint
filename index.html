@@ -1767,6 +1767,13 @@ label.row { cursor: pointer; }
   }
 }
 
+/* On the narrowest phones Step up's dots, the word count, the language switch and the zoom
+   buttons leave the line that shows how far you are almost no room, so they sit closer. */
+@media (max-width: 359px) {
+  .board-foot { gap: 10px; }
+  .pips { margin-left: -4px; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -5153,7 +5160,7 @@ function skipAhead() {
     checkGoals();
     return;
   }
-  const doc = state.settings.mode === "custom" && !zhOn() && !(lesson && lesson.drill) ? activeDoc() : null;
+  const doc = state.settings.mode === "custom" && !zhOn() ? activeDoc() : null;
   if (doc && doc.passages) {
     doc.at = (doc.at + 1) % doc.passages;
     scheduleSave();
@@ -5163,8 +5170,9 @@ function skipAhead() {
 }
 
 // A drill is a Practice these test from the Analysis tab. It counts as a Words test, so it
-// never grows Step up, moves My text along or unlocks a letter. Drills follow one another
-// until Back to your tests or anything else that starts a usual test, like a setting.
+// never grows or shrinks Step up (and shows no mistake dots), moves My text along or unlocks
+// a letter. Drills follow one another until Back to your tests or anything else that starts
+// a usual test, like a setting.
 // A Chinese test comes with zh, the pinyin and word ends from zhText. It counts as Step up
 // or Words, so it never moves My text along or unlocks a letter either.
 function startLesson(text, attempt = 1, drill = null, zh = null) {
@@ -7166,13 +7174,16 @@ function stepDownText(s) {
   return `${keep} the same length, and ${COUNT_WORDS[n]} take a word away.`;
 }
 
-// Where your progress is kept, and how Settings can keep it safe too.
+// Where your progress is kept, and how Settings can keep it safe too. Signing in is offered
+// only where this address has accounts. Settings asks the first time it opens, so until then
+// that's the site itself, and a copy anywhere else suggests a backup file.
 function welcomeSaves() {
   const kind = Store.kind || Store.detect();
-  if (typeof signedIn === "function" && signedIn()) return "Everything saves as you go, in this browser and in your account.";
+  if (signedIn()) return "Everything saves as you go, in this browser and in your account.";
   if (Cloud.on) return "Everything saves as you go, in this browser and in your Cloud save.";
   if (kind === "none") return "This copy can't save on its own, so download a backup in Settings before you close it.";
-  if (typeof accountPlace === "function" && accountPlace() === "ok") return "Everything saves in this browser as you go, and you can sign in under Settings to have it on every device.";
+  const accounts = Account.conf ? Account.conf.ready === true : location.origin === APP.site;
+  if (accountPlace() === "ok" && accounts) return "Everything saves in this browser as you go, and you can sign in under Settings to have it on every device.";
   if (kind === "claude") return "Everything saves as you go, and a backup file from Settings keeps a copy of your own.";
   return "Everything saves in this browser as you go, and a backup file from Settings takes it to another browser.";
 }
@@ -10374,6 +10385,10 @@ function clearLocalInPlace() {
   wipeLocal();
   docCache.clear();
   unfinished = null;
+  // A test half typed on screen and the weak letters named so far belong to the progress
+  // that's going, so neither reaches the account coming in (newLesson would count the test).
+  if (lesson) lesson.counted = true;
+  weakCache = null;
   hydrate(JSON.parse(JSON.stringify({ version: APP.version, settings: DEFAULTS })));
 }
 
@@ -10461,6 +10476,9 @@ async function adoptAccount(result, keep) {
     let start = got.theirs ? mergeSaves(got.theirs, here, true) : here;
     start = foldLeft(start, got.left, true);
     hydrate(start);
+    // Whoever signs in has used Keyprint here, so the welcome for someone new doesn't open
+    // again for an account with no tests yet, after Leave it out or a sign out, say.
+    if (!state.welcomed) state.welcomed = Date.now();
     Cloud.seen = got.theirs ? got.theirs.savedAt || 0 : 0;
     const listed = new Set((got.theirs && Array.isArray(got.theirs.docs) ? got.theirs.docs : []).map((d) => d && d.id));
     for (const d of state.docs) if (!listed.has(d.id) && !Account.held.has(d.id)) Account.due.add(d.id);
