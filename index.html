@@ -171,6 +171,11 @@
 [hidden] { display: none !important; }
 html { -webkit-text-size-adjust: 100%; }
 
+/* The build up glow behind the text reaches past the sides of a phone's screen. Clipping it
+   here keeps the page from scrolling sideways, and keeps the screen and the page the same
+   width, so a dialog centers on what you can see. */
+html, body { overflow-x: clip; }
+
 body {
   margin: 0;
   background: var(--bg);
@@ -343,6 +348,8 @@ h2, h3, p { margin: 0; }
   line-height: 1;
 }
 
+.focus-head { display: flex; align-items: center; gap: 8px; }
+.focus-head .btn { padding: 2px 8px 2px 7px; font-size: 12.5px; }
 .focus-title { font-size: 14px; font-weight: 600; }
 .focus-detail { color: var(--ink-2); font-size: 13.5px; font-variant-numeric: tabular-nums; }
 .meter { width: 180px; max-width: 100%; height: 2px; margin-top: 6px; background: var(--track); }
@@ -438,7 +445,10 @@ h2, h3, p { margin: 0; }
   text-underline-offset: 5px;
 }
 
-.c.sp.cur.miss { background: var(--miss-soft); }
+/* A space has no letter to turn red, so a missed one, at the cursor or fixed, gets a soft red
+   block instead. With Show spaces as dots, its dot shows at full strength too. */
+.c.sp.cur.miss,
+.c.sp.fixed { background: var(--miss-soft); }
 
 /* What you actually typed by mistake, highlighted. Softer in One mistake restarts. */
 .c.bad,
@@ -472,6 +482,8 @@ h2, h3, p { margin: 0; }
   opacity: 0.4;
   pointer-events: none;
 }
+.board.dots .c.sp.cur.miss::after,
+.board.dots .c.sp.fixed::after { opacity: 1; }
 .c.shake { animation: nudge 0.2s ease; }
 
 @keyframes blink { 50% { opacity: 0; } }
@@ -487,6 +499,15 @@ h2, h3, p { margin: 0; }
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
+
+/* Step up's mistakes, a dot for each one a test may have before it takes a word away. Each
+   fills as a place in the text goes wrong. Faded when the test can't get any shorter. */
+.pips { display: inline-flex; flex: none; gap: 4px; margin-left: -8px; }
+.pips i { width: 6px; height: 6px; border-radius: 50%; box-shadow: inset 0 0 0 1.25px var(--ink-3); }
+.pips i.on { background: var(--miss); box-shadow: inset 0 0 0 1.25px var(--miss); animation: pip 0.3s cubic-bezier(0.2, 0.7, 0.3, 1); }
+.pips.low { opacity: 0.4; }
+
+@keyframes pip { 40% { transform: scale(1.6); } }
 
 .zoom { display: inline-flex; gap: 2px; margin: -4px -6px -4px -8px; }
 
@@ -740,8 +761,11 @@ kbd {
 .btn:disabled:hover { border-color: var(--line); }
 .btn.quiet { border-color: transparent; color: var(--ink-2); }
 .btn.quiet:hover { color: var(--ink); }
+.btn.main, .btn.main:hover { border-color: var(--ink); background: var(--ink); color: var(--bg); }
 .btn.danger { color: var(--miss); }
 .btn.armed { border-color: var(--miss); background: var(--miss); color: var(--miss-ink); }
+.btn.back { display: inline-flex; align-items: center; gap: 6px; }
+.btn.back svg { flex: none; width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 
 textarea {
   width: 100%;
@@ -1088,13 +1112,20 @@ button.cal-day:not(:disabled):not(.picked):hover { box-shadow: 0 0 0 1.5px var(-
 
 .ana-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 14px; margin-top: 18px; }
 .ana-pair { display: inline-flex; align-items: center; gap: 4px; }
-.ana-center { text-align: center; }
+.ana-on { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px 7px; margin-top: 16px; color: var(--ink-2); font-size: 13px; }
+.ana-on::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--good); }
+.ana-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
 .focus-detail.chips { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 3px; }
 .focus-detail.chips .kc { min-width: 20px; height: 20px; font-size: 12.5px; }
+.weak-key { display: inline-flex; align-items: center; gap: 9px; padding: 3px 0 3px 3px; white-space: nowrap; }
+.weak-key + .weak-key { margin-left: 5px; }
+.weak-key .kc { box-shadow: 0 0 0 2px var(--bg), 0 0 0 3px var(--ink); } /* outlined like the letter row */
 .bn .kc,
-.slip-got .kc { min-width: 17px; height: 17px; padding: 0 4px; font-size: 12px; vertical-align: -3px; }
+.slip-got .kc,
+.ana-on .kc { min-width: 17px; height: 17px; padding: 0 4px; font-size: 12px; vertical-align: -3px; }
 .bn .kc.sp,
-.slip-got .kc.sp { font-size: 10.5px; }
+.slip-got .kc.sp,
+.ana-on .kc.sp { font-size: 10.5px; }
 .slip .kc { background: var(--bg); }
 
 .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; max-width: 720px; margin: 18px auto 0; }
@@ -1138,6 +1169,8 @@ label.row { cursor: pointer; }
 .row.stack .row-text { flex: none; }
 .saved-note { padding: 4px 0 6px; color: var(--ink-2); font-size: 13px; }
 .saved-note.warn { color: var(--miss); }
+/* Google draws its button in a frame, which would show an opaque box in the dark theme. */
+.g-btn { min-height: 44px; color-scheme: light; }
 
 .field {
   width: 100%;
@@ -1358,6 +1391,8 @@ label.row { cursor: pointer; }
 .flourish.show::after { animation: flourish-ring 1.1s cubic-bezier(0.2, 0.7, 0.3, 1) 0.1s both; }
 .flourish.clean { background: var(--bg); } /* sits on the traced line like a label, which passes behind it */
 .flourish.clean.show { animation-duration: 3.6s; }
+.flourish.down { color: var(--ink-2); } /* a word taken away is news, not a celebration, so no ring */
+.flourish.down.show::after { animation: none; }
 .sequence.shine .seq-key { animation: seq-shine 0.6s ease calc(var(--i, 0) * 16ms) both; }
 
 @keyframes flourish {
@@ -1530,6 +1565,186 @@ label.row { cursor: pointer; }
   border: 0;
 }
 
+/* Welcome ------------------------------------------------------------- */
+
+/* The walkthrough for someone new, in a native dialog above everything else. Each step has a
+   small picture made of the page's own pieces, so it follows the theme. */
+.welcome {
+  width: min(440px, calc(100% - 24px));
+  max-width: none;
+  max-height: calc(100vh - 24px);
+  max-height: calc(100dvh - 24px);
+  padding: 14px 22px 0;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--ink);
+  box-shadow: 0 24px 60px -24px color-mix(in oklab, var(--hand-shadow) 60%, transparent);
+}
+
+.welcome[open] { animation: welcome-in 0.28s cubic-bezier(0.2, 0.8, 0.25, 1); }
+.welcome:focus-visible { outline: none; } /* it takes focus itself, so stray keys press nothing */
+
+.welcome::backdrop {
+  background: color-mix(in oklab, var(--bg) 76%, transparent);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+}
+
+@keyframes welcome-in { from { opacity: 0; transform: translateY(8px) scale(0.98); } }
+
+.welcome-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 -10px 10px 0; }
+.welcome-name { color: var(--ink-2); font-size: 13px; font-weight: 600; }
+
+.welcome-close {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: none;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+
+.welcome-close:hover { background: var(--surface); color: var(--ink); }
+.welcome-close svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; }
+
+/* Every step sits in the same grid cell, so the dialog keeps the height of the longest one
+   and Back and Next stay put. The steps not showing are only invisible. */
+.welcome-pages { display: grid; grid-template-columns: minmax(0, 1fr); }
+.welcome-page { grid-area: 1 / 1; }
+.welcome-page:not(.on) { visibility: hidden; }
+.welcome-page.on .welcome-art > * { animation: art-in 0.4s ease both; }
+
+@keyframes art-in { from { opacity: 0; transform: translateY(6px); } }
+
+.welcome-art {
+  display: grid;
+  place-items: center;
+  height: 132px;
+  margin-bottom: 16px;
+  padding-inline: 12px;
+  overflow: hidden;
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.welcome-title { font-size: 17px; font-weight: 600; line-height: 1.3; }
+.welcome-text { margin-top: 6px; font-size: 14.5px; line-height: 1.55; }
+.welcome-note { margin-top: 8px; color: var(--ink-2); font-size: 13px; }
+/* The buttons stay at the bottom when a short screen makes the dialog scroll. */
+.welcome-foot {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 8px;
+  padding: 12px 0 18px;
+  background: var(--bg);
+}
+
+.welcome-dots { display: flex; gap: 5px; }
+.welcome-dots i { width: 6px; height: 6px; border-radius: 3px; background: var(--track); transition: width 0.2s ease, background-color 0.2s ease; }
+.welcome-dots i.on { width: 18px; background: var(--ink); }
+.welcome-nav { display: flex; gap: 6px; }
+
+/* Typing. The letters you've typed fade, and the underline waits under the next one. */
+.wa-type { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+.wa-line { color: var(--text); font-family: var(--font-text); font-size: 25px; line-height: 1.2; white-space: pre; }
+.wa-line > span { position: relative; display: inline-block; }
+.wa-line .ok { color: var(--ink-3); }
+.wa-line .cur::after { content: ""; position: absolute; right: 0; bottom: -4px; left: 0; height: 2px; border-radius: 1px; background: var(--ink); opacity: 0.85; }
+.wa-line.dots .sp::before { content: "\00B7"; position: absolute; inset: 0; text-align: center; opacity: 0.4; }
+.wa-keys { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 20px; color: var(--ink-2); font-size: 12.5px; }
+.wa-hint { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.wa-tap { width: 14px; height: 14px; border: 2px solid var(--cue); border-radius: 50%; }
+
+/* A Chinese word, with its pinyin above each character and the letters typed so far in blue. */
+.wa-line.zh { margin-bottom: -0.3em; line-height: 2.4; }
+.wa-line.zh .gap { margin-left: 0.45em; }
+.wa-line.zh .cur::after { bottom: 0.45em; } /* the taller line leaves room for the pinyin */
+.wa-line .ok .py { opacity: 0.55; }
+.wa-line.nopy .py { color: transparent; }
+.wa-line.nopy .py b { color: var(--cue); }
+
+/* Step up. Each bar is a test, red where it had mistakes, with the practice screen's dots over it
+   when mistakes can take a word away. */
+.wa-step { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.wa-bars { display: flex; align-items: flex-end; gap: 6px; height: 64px; }
+.wa-bars i { position: relative; width: 18px; height: calc(var(--h) * 100%); border-radius: 3px; background: var(--ink-3); transform-origin: bottom; }
+.wa-bars i.miss { background: color-mix(in oklab, var(--miss) 60%, var(--surface)); }
+.wa-bars i.top { background: var(--ink); }
+.wa-pips { position: absolute; bottom: calc(100% + 5px); left: 50%; display: flex; gap: 2px; transform: translateX(-50%); }
+.wa-pips span { width: 4px; height: 4px; border-radius: 50%; box-shadow: inset 0 0 0 1px var(--ink-3); }
+.wa-pips span.on { background: var(--miss); box-shadow: none; }
+.welcome-page.on .wa-bars i { animation: bar-in 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) calc(0.1s + var(--i) * 0.06s) both; }
+.wa-scale { display: flex; justify-content: space-between; gap: 12px; width: 100%; color: var(--ink-2); font-size: 12px; font-variant-numeric: tabular-nums; }
+
+@keyframes bar-in { from { opacity: 0; transform: scaleY(0.2); } }
+
+/* Keys in their finger colors, with the blue ring of the real keyboard around the next one. */
+.wa-kb { display: flex; gap: 5px; }
+
+.wa-key {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 4px;
+  background: var(--key);
+  color: var(--key-ink);
+  font-family: var(--font-text);
+  font-size: 13px;
+  line-height: 1;
+}
+
+.wa-key[data-f="0"], .wa-key[data-f="7"] { background: var(--f-pinky); }
+.wa-key[data-f="1"], .wa-key[data-f="6"] { background: var(--f-ring); }
+.wa-key[data-f="2"], .wa-key[data-f="5"] { background: var(--f-middle); }
+.wa-key[data-f="3"] { background: var(--f-index); }
+.wa-key[data-f="4"] { background: var(--f-index-2); }
+.wa-key.home::after { content: ""; position: absolute; right: 40%; bottom: 17%; left: 40%; height: 2px; border-radius: 1px; background: currentColor; opacity: 0.7; }
+.wa-key.next::before { content: ""; position: absolute; inset: -6px; border: 3px solid var(--cue); border-radius: 999px; opacity: 0.9; }
+.wa-gap { width: 14px; }
+
+/* Goals and progress. The goal rings from the practice screen beside a few bars of a chart. */
+.wa-goals { display: flex; align-items: center; gap: 28px; }
+.wa-rings { display: flex; flex-direction: column; gap: 10px; }
+.wa-chart { display: flex; align-items: flex-end; gap: 4px; height: 58px; }
+.wa-chart i { width: 8px; height: calc(var(--h) * 100%); border-radius: 2px; background: var(--c-speed); }
+
+/* On a phone the keys are a little smaller, and the close button is big enough for a thumb. */
+@media (max-width: 480px) {
+  .welcome-head { margin: -6px -16px 4px 0; }
+  .welcome-close { width: 40px; height: 40px; }
+  .wa-kb { gap: 4px; }
+  .wa-key { width: 27px; height: 27px; }
+  .wa-gap { width: 10px; }
+}
+
+/* The narrowest phones need smaller keys and a tighter chart to fit the pictures. */
+@media (max-width: 360px) {
+  .welcome-art { padding-inline: 8px; }
+  .wa-kb { gap: 3px; }
+  .wa-key { width: 24px; height: 24px; font-size: 12px; }
+  .wa-gap { width: 8px; }
+  .wa-goals { gap: 16px; }
+  .wa-chart { gap: 3px; }
+  .wa-chart i { width: 6px; }
+}
+
+/* A phone on its side has little height, so the pictures shrink to leave room for the words. */
+@media (max-height: 480px) {
+  .welcome-art { height: 96px; margin-bottom: 12px; }
+}
+
 /* Small screens and reduced motion ------------------------------------ */
 
 @media (max-width: 720px) {
@@ -1552,6 +1767,13 @@ label.row { cursor: pointer; }
   }
 }
 
+/* On the narrowest phones Step up's dots, the word count, the language switch and the zoom
+   buttons leave the line that shows how far you are almost no room, so they sit closer. */
+@media (max-width: 359px) {
+  .board-foot { gap: 10px; }
+  .pips { margin-left: -4px; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -1565,6 +1787,7 @@ label.row { cursor: pointer; }
   .goal.charging .ring, .board.charging::before { animation: none !important; }
   .flourish.show { animation: none !important; opacity: 1; }
   .trace.play rect { animation: none !important; opacity: 1; }
+  .welcome, .welcome * { animation: none !important; }
 }
 </style>
 </head>
@@ -1599,7 +1822,10 @@ label.row { cursor: pointer; }
         <div class="focus" id="focus">
           <span class="focus-cap" id="focusCap" aria-hidden="true"><span></span></span>
           <div>
-            <p class="focus-title" id="focusTitle"></p>
+            <div class="focus-head">
+              <p class="focus-title" id="focusTitle"></p>
+              <button class="btn back" type="button" id="focusBack" hidden><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 2.5 2 6l3.5 3.5M2.5 6h7.25a3.75 3.75 0 0 1 0 7.5H7"/></svg>Back to your tests</button>
+            </div>
             <p class="focus-detail" id="focusDetail"></p>
             <div class="meter" id="focusMeter" aria-hidden="true"><span id="focusFill"></span></div>
           </div>
@@ -1636,6 +1862,7 @@ label.row { cursor: pointer; }
         <div class="board-foot" id="boardFoot">
           <div class="track" aria-hidden="true"><span id="lessonBar"></span></div>
           <span class="count" id="wordCount"></span>
+          <span class="pips" id="pips" role="img" hidden></span>
           <div class="seg lang" data-setting="language" role="group" aria-label="Language">
             <button type="button" data-value="en">EN</button>
             <button type="button" data-value="zh" lang="zh-Hans">中文</button>
@@ -1814,7 +2041,7 @@ label.row { cursor: pointer; }
       </div>
 
       <div id="anaBody" hidden>
-        <div class="card">
+        <div class="card" id="anaOverview">
           <h3 class="card-title">Overview</h3>
           <p class="card-lede">Every test you finish keeps each key you pressed, so this page can show where your mistakes come from. A key counts as missed when your first try at it was wrong.</p>
           <dl class="stats four" id="anaStats"></dl>
@@ -1822,11 +2049,18 @@ label.row { cursor: pointer; }
           <p class="card-note" id="anaTrendNote"></p>
         </div>
 
-        <div class="card">
+        <!-- Practice these tests keep coming, all from the keys picked at the start, until Back
+             to your tests. While they do, renderDrillOn moves this card to the top, says so
+             and shows that button too. -->
+        <div class="card" id="anaDrillCard">
           <h3 class="card-title">Practice these</h3>
-          <p class="card-lede">A test made of words full of your most missed keys and trickiest key switches, picked from the cards below. It changes as you improve.</p>
+          <p class="card-lede">Tests made of words full of your most missed keys and trickiest key switches, picked from the cards below when you start. They keep coming until you go back to your tests.</p>
           <div class="ana-chips" id="anaDrillKeys"></div>
-          <p class="empty-action ana-center"><button class="btn" type="button" id="anaDrill">Practice these keys</button></p>
+          <p class="ana-on" id="anaDrillOn" hidden>Practice these is on.</p>
+          <p class="empty-action ana-actions">
+            <button class="btn" type="button" id="anaDrill">Practice these keys</button>
+            <button class="btn back" type="button" id="anaBack" hidden><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 2.5 2 6l3.5 3.5M2.5 6h7.25a3.75 3.75 0 0 1 0 7.5H7"/></svg>Back to your tests</button>
+          </p>
         </div>
 
         <div class="card">
@@ -1935,6 +2169,14 @@ label.row { cursor: pointer; }
       <div class="group">
         <h3>Test</h3>
         <div class="row">
+          <div class="row-text">
+            <span class="row-label">How Keyprint works</span>
+            <span class="row-hint">A short tour of Step up, the keyboard, mistakes and daily goals.</span>
+          </div>
+          <button class="btn" type="button" id="welcomeShow">Show</button>
+        </div>
+
+        <div class="row">
           <div class="row-text"><span class="row-label">Text to type</span></div>
           <div class="seg" data-setting="mode" role="group" aria-label="Text to type">
             <button type="button" data-value="step">Step up</button>
@@ -1947,11 +2189,12 @@ label.row { cursor: pointer; }
         <div class="row">
           <div class="row-text">
             <span class="row-label">Step up</span>
-            <span class="row-hint">Each day starts short, and every perfect test adds a word until it reaches the top. A test with a mistake keeps the same length.</span>
+            <span class="row-hint">Each day starts short, and every perfect test adds a word until it reaches the top. Down after is how many mistakes take one away, and 0 turns that off.</span>
           </div>
           <div class="tool">
             <label class="step-num">Start <input class="num" id="set-step-start" type="number" min="1" max="1000" step="1" inputmode="numeric" data-setting="stepStart" aria-label="Words in the first Step up test of the day"></label>
             <label class="step-num">Top <input class="num" id="set-step-top" type="number" min="1" max="1000" step="1" inputmode="numeric" data-setting="stepTop" aria-label="The most words a Step up test grows to"></label>
+            <label class="step-num">Down after <input class="num" id="set-step-down" type="number" min="0" max="5" step="1" inputmode="numeric" data-setting="stepDown" aria-label="Mistakes in a Step up test that take a word away, 0 for never"></label>
           </div>
         </div>
 
@@ -2020,7 +2263,7 @@ label.row { cursor: pointer; }
         <label class="row" for="set-weak">
           <span class="row-text">
             <span class="row-label">Extra practice for weak letters</span>
-            <span class="row-hint">More words with your slowest or most mistyped letters.</span>
+            <span class="row-hint">Puts your slowest or most missed letters from recent tests in about a third of the words in Step up and Words, and names up to three of them above the text.</span>
           </span>
           <input class="switch" id="set-weak" type="checkbox" data-setting="weakBoost">
         </label>
@@ -2260,7 +2503,134 @@ label.row { cursor: pointer; }
         </label>
       </div>
 
-      <div class="group">
+      <div class="group" id="accountGroup">
+        <h3>Account</h3>
+        <p class="saved-note" id="accountNote" aria-live="polite"></p>
+        <form id="accountForm" novalidate hidden>
+          <div class="row" id="googleRow" hidden>
+            <div class="row-text">
+              <span class="row-label">Google</span>
+              <span class="row-hint" id="googleHint">Sign in or create an account with nothing new to remember. Already have a username? Sign in with it, then add Google.</span>
+            </div>
+            <div class="g-btn" id="googleBtn"></div>
+          </div>
+          <label class="row stack" for="accountName">
+            <span class="row-text">
+              <span class="row-label">Username</span>
+              <span class="row-hint">3 to 32 letters, numbers, dots, dashes or underscores.</span>
+            </span>
+            <input class="field" id="accountName" type="text" autocomplete="username" autocapitalize="off" spellcheck="false" maxlength="32">
+          </label>
+          <label class="row stack" for="accountPass">
+            <span class="row-text">
+              <span class="row-label">Password</span>
+              <span class="row-hint">At least 8 characters. Nobody can reset it for you, so keep it in a password manager.</span>
+            </span>
+            <input class="field" id="accountPass" type="password" autocomplete="current-password" maxlength="200">
+          </label>
+          <label class="row stack" for="accountPass2" id="accountPass2Row" hidden>
+            <span class="row-text">
+              <span class="row-label">Type it again</span>
+              <span class="row-hint">So a typo can't lock you out.</span>
+            </span>
+            <input class="field" id="accountPass2" type="password" autocomplete="new-password" maxlength="200">
+          </label>
+          <div class="row">
+            <div class="tool">
+              <button class="btn" type="button" id="accountSignIn">Sign in</button>
+              <button class="btn quiet" type="button" id="accountCreate">Create account</button>
+              <button class="btn quiet" type="button" id="accountClear" hidden>Clear this browser</button>
+            </div>
+          </div>
+        </form>
+        <div class="row" id="accountMerge" hidden>
+          <div class="row-text">
+            <span class="row-label" id="accountMergeLabel">Progress in this browser</span>
+            <span class="row-hint" id="accountMergeHint"></span>
+          </div>
+          <div class="tool">
+            <button class="btn" type="button" id="accountKeep">Add it</button>
+            <button class="btn quiet" type="button" id="accountDrop">Leave it out</button>
+            <button class="btn quiet" type="button" id="accountCancel">Cancel</button>
+          </div>
+        </div>
+        <div id="accountPanel" hidden>
+          <div class="row">
+            <div class="row-text">
+              <span class="row-label">Signed in with</span>
+              <span class="row-hint" id="accountMethods"></span>
+            </div>
+            <button class="btn quiet" type="button" id="accountNow">Save now</button>
+          </div>
+          <div class="row">
+            <div class="row-text">
+              <span class="row-label">Sign out</span>
+              <span class="row-hint" id="accountOutHint">Saves your progress to your account, then clears it from this browser so the next person starts fresh.</span>
+            </div>
+            <button class="btn" type="button" id="accountOut">Sign out</button>
+          </div>
+          <div class="row">
+            <div class="row-text">
+              <span class="row-label">Sign out everywhere</span>
+              <span class="row-hint">Signs out every browser, this one too. Each one clears your progress the next time it opens Keyprint, which helps if you forgot to sign out on a shared computer. Changes a browser hadn't saved yet are lost.</span>
+            </div>
+            <button class="btn" type="button" id="accountOutAll">Sign out everywhere</button>
+          </div>
+          <div class="row" id="accountLinkRow" hidden>
+            <div class="row-text">
+              <span class="row-label">Add Google</span>
+              <span class="row-hint" id="accountLinkHint">Lets you sign in with Google too, which is your way back in if you forget your password.</span>
+            </div>
+            <div class="g-btn" id="accountLinkBtn"></div>
+          </div>
+          <div class="row" id="accountPwRow">
+            <div class="row-text">
+              <span class="row-label" id="accountPwLabel">Change password</span>
+              <span class="row-hint" id="accountPwHint">Your other browsers are signed out, and keep their progress until you sign in there again.</span>
+            </div>
+            <button class="btn" type="button" id="accountPwOpen">Change</button>
+          </div>
+          <form id="accountPwForm" novalidate hidden>
+            <label class="row stack" for="accountPwName" id="accountPwNameRow" hidden>
+              <span class="row-text">
+                <span class="row-label">Username</span>
+                <span class="row-hint">3 to 32 letters, numbers, dots, dashes or underscores. It can't be changed later.</span>
+              </span>
+              <input class="field" id="accountPwName" type="text" autocomplete="username" autocapitalize="off" spellcheck="false" maxlength="32">
+            </label>
+            <label class="row stack" for="accountPwOld" id="accountPwOldRow" hidden>
+              <span class="row-text"><span class="row-label">Current password</span></span>
+              <input class="field" id="accountPwOld" type="password" autocomplete="current-password" maxlength="200">
+            </label>
+            <label class="row stack" for="accountPwNew">
+              <span class="row-text">
+                <span class="row-label">New password</span>
+                <span class="row-hint">At least 8 characters.</span>
+              </span>
+              <input class="field" id="accountPwNew" type="password" autocomplete="new-password" maxlength="200">
+            </label>
+            <label class="row stack" for="accountPwNew2">
+              <span class="row-text"><span class="row-label">Type it again</span></span>
+              <input class="field" id="accountPwNew2" type="password" autocomplete="new-password" maxlength="200">
+            </label>
+            <div class="row">
+              <div class="tool">
+                <button class="btn" type="button" id="accountPwSave">Save password</button>
+                <button class="btn quiet" type="button" id="accountPwCancel">Cancel</button>
+              </div>
+            </div>
+          </form>
+          <div class="row">
+            <div class="row-text">
+              <span class="row-label">Delete account</span>
+              <span class="row-hint">Deletes your account and everything in it, then clears this browser. Other browsers clear themselves the next time they open Keyprint. Download a backup first if you want to keep anything.</span>
+            </div>
+            <button class="btn danger" type="button" id="accountDelete">Delete account</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="group" id="cloudGroup">
         <h3>Cloud save</h3>
         <p class="saved-note" id="cloudNote"></p>
         <label class="row stack" for="cloudUrl">
@@ -2284,16 +2654,6 @@ label.row { cursor: pointer; }
             <button class="btn quiet" type="button" id="cloudOff" hidden>Disconnect</button>
           </div>
         </div>
-        <div class="row" id="cloudDaysRow" hidden>
-          <div class="row-text">
-            <span class="row-label">Daily copies</span>
-            <span class="row-hint">Your Cloudflare account keeps the first copy of each day. Restoring one brings back the progress it had, and undoes a Reset progress made since, on every device.</span>
-          </div>
-          <div class="tool">
-            <select id="cloudDays"></select>
-            <button class="btn" type="button" id="cloudRestore">Restore this copy</button>
-          </div>
-        </div>
       </div>
 
       <div class="group">
@@ -2314,6 +2674,16 @@ label.row { cursor: pointer; }
           <button class="btn" type="button" id="restoreBtn">Choose backup file</button>
           <input type="file" id="restoreInput" accept=".json,application/json" hidden>
         </div>
+        <div class="row" id="cloudDaysRow" hidden>
+          <div class="row-text">
+            <span class="row-label">Daily copies</span>
+            <span class="row-hint" id="cloudDaysHint">Your Cloudflare account keeps the first copy of each day. Restoring one brings back the progress it had, and undoes a Reset progress made since, on every device.</span>
+          </div>
+          <div class="tool">
+            <select id="cloudDays"></select>
+            <button class="btn" type="button" id="cloudRestore">Restore this copy</button>
+          </div>
+        </div>
         <div class="row">
           <div class="row-text">
             <span class="row-label">Reset progress</span>
@@ -2330,6 +2700,21 @@ label.row { cursor: pointer; }
 <div class="chart-tip" id="chartTip" hidden></div>
 <button class="zen-hint" id="zenHint" type="button" tabindex="-1"><span class="zen-key">Press <kbd>Esc</kbd> to leave Text only</span><span class="zen-tap">Leave Text only</span></button>
 <p class="sr-only" id="announce" role="status" aria-live="polite"></p>
+<dialog class="welcome" id="welcome" aria-labelledby="welcomeName" tabindex="-1">
+  <div class="welcome-head">
+    <h2 class="welcome-name" id="welcomeName">Welcome to Keyprint</h2>
+    <button class="welcome-close" type="button" id="welcomeClose" aria-label="Close"><svg viewBox="0 0 18 18" aria-hidden="true"><path d="M5 5 13 13M13 5 5 13"/></svg></button>
+  </div>
+  <div class="welcome-pages" id="welcomePages"></div>
+  <div class="welcome-foot">
+    <p class="welcome-dots" id="welcomeDots" aria-hidden="true"></p>
+    <div class="welcome-nav">
+      <button class="btn quiet" type="button" id="welcomeBack">Back</button>
+      <button class="btn main" type="button" id="welcomeNext">Next</button>
+    </div>
+  </div>
+  <p class="sr-only" id="welcomeLive" aria-live="polite"></p>
+</dialog>
 <script>
 /* Common English words for typing tests, grouped by how often they show up in everyday
    English. Each group is alphabetical and builds on the ones before it, so a test can draw
@@ -2550,17 +2935,37 @@ const APP = {
   name: "Keyprint",
   storageKey: "keyprint-state-v1",
   cloudConfig: "keyprint-cloud", // where this browser remembers the cloud save address and key
-  cloudDelay: 20000,   // ms between saves to your Cloudflare account while you practice
+  cloudDelay: 20000,   // ms between saves to your own save Worker while you practice
   cloudPending: "keyprint-pending", // cloud names for the copy a hidden or closing page sends at once, one per browser
   cloudDevices: 12,    // browsers whose left copies a cloud save reads, the ones seen most recently
   pendingTests: 30,    // newest tests per layout in that copy, so it stays small enough to send while closing
   cloudTimeout: 20000, // ms a cloud request may wait for an answer to start, plus 1 s per 10,000 characters it uploads
+  accountApi: "/api",  // the account service at this page's own address, see site-worker.js
+  accountSync: "keyprint-sync", // cloud name that reads an account's main copy and every left copy in one request
+  accountDelay: 120000, // ms between saves to your account while you practice
+  accountRetry: 600000, // ms, the longest wait between tries when your account can't be reached
+  heldRetry: 86400000, // ms before a text that didn't fit in your account tries again
+  passwordRounds: 600000, // PBKDF2 rounds your browser runs on a password before sending it. Never change it, or every password stops working
+  passwordMin: 8,      // characters a new password needs at least
+  freshSignIn: 900000, // ms after signing in when adding Google or a first password, or deleting the account, is allowed, FRESH in site-worker.js
+  googleScript: "https://accounts.google.com/gsi/client",
+  site: "https://type.stevenwu.org", // where accounts and Sign in with Google work, named in notes
   letterOrder: "etaoinshrdlcumwfgypbvkjxqz", // adaptive tests unlock letters in this order
   minSamples: 12,      // timed keystrokes a letter needs before it can count as learned
   minInterval: 25,     // ms. Faster gaps between keys are ignored as noise
   maxInterval: 2500,   // ms. Slower gaps are ignored as pauses
   focusShare: 0.7,     // share of adaptive words that include the focus letter
+  weakChars: 1500,     // letters typed in your newest tests that weak letters are ranked from
+  weakTests: 30,       // tests at most in that window, newest first
+  weakMin: 8,          // times a letter is typed before it can rank, from older tests too for a rare letter
+  weakPrior: 20,       // keys at your usual pace and miss rate mixed into each letter, so one slip can't make it weak
+  weakCap: 2,          // times your usual pace that a letter's average in one test counts as at most
+  weakWords: 3,        // words in the word list that hold a letter before it can be named
+  weakStick: 0.15,     // weakness head start for the letters named last time, so near ties don't swap
+  weakKeep: 0.1,       // weakness a letter named last time stays named down to, where a new one needs 0.2
+  weakShare: 0.33,     // share of the words in Step up and Words tests that hold a weak letter
   maxWords: 1000,      // longest test allowed
+  stepDownMax: 5,      // mistakes Down after can be set to at most, as many dots as fit beside the word count on a phone
   historyLimit: 1000,  // tests kept per layout
   detailTests: 300,    // newest tests per layout that keep every keystroke for the Analysis tab
   detailChars: 120000, // characters of text those tests may keep per layout, newest first
@@ -2577,6 +2982,7 @@ const APP = {
   docLimit: 4000000,   // characters kept from one document
   pdfScript: "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js",
   pdfWorker: "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js",
+  pdfIntegrity: "",    // SRI hash of pdfScript from cdnjs. Empty loads it without one
   cheerHold: 2000,     // ms at the start of a goal celebration when keys wait, so it can't vanish unseen
   chargeFrom: 0.75,    // share of the daily typing goal where the build up toward it begins
   version: 8,
@@ -2586,11 +2992,12 @@ const DEFAULTS = {
   mode: "step",         // "step", "words", "adaptive" or "custom"
   stepStart: 4,         // words in the first Step up test of each day
   stepTop: 25,          // the most words a Step up test grows to
+  stepDown: 3,          // mistakes in a Step up test that take a word away, 0 never does
   lessonWords: 25,      // words per test
   wordPool: "literary", // which word list Words tests use, see POOLS
   suddenDeath: false,   // one wrong key restarts the test
   coolDown: "medium",   // pause after that mistake, "short", "medium" or "long"
-  weakBoost: true,      // Words tests lean on your weakest letters
+  weakBoost: true,      // Step up and Words tests lean on your weakest letters, named above the text
   averageOver: "all",   // averages on the practice screen cover "all", "last10" or "today"
   dailyGoal: 30,        // minutes of typing per day, 0 turns this goal off
   cleanGoal: 5,         // minutes of clean typing per day, 0 turns this goal off
@@ -2749,9 +3156,11 @@ let state = {
   docs: [],
   docId: "",
   removed: [],
-  step: { day: "", words: 0 }, // how far Step up has grown today
+  step: { day: "", words: 0, at: 0 }, // how long Step up's tests are today, and when that last changed
   restoredAt: 0, // when this progress was last restored from a copy, which then wins over anything older
+  drillBack: "", // "zh" while Practice these has switched Chinese off, see startDrill
   devices: [],   // browsers that save to the cloud, see Cloud save
+  welcomed: 0,   // when the welcome for someone new was closed, 0 for never
   savedAt: 0,
 };
 let ready = false;
@@ -2856,6 +3265,13 @@ let localDirty = false; // typing time added since the last save
 let cloudDirty = false; // changes not yet in the cloud copy
 
 function saveLocal() {
+  if (!ready) return; // a tab that's signing out or leaving never writes progress back
+  // Another tab may have signed in or out since this one last looked. Then this tab's progress
+  // belongs to someone else, so it reloads instead of writing it back.
+  if (!Account.switching && accountChange(cloudIdentity(cloudSeen), cloudIdentity(readConfigNow()))) {
+    leaveTab();
+    return;
+  }
   state.savedAt = Date.now();
   localDirty = false;
   Store.save(state);
@@ -2886,11 +3302,15 @@ function flushSaves() {
 
 const snapshot = () => JSON.parse(JSON.stringify(state));
 
-// Cloud save keeps a second copy of everything in your own Cloudflare account, through the
+// Cloud save keeps a second copy of everything in the cloud. That's either your account, at
+// this page's own address through site-worker.js, or your own Cloudflare account through the
 // small save Worker in save-worker.js. Its address and key are remembered in this browser only.
 const Cloud = {
+  kind: "",     // "account", "key" for your own save Worker, or "" when off
   url: "",
-  key: "",
+  key: "",      // the save key, or the account's session token
+  user: null,   // the account this browser's progress belongs to, kept after a session ends
+  retry: 60000, // ms before the next try when the account can't be reached, doubling each time
   seen: 0,      // savedAt of the cloud copy the last time this browser read or wrote it
   lastOk: 0,    // when the last save to the cloud worked
   putAt: -1e9,  // performance.now() of that save, for spacing writes without trusting the clock
@@ -2903,7 +3323,7 @@ const Cloud = {
   // save after it. It gives up after APP.cloudTimeout instead, with more time for a bigger
   // upload. Once the answer starts arriving it can take as long as it needs, and a closing
   // page can't wait for an answer at all.
-  async call(method, name, body, keepalive = false) {
+  async call(method, name, body, keepalive = false, bytes = false) {
     const stop = keepalive ? null : new AbortController();
     const limit = APP.cloudTimeout + (body ? body.length / 10 : 0);
     const timer = stop ? setTimeout(() => stop.abort(), limit) : 0;
@@ -2918,17 +3338,55 @@ const Cloud = {
       });
       clearTimeout(timer);
       if (method === "GET" && res.status === 404) return null;
-      if (res.status === 401) throw new Error("key");
+      // An account answers Revoked when this session was signed out on purpose, which clears
+      // this browser, and Signed out for anything else, which keeps its progress.
+      if (res.status === 401) throw new Error(this.kind === "account" && (await res.text()) === "Revoked" ? "revoked" : "key");
       if (res.status === 500) throw new Error("setup");
+      if (this.kind === "account" && (res.status === 413 || res.status === 507)) throw new Error("full");
       if (!res.ok) throw new Error("reach");
-      return method === "GET" ? await res.text() : true;
+      if (method !== "GET") return true;
+      return bytes ? await res.arrayBuffer() : await res.text();
     } finally {
       clearTimeout(timer);
     }
   },
 };
 
-const cloudProblem = (err) => (err && ["key", "setup"].includes(err.message) ? err.message : "reach");
+const cloudProblem = (err) => (err && ["key", "setup", "revoked", "full"].includes(err.message) ? err.message : "reach");
+
+let cloudSeen = ""; // the keyprint-cloud text this tab last read or wrote, to notice other tabs signing in or out
+
+// Accounts, see the Accounts subsection in Settings.
+const Account = {
+  conf: null,         // what this site's account service offers, once asked
+  confLoading: null,
+  confFailed: false,
+  marker: null,       // { out, why, fresh } after signing out, which keeps Cloud save off
+  due: new Set(),     // ids of texts not yet in the account
+  held: new Set(),    // ids of texts the account had no room for, so they're only here
+  heldAt: 0,          // when a text was last held, so they try again once a day
+  pending: null,      // a sign in waiting on what to do with the progress here
+  busy: false,
+  switching: false,   // progress is moving into an account, so the tab checks are paused
+  leaving: false,     // this tab is reloading and never saves again
+  uploading: false,
+  message: null,      // { text, warn } shown in place of the account note
+  note: "",           // the note after a sign out from another browser
+  toast: "",
+  proof: "",          // the secret behind the nonce of the current Google attempt
+  gis: 0,             // Google's script, 0 not loaded, 1 loading, 2 ready, 3 failed
+  gisDrawn: "",
+  outArmed: 0,
+  allArmed: 0,
+  deleteArmed: 0,
+  clearArmed: 0,
+  keepArmed: 0,
+  dropArmed: 0,
+  createStep: false,  // Create account asked for the password a second time
+};
+
+// Text ids a config lists as due or held, the same way every time one is read.
+const textIds = (ids) => (Array.isArray(ids) ? ids : []).filter((id) => typeof id === "string" && /^[a-z0-9]{4,40}$/.test(id)).slice(0, 300);
 
 function cloudAddress(raw) {
   let url = String(raw || "").trim().replace(/\/+$/, "");
@@ -2937,14 +3395,33 @@ function cloudAddress(raw) {
   return url;
 }
 
+// The config is your own save Worker's address and key, an account, or a note that this
+// browser signed out of one, which keeps Cloud save off.
 async function loadCloudConfig() {
   try {
     const raw = await Store.read(APP.cloudConfig);
+    cloudSeen = raw || "";
     const cfg = raw ? JSON.parse(raw) : null;
-    if (cfg && typeof cfg.url === "string" && typeof cfg.key === "string") {
+    if (cfg && isDeviceId(cfg.device)) Cloud.device = cfg.device;
+    if (cfg && cfg.out > 0) {
+      const why = ["out", "deleted", "revoked", "cleared"].includes(cfg.why) ? cfg.why : "out";
+      Account.marker = { out: Number(cfg.out), why, fresh: cfg.fresh === true };
+    } else if (cfg && cfg.kind === "account") {
+      // The token is only ever used where accounts work, and never as a save key.
+      const user = cleanUser(cfg.user);
+      if (user && accountPlace() === "ok") {
+        Cloud.kind = "account";
+        Cloud.user = user;
+        Cloud.key = isToken(cfg.key, user.id) ? cfg.key : "";
+        Cloud.url = accountBase();
+        Account.held = new Set(textIds(cfg.held));
+        Account.due = new Set(textIds(cfg.due).filter((id) => !Account.held.has(id)));
+        Account.heldAt = Number(cfg.heldAt) || 0;
+      }
+    } else if (cfg && typeof cfg.url === "string" && typeof cfg.key === "string") {
       Cloud.url = cfg.url;
       Cloud.key = cfg.key;
-      if (isDeviceId(cfg.device)) Cloud.device = cfg.device;
+      Cloud.kind = cfg.url && cfg.key ? "key" : "";
     }
   } catch (err) {
     // nothing remembered yet
@@ -2955,7 +3432,44 @@ async function loadCloudConfig() {
   }
 }
 
-const saveCloudConfig = () => Store.write(APP.cloudConfig, JSON.stringify({ url: Cloud.url, key: Cloud.key, device: Cloud.device }));
+// settled lists texts this tab just put up, removed or moved between due and held, which
+// another tab's copy of the lists mustn't bring back.
+function saveCloudConfig(settled = []) {
+  let cfg;
+  if (Cloud.kind === "account") {
+    // A tab that missed another tab signing in or out never writes its account over that one.
+    if (!Account.switching && accountChange(cloudIdentity(cloudSeen), cloudIdentity(readConfigNow()))) {
+      leaveTab();
+      return Promise.resolve(false);
+    }
+    joinTextLists(readConfigNow(), settled);
+    cfg = { kind: "account", url: "", key: Cloud.key, device: Cloud.device, user: Cloud.user, due: [...Account.due].slice(0, 300), held: [...Account.held].slice(0, 300), heldAt: Account.heldAt };
+  } else if (Account.marker) cfg = { device: Cloud.device, out: Account.marker.out, why: Account.marker.why, fresh: Account.marker.fresh };
+  else cfg = { kind: Cloud.kind, url: Cloud.url, key: Cloud.key, device: Cloud.device };
+  cloudSeen = JSON.stringify(cfg);
+  return Store.write(APP.cloudConfig, cloudSeen);
+}
+
+// Tabs of one browser share the config, and each one only knows the texts it tried itself. So
+// the lists in a stored config for the same account are joined into this tab's, apart from
+// texts this tab has just settled. A text in both lists counts as held, so a big text that
+// doesn't fit isn't sent again with every save. Either way it stays listed, so signing out
+// still asks first.
+function joinTextLists(raw, settled = []) {
+  if (Cloud.kind !== "account" || !Cloud.user) return;
+  let cfg = null;
+  try {
+    cfg = raw ? JSON.parse(raw) : null;
+  } catch (err) {
+    // a config that doesn't read adds nothing
+  }
+  if (!cfg || cfg.kind !== "account" || !cfg.user || cfg.user.id !== Cloud.user.id) return;
+  const skip = new Set(settled);
+  for (const id of textIds(cfg.due)) if (!skip.has(id)) Account.due.add(id);
+  for (const id of textIds(cfg.held)) if (!skip.has(id)) Account.held.add(id);
+  for (const id of Account.held) Account.due.delete(id);
+  Account.heldAt = Math.max(Account.heldAt, Number(cfg.heldAt) || 0);
+}
 const isDeviceId = (id) => typeof id === "string" && /^[a-z0-9]{8,24}$/.test(id);
 const newDeviceId = () => (Math.random().toString(36).slice(2, 10) + Date.now().toString(36)).replace(/[^a-z0-9]/g, "").slice(0, 24);
 
@@ -3009,6 +3523,7 @@ function mergeSaves(mine, theirs, keepMine) {
   const newer = (theirs.savedAt || 0) > (mine.savedAt || 0) ? theirs : mine;
   const out = JSON.parse(JSON.stringify(newer));
   if (keepMine) out.settings = JSON.parse(JSON.stringify(mine.settings || {}));
+  if (keepMine) out.drillBack = mine.drillBack || ""; // it goes with the settings, as it puts one back
   out.profiles = {};
   for (const id of new Set([...Object.keys(mine.profiles || {}), ...Object.keys(theirs.profiles || {})])) {
     const a = (mine.profiles || {})[id];
@@ -3066,12 +3581,17 @@ function mergeSaves(mine, theirs, keepMine) {
     const b = theirs.cheered || {};
     out.cheered = { total: later(a.total, b.total), clean: later(a.clean, b.clean) };
   }
-  // Step up keeps the furthest step either copy reached on the later day.
+  // Step up keeps the later day's step. On the same day it keeps the latest change, so a step
+  // down holds against a copy that grew earlier. A copy from before steps were timed has no
+  // at, and then the furthest step either copy reached wins, as it always did.
   const sa = mine.step || {};
   const sb = theirs.step || {};
-  if ((sa.day || "") === (sb.day || "")) out.step = { day: sa.day || "", words: Math.max(sa.words || 0, sb.words || 0) };
-  else out.step = (sa.day || "") > (sb.day || "") ? { ...sa } : { ...sb };
+  if ((sa.day || "") !== (sb.day || "")) out.step = (sa.day || "") > (sb.day || "") ? { ...sa } : { ...sb };
+  else if (sa.at && sb.at) out.step = { ...(sb.at > sa.at ? sb : sa) };
+  else out.step = { ...((sb.words || 0) > (sa.words || 0) || ((sb.words || 0) === (sa.words || 0) && (sb.at || 0) > (sa.at || 0)) ? sb : sa) };
   out.restoredAt = restoredAt;
+  // The welcome closed on any device counts on every device.
+  out.welcomed = Math.max(Number(mine.welcomed) || 0, Number(theirs.welcomed) || 0);
   out.devices = mergeDevices(mine.devices, theirs.devices);
   out.savedAt = Math.max(mine.savedAt || 0, theirs.savedAt || 0);
   return out;
@@ -3081,10 +3601,11 @@ let cloudTimer = 0;
 let cloudRun = null;  // the cloud save running now
 let cloudNext = null; // one more cloud save, asked for while that one runs
 
-// Changes reach the cloud within APP.cloudDelay, and never more often than that.
+// Changes reach the cloud within APP.cloudDelay, or APP.accountDelay for an account, and never
+// more often than that.
 function scheduleCloud() {
   if (!Cloud.on || !ready || cloudTimer) return;
-  cloudTimer = setTimeout(() => pushCloud(), APP.cloudDelay);
+  cloudTimer = setTimeout(() => pushCloud(), Cloud.kind === "account" ? APP.accountDelay : APP.cloudDelay);
 }
 
 // Cloud saves run one at a time, so two can't read the same copy and then both write it.
@@ -3122,6 +3643,7 @@ function markDevice(copy, id, { seen = 0, left = 0 } = {}) {
 
 // Reads the main cloud copy and the copy each known browser left the last time it went away.
 async function readCloud(known) {
+  if (Cloud.kind === "account") return readAccount();
   const ids = [...new Set([Cloud.device, ...deviceIds(known)])].filter(isDeviceId);
   const got = await Promise.all([APP.storageKey, ...ids.map(slotName)].map((name) => Cloud.call("GET", name)));
   const theirs = got[0] ? JSON.parse(got[0]) : null;
@@ -3153,8 +3675,16 @@ async function sendCloud() {
   clearTimeout(cloudTimer);
   cloudTimer = 0;
   if (!Cloud.on) return false;
-  const { url, key } = Cloud;
-  const sameCloud = () => Cloud.url === url && Cloud.key === key; // Disconnect may come mid-save
+  // While progress moves into an account, the account gets nothing until it's merged.
+  if (Account.switching && Cloud.kind === "account") return false;
+  // A tab that missed another tab signing in or out stops here, before it reads with a session
+  // that may be gone and clears the browser over the other tab's sign out.
+  if (!Account.switching && accountChange(cloudIdentity(cloudSeen), cloudIdentity(readConfigNow()))) {
+    leaveTab();
+    return false;
+  }
+  const { url, key, kind } = Cloud;
+  const sameCloud = () => Cloud.url === url && Cloud.key === key && Cloud.kind === kind; // Disconnect or sign out may come mid-save
   try {
     // Workers KV takes only one write a second to the same name, so a save right after
     // another one waits out the rest of that second. It waits before reading, so the copy
@@ -3175,17 +3705,30 @@ async function sendCloud() {
     markDevice(state, Cloud.device, { seen: Date.now() });
     state.savedAt = Math.max(state.savedAt || 0, Date.now());
     await Cloud.call("PUT", APP.storageKey, JSON.stringify(state));
+    // A disconnect or sign out during the write wins, so nothing here is put back.
+    if (!sameCloud() || !ready) return false;
+    if (!Account.switching && accountChange(cloudIdentity(cloudSeen), cloudIdentity(readConfigNow()))) {
+      leaveTab();
+      return false;
+    }
     Cloud.putAt = performance.now();
     Store.save(state);
     Cloud.seen = state.savedAt;
     Cloud.lastOk = Date.now();
     Cloud.error = "";
+    Cloud.retry = 60000;
     cloudDirty = false;
+    if (Cloud.kind === "account" && Account.due.size) uploadDue();
+    if (Cloud.kind === "account") retryHeld();
     return true;
   } catch (err) {
     if (!sameCloud()) return false;
-    Cloud.error = cloudProblem(err);
-    cloudTimer = setTimeout(() => pushCloud(), 60000); // try again in a minute
+    if (!cloudFailed(err)) return false;
+    // An account waits longer after each failure, so a site that's out of requests for the
+    // day isn't kept busy.
+    const delay = Cloud.kind === "account" ? Cloud.retry : 60000;
+    if (Cloud.kind === "account") Cloud.retry = Math.min(Cloud.retry * 2, APP.accountRetry);
+    cloudTimer = setTimeout(() => pushCloud(), delay); // key mode tries again in a minute, as always
     return false;
   } finally {
     renderCloudStatus();
@@ -3200,7 +3743,7 @@ let leftCopy = false; // this page already sent the cloud a copy of its latest c
 // from any browser, or the next start, merges it in. Tabs of one browser share the name, and
 // each tab folds in what the others save in this browser, so the latest copy has them all.
 function sendLeaving() {
-  if (!Cloud.on || !isDeviceId(Cloud.device) || leftCopy) return;
+  if (!Cloud.on || !isDeviceId(Cloud.device) || leftCopy || Account.switching) return;
   leftCopy = true;
   // Merging only ever adds, so the copy leaves out what the main copy already has, which keeps
   // it small enough for the browser to finish sending after the page is gone. That's tests
@@ -3229,15 +3772,204 @@ function sendLeaving() {
   });
 }
 
+// Texts on their way up, kept until each one is through, so signing out can wait for them.
+const textSends = new Set();
+
 // Saved texts go to the cloud as soon as they are added, each under its own name.
-async function cloudDoc(method, id, text) {
+function cloudDoc(method, id, text) {
+  const send = sendDoc(method, id, text);
+  if (method === "PUT") {
+    textSends.add(send);
+    const done = () => textSends.delete(send);
+    send.then(done, done);
+  }
+  return send;
+}
+
+async function sendDoc(method, id, text) {
   if (!Cloud.on) return null;
   try {
     return await Cloud.call(method, Store.docKey(id), text);
   } catch (err) {
-    Cloud.error = cloudProblem(err);
+    // A text that didn't reach the account goes up later. One the account had no room for is
+    // held, so signing out warns that this browser has the only copy.
+    const account = Cloud.kind === "account" && method === "PUT";
+    const problem = cloudProblem(err);
+    if (account && problem === "full") holdText(id);
+    else if (account && problem !== "revoked") Account.due.add(id);
+    cloudFailed(err);
+    if (account && Cloud.kind === "account" && !Account.leaving) saveCloudConfig(problem === "full" ? [id] : []);
     renderCloudStatus();
     return null;
+  }
+}
+
+// A text the account had no room for stays here, held, and tries again once a day or as soon
+// as a text is removed.
+function holdText(id) {
+  showToast("No room for this text in your account");
+  Account.due.delete(id);
+  Account.held.add(id);
+  Account.heldAt = Date.now();
+}
+
+// Held texts go back on the list to send, once a day, or when removing a text made room.
+function retryHeld(now = false) {
+  if (!Account.held.size || !signedIn()) return;
+  if (!now && Date.now() - Account.heldAt < APP.heldRetry) return;
+  const ids = [...Account.held];
+  for (const id of ids) Account.due.add(id);
+  Account.held.clear();
+  saveCloudConfig(ids);
+  uploadDue();
+}
+
+/* Accounts in the save pipeline -------------------------------------------- */
+
+// An account uses the same save pipeline as Cloud save, at this page's own address. Its
+// session token takes the place of the save key, and one read brings the main copy and every
+// left copy together.
+const accountBase = () => location.origin + APP.accountApi + "/u";
+
+// The account a saved config or a sign in names, with anything odd left out.
+function cleanUser(u) {
+  if (!u || typeof u !== "object" || typeof u.id !== "string" || !/^[a-z0-9]{20}$/.test(u.id)) return null;
+  const username = typeof u.username === "string" && nameOk(u.username) ? u.username : "";
+  const email = typeof u.email === "string" ? u.email.slice(0, 254) : "";
+  const name = (typeof u.name === "string" ? u.name.trim() : "").slice(0, 120) || "Google account";
+  return { id: u.id, name, username, email, google: Boolean(u.google), password: Boolean(u.password) };
+}
+
+const isToken = (t, uid) => typeof t === "string" && /^kp1\.[a-z0-9]{20}\.[A-Za-z0-9_-]{43}$/.test(t) && t.split(".")[1] === uid;
+
+// What another tab may have written since this one last looked.
+function readConfigNow() {
+  if (Store.kind !== "browser") return cloudSeen;
+  try {
+    return window.localStorage.getItem(APP.cloudConfig) || "";
+  } catch (err) {
+    return cloudSeen;
+  }
+}
+
+// Whose progress a config stands for. Tabs compare these to notice a sign in or out elsewhere.
+function cloudIdentity(raw) {
+  let cfg = null;
+  try {
+    cfg = raw ? JSON.parse(raw) : null;
+  } catch (err) {
+    // a config that doesn't read counts as none
+  }
+  if (!cfg || typeof cfg !== "object") return "none";
+  if (cfg.out > 0) return `out ${cfg.out}`;
+  if (cfg.kind === "account") return `account ${cfg.user && typeof cfg.user === "object" ? cfg.user.id : ""} ${cfg.key}`;
+  if (cfg.url && cfg.key) return "key";
+  return "none";
+}
+
+// Connecting or disconnecting your own save Worker, or a device id written at start, never
+// reloads other tabs. Any change to an account or a sign out does.
+const accountChange = (a, b) => a !== b && [a, b].some((x) => x.startsWith("account") || x.startsWith("out"));
+
+// Another tab signed in or out, so this tab's progress may belong to someone else. It stops
+// saving and reloads, and never saves on the way out.
+function leaveTab() {
+  if (Account.leaving) return;
+  Account.leaving = true;
+  ready = false;
+  clearTimeout(saveTimer);
+  saveTimer = 0;
+  localDirty = false;
+  clearTimeout(cloudTimer);
+  cloudTimer = 0;
+  cloudDirty = false;
+  setTimeout(() => location.reload(), 300);
+}
+
+// Notes what went wrong with a cloud request, and says whether to try again. An account that
+// signed this browser out on purpose clears it. One whose session just ran out keeps the
+// progress here and stops trying until you sign in again.
+function cloudFailed(err) {
+  const problem = cloudProblem(err);
+  if (Cloud.kind !== "account") {
+    Cloud.error = problem;
+    return true;
+  }
+  if (problem === "revoked") {
+    setTimeout(() => clearBrowser("revoked"), 0);
+    return false;
+  }
+  if (problem === "key") {
+    sessionEnded();
+    return false;
+  }
+  Cloud.error = problem;
+  return true;
+}
+
+// The session ran out or was pushed out. The progress here still belongs to the same account,
+// so kind and user stay, and signing in again as that account merges it back.
+function sessionEnded() {
+  clearTimeout(cloudTimer);
+  cloudTimer = 0;
+  Cloud.key = "";
+  Cloud.error = "";
+  Cloud.seen = 0;
+  Cloud.lastOk = 0;
+  if (accountChange(cloudIdentity(cloudSeen), cloudIdentity(readConfigNow()))) {
+    leaveTab(); // another tab already signed in again
+    return;
+  }
+  saveCloudConfig();
+  renderCloudStatus();
+}
+
+// Waits for a cloud save that's running, and cancels any that's waiting.
+async function settleCloud() {
+  clearTimeout(cloudTimer);
+  cloudTimer = 0;
+  try {
+    await (cloudNext || cloudRun);
+  } catch (err) {
+    // a failed save is the next owner's to retry
+  }
+  clearTimeout(cloudTimer);
+  cloudTimer = 0;
+}
+
+// One request brings the account's main copy and every left copy. The reply is a short JSON
+// header with the length of each, then their bytes one after another.
+async function readAccount() {
+  const buf = await Cloud.call("GET", APP.accountSync, undefined, false, true);
+  const all = new Uint8Array(buf || new ArrayBuffer(0));
+  const cut = all.indexOf(10);
+  if (cut < 0) throw new Error("reach");
+  const text = new TextDecoder();
+  const head = JSON.parse(text.decode(all.subarray(0, cut)));
+  let at = cut + 1;
+  const take = (n) => text.decode(all.subarray(at, (at += n)));
+  const theirs = head.main >= 0 ? JSON.parse(take(head.main)) : null;
+  const left = [];
+  for (const [id, n] of Array.isArray(head.slots) ? head.slots : []) {
+    const raw = take(n);
+    if (isDeviceId(id)) left.push([id, JSON.parse(raw)]);
+  }
+  return { theirs, left };
+}
+
+// Removes progress and texts from this browser. Settings go with the progress, and the
+// config with this browser's device id stays.
+function wipeLocal() {
+  try {
+    const prefix = Store.docKey("");
+    const keys = [APP.storageKey];
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const k = window.localStorage.key(i);
+      if (k && k.startsWith(prefix)) keys.push(k);
+    }
+    for (const k of keys) window.localStorage.removeItem(k);
+  } catch (err) {
+    // storage that can't be listed is left as it is, and a reload shows what's there
   }
 }
 
@@ -3334,6 +4066,7 @@ function hydrate(saved) {
   s.lessonWords = clamp(Math.round(s.lessonWords) || DEFAULTS.lessonWords, 1, APP.maxWords);
   s.stepTop = clamp(Math.round(s.stepTop) || DEFAULTS.stepTop, 1, APP.maxWords);
   s.stepStart = clamp(Math.round(s.stepStart) || DEFAULTS.stepStart, 1, s.stepTop);
+  s.stepDown = clamp(Math.round(s.stepDown) || 0, 0, APP.stepDownMax);
   s.targetWpm = clamp(Math.round(s.targetWpm) || DEFAULTS.targetWpm, 10, 200);
   s.startKeys = clamp(Math.round(s.startKeys) || DEFAULTS.startKeys, 3, APP.letterOrder.length);
   state.settings = s;
@@ -3390,15 +4123,32 @@ function hydrate(saved) {
   }
   state.docs = state.docs.filter((d) => !state.removed.includes(d.id));
   state.docId = state.docs.some((d) => d.id === saved.docId) ? saved.docId : "";
+  // A step's time only orders the changes of one day, so it can't be more than a day ahead.
+  // Holding it closer to now would lower a fast clock's time here but not in that clock's
+  // own copy, which would then undo the next change made here. Saves from before steps were
+  // timed have none, which counts as 0.
   const st = saved.step;
-  state.step = st && typeof st.day === "string" ? { day: st.day, words: Math.max(0, Math.round(st.words) || 0) } : { day: "", words: 0 };
+  state.step = st && typeof st.day === "string"
+    ? { day: st.day, words: Math.max(0, Math.round(st.words) || 0), at: clamp(Math.round(st.at) || 0, 0, Date.now() + 86400000) }
+    : { day: "", words: 0, at: 0 };
   state.restoredAt = Number(saved.restoredAt) || 0;
+  // Practice these switches Chinese off and isn't saved, so a copy saved during it comes
+  // back in Chinese. A drill still on here keeps going in English, and Back to your tests
+  // brings Chinese back after it.
+  const back = saved.drillBack === "zh" ? "zh" : "";
+  const drilling = Boolean(lesson && lesson.drill);
+  if (back && !drilling) s.language = back;
+  state.drillBack = drilling ? back : "";
   state.devices = [];
   for (const d of Array.isArray(saved.devices) ? saved.devices : []) {
     if (!d || !isDeviceId(d.id) || state.devices.some((x) => x.id === d.id)) continue;
     state.devices.push({ id: d.id, seen: Number(d.seen) || 0, left: Number(d.left) || 0 });
   }
   state.devices = state.devices.sort((a, b) => b.seen - a.seen).slice(0, APP.cloudDevices);
+  // A save from before the welcome that already holds a test counts as welcomed, so only
+  // someone new ever sees it on their own.
+  state.welcomed = clamp(Math.round(Number(saved.welcomed)) || 0, 0, Number.MAX_SAFE_INTEGER);
+  if (!state.welcomed && Object.values(state.profiles).some((p) => p.history.length)) state.welcomed = state.savedAt || 1;
 }
 
 /* 5. Text generation ------------------------------------------------------- */
@@ -3515,35 +4265,47 @@ const POOLS = {
   common1000: { name: "Common words (1,000)", words: COMMON_WORDS },
 };
 
-// Words tests pick words at random from the chosen list.
-// With extra practice on, words that contain your weakest letters come up more often.
+// Step up and Words tests pick words at random from the chosen list. With Extra practice for
+// weak letters on, about a third of the words (APP.weakShare, and at least one in a test of
+// two or more) hold one of your weakest letters. They're spread through the test, one in
+// each stretch of it, and each draws a weak letter by how weak it is and then a word with
+// that letter. Every weak letter gets a word when there's room. The rest are drawn as usual.
+// The first word is left to the usual draw, since Capitals turns its first letter into a
+// capital, and a weak letter typed only as a capital doesn't count toward that letter.
 function wordsText(s) {
   const pool = POOLS[s.wordPool].words;
+  const n = s.lessonWords;
   const weak = s.weakBoost ? weakLetters(profile(), s) : [];
-  const weights = pool.map((word) => {
-    let weight = 1;
-    for (const [ch, strength] of weak) if (word.includes(ch)) weight += 4 * strength;
-    return weight;
-  });
-  const total = weights.reduce((sum, w) => sum + w, 0);
-  const draw = () => {
-    let r = Math.random() * total;
-    for (let i = 0; i < pool.length; i++) {
-      r -= weights[i];
-      if (r <= 0) return pool[i];
-    }
-    return pool[pool.length - 1];
-  };
+  const lists = weak.map((w) => [pool.filter((word) => word.includes(w.ch)), w.weakness]).filter(([list]) => list.length);
+  const count = lists.length && n > 1 ? Math.max(1, Math.round(n * APP.weakShare)) : 0;
+  const slots = new Set();
+  for (let j = 0; j < count; j++) {
+    const from = Math.floor((j * n) / count) || 1;
+    slots.add(from + Math.floor(Math.random() * (Math.floor(((j + 1) * n) / count) - from)));
+  }
+  const letters = count >= lists.length ? lists.map(([list]) => list) : [];
+  while (letters.length < count) letters.push(pick(lists));
   let prev = "";
-  const next = () => {
-    let word = draw();
-    if (word === prev && pool.length > 1) word = draw();
+  const next = (list = pool) => {
+    let word = pickFrom(list);
+    for (let tries = 0; word === prev && tries < 4; tries++) word = pickFrom(list);
+    if (word === prev && list !== pool) return next(); // a letter with one word, twice in a row
     prev = word;
     return word;
   };
   const words = [];
-  for (let i = 0; i < s.lessonWords; i++) words.push(next());
-  return decorate(words, s, next, false);
+  for (let i = 0; i < n; i++) {
+    words.push(slots.has(i) ? next(letters.splice(Math.floor(Math.random() * letters.length), 1)[0]) : next());
+  }
+  // Decorating can swap a word for a contraction or a number, or start a sentence with a
+  // capital, so a short test that lost its only weak letter is decorated again. With every
+  // mark on, a try of a short test loses it up to about one time in eight, and more for some
+  // words, so four more tries still ran out about once in 8,000 short tests. Twelve all but
+  // never do, and a test that holds its letter takes no extra try at all.
+  const holds = (text) => weak.some((w) => text.includes(w.ch));
+  let text = decorate(words, s, next, false);
+  for (let tries = 0; count && !holds(text) && tries < 12; tries++) text = decorate(words, s, next, false);
+  return text;
 }
 
 // Practice these, from the Analysis tab. Words holding your most missed keys and trickiest
@@ -3795,7 +4557,12 @@ async function deleteDoc(id) {
   docCache.delete(id);
   if (state.docId === id) state.docId = "";
   await Store.removeDoc(id);
-  cloudDoc("DELETE", id);
+  // Removing a text may make room for one the account had no room for.
+  cloudDoc("DELETE", id).then((ok) => {
+    if (ok && Cloud.kind === "account") retryHeld(true);
+  });
+  const listed = Account.due.delete(id);
+  if (Account.held.delete(id) || listed) saveCloudConfig([id]); // a removed text no longer waits to go up
   scheduleSave(0);
 }
 
@@ -4035,27 +4802,155 @@ function canUnlock(p, s) {
   return true;
 }
 
-// The letters common words tests practice extra. A letter counts as weak when it is
-// slow next to your other letters, below your target speed, or often mistyped.
+// The letters Step up and Words tests practice extra, up to three. Each is { ch, weakness,
+// why, speed, miss, usual, under }, with weakness up to 1 (at least 0.2 for a letter named
+// anew, APP.weakKeep for one named before) and why "slow" or "missed", whichever counts
+// more. speed and miss are the letter's own figures lately and usual is your usual letter
+// speed, for the tooltips, and under means it's slow next to your target rather than next
+// to your other letters. They come from your newest English tests, so they move on as you
+// catch up. The ranking only changes when a test is added, or the target speed or word
+// list changes, so it's kept until then, and the letter row, the label above the text and
+// the next test all share it. Each ranking starts from the letters named the time before,
+// so what's named only moves when your typing does (see weakest).
+let weakCache = null; // { p, key, layout, list }
+
 function weakLetters(p, s) {
-  const rows = [];
-  for (const ch of APP.letterOrder) {
-    const k = p.keys[ch];
-    if (k && k.n >= 6) rows.push({ ch, speed: keySpeed(k), e: k.e });
+  const h = p.history;
+  const key = `${h.length}|${h.length ? h[h.length - 1].ts : 0}|${s.targetWpm}|${s.wordPool}`;
+  if (weakCache && weakCache.p === p && weakCache.key === key) return weakCache.list;
+  const before = weakCache && weakCache.layout === s.layout ? weakCache.list : [];
+  weakCache = { p, key, layout: s.layout, list: rankWeak(p, s, before) };
+  return weakCache.list;
+}
+
+// Calls fn(ch, [ms, timed, typed, missed]) for each letter of a test's k, leaving out odd
+// entries, with ms and timed 0 when the letter wasn't timed.
+function eachLetter(k, fn) {
+  for (const ch in k) {
+    const d = k[ch];
+    if (!isLower(ch) || !Array.isArray(d) || !(d[2] > 0)) continue;
+    const timed = d[0] > 0 && d[1] > 0 ? d[1] : 0;
+    fn(ch, [timed ? d[0] : 0, timed, d[2], Math.min(d[3] || 0, d[2])]);
   }
-  if (rows.length < 6) return [];
-  const speeds = rows.map((r) => r.speed).sort((x, y) => x - y);
+}
+
+// Each letter of your newest English tests, walking back until about APP.weakChars letters
+// or APP.weakTests tests. A rarer letter typed fewer than APP.weakMin times in that window
+// walks on through older tests by itself until it has that many, and one with fewer in all
+// doesn't rank. A test's average for a letter counts as at most APP.weakCap times your
+// usual pace, so one long pause can't make it slow. Each letter also gets APP.weakPrior keys
+// at your usual pace and miss rate mixed in, as rankRates does on the Analysis tab, so a
+// letter typed a few times needs more than one slip to stand out. Rows are { ch, speed,
+// miss, own }, with speed 0 until half of APP.weakMin keys were timed, and own the letter's
+// figures as typed, before the cap and the mixing.
+function recentLetters(h) {
+  const english = (e) => (e.lang === "zh" ? null : e.k); // Chinese and old tests have no letters
+  const tests = [];
+  const all = { ms: 0, timed: 0, typed: 0, missed: 0 };
+  let i = h.length - 1;
+  for (; i >= 0 && tests.length < APP.weakTests && all.typed < APP.weakChars; i--) {
+    const k = english(h[i]);
+    if (!k) continue;
+    tests.push(k);
+    eachLetter(k, (ch, d) => {
+      all.ms += d[0] * d[1];
+      all.timed += d[1];
+      all.typed += d[2];
+      all.missed += d[3];
+    });
+  }
+  const pace = all.timed ? all.ms / all.timed : 0;
+  const rate = all.typed ? all.missed / all.typed : 0;
+  const sums = {};
+  const add = (k, only) => eachLetter(k, (ch, d) => {
+    if (only && !only.has(ch)) return;
+    const sum = sums[ch] || (sums[ch] = { ms: 0, raw: 0, timed: 0, typed: 0, missed: 0 });
+    sum.ms += Math.min(d[0], pace * APP.weakCap) * d[1];
+    sum.raw += d[0] * d[1];
+    sum.timed += d[1];
+    sum.typed += d[2];
+    sum.missed += d[3];
+  });
+  for (const k of tests) add(k);
+  const short = new Set([...APP.letterOrder].filter((ch) => !sums[ch] || sums[ch].typed < APP.weakMin));
+  for (; i >= 0 && short.size; i--) {
+    const k = english(h[i]);
+    if (!k) continue;
+    add(k, short);
+    for (const ch of short) if (sums[ch] && sums[ch].typed >= APP.weakMin) short.delete(ch);
+  }
+  const prior = APP.weakPrior;
+  const rows = [];
+  for (const [ch, sum] of Object.entries(sums)) {
+    if (sum.typed < APP.weakMin) continue;
+    const timed = pace > 0 && sum.timed >= APP.weakMin / 2;
+    rows.push({
+      ch,
+      speed: timed ? 12000 / ((sum.ms + prior * pace) / (sum.timed + prior)) : 0,
+      miss: (sum.missed + prior * rate) / (sum.typed + prior),
+      own: { speed: timed ? 12000 / (sum.raw / sum.timed) : 0, miss: sum.missed / sum.typed },
+    });
+  }
+  return rows;
+}
+
+// The letters a word list can practice, the ones at least APP.weakWords of its words hold.
+// Common words (200) has no word with q or z, so naming them there would never help.
+const poolLetterSets = {};
+function poolLetters(id) {
+  if (!poolLetterSets[id]) {
+    const words = POOLS[id].words;
+    poolLetterSets[id] = new Set([...APP.letterOrder].filter((ch) => words.filter((w) => w.includes(ch)).length >= APP.weakWords));
+  }
+  return poolLetterSets[id];
+}
+
+// With too few letters typed lately to rank, your overall letter stats rank every letter.
+function rankWeak(p, s, before = []) {
+  let rows = recentLetters(p.history);
+  if (rows.length < 6) {
+    rows = [];
+    for (const ch of APP.letterOrder) {
+      const k = p.keys[ch];
+      if (k && k.n >= 6) rows.push({ ch, speed: keySpeed(k), miss: k.e });
+    }
+  }
+  const can = poolLetters(s.wordPool);
+  return rows.length >= 6 ? weakest(rows, s, before, (ch) => can.has(ch)) : [];
+}
+
+// A letter counts as weak when it's slow next to your other letters, below your target
+// speed, or often mistyped, and keep(ch) says whether it may be named. A new letter needs a
+// weakness of 0.2. The letters named the time before (before, as weakest gave them) stay
+// down to APP.weakKeep, get a head start of APP.weakStick, keep their places at the front
+// and keep their reason unless the other one counts clearly more. So a letter close to the
+// line, or about as weak as another, doesn't come and go after every test. New letters
+// follow, weakest first, and ties go to the larger score before clamping and then to the
+// letter, so the same tests always give the same list.
+function weakest(rows, s, before = [], keep = () => true) {
+  const speeds = rows.filter((r) => r.speed > 0).map((r) => r.speed).sort((x, y) => x - y);
   const median = speeds[Math.floor(speeds.length / 2)];
-  return rows
-    .map((r) => {
-      const slow = clamp(((median - r.speed) / median) * 2.5, 0, 1);
-      const belowTarget = clamp(1 - r.speed / s.targetWpm, 0, 1) * 0.8;
-      const sloppy = clamp((r.e - 0.03) / 0.09, 0, 1);
-      return [r.ch, Math.max(slow, belowTarget, sloppy)];
-    })
-    .filter(([, weakness]) => weakness >= 0.2)
-    .sort((x, y) => y[1] - x[1])
-    .slice(0, 3);
+  const was = new Map(before.map((w, at) => [w.ch, { why: w.why, at }]));
+  const scored = rows.filter((r) => keep(r.ch)).map((r) => {
+    const behind = r.speed > 0 ? ((median - r.speed) / median) * 2.5 : 0;
+    const under = r.speed > 0 ? (1 - r.speed / s.targetWpm) * 0.8 : 0;
+    const slow = Math.max(behind, under);
+    const missed = (r.miss - 0.03) / 0.09;
+    const score = Math.max(slow, missed);
+    let why = missed >= slow ? "missed" : "slow";
+    const old = was.get(r.ch);
+    if (old && old.why !== why && Math.abs(clamp(missed, 0, 1) - clamp(slow, 0, 1)) < 0.15) why = old.why;
+    const own = r.own || r;
+    return { ch: r.ch, weakness: clamp(score, 0, 1), why, score, speed: own.speed, miss: own.miss, usual: median, under: under > behind };
+  });
+  const head = (w) => w.weakness + (was.has(w.ch) ? APP.weakStick : 0);
+  const weaker = (x, y) => y.score - x.score || (x.ch < y.ch ? -1 : 1);
+  const place = (w) => (was.has(w.ch) ? was.get(w.ch).at : 3);
+  return scored
+    .filter((w) => w.weakness >= (was.has(w.ch) ? APP.weakKeep : 0.2))
+    .sort((x, y) => head(y) - head(x) || weaker(x, y))
+    .slice(0, 3)
+    .sort((x, y) => place(x) - place(y) || weaker(x, y));
 }
 
 // Folds a test's letter timings and mistakes into each letter's stats. A test that ends
@@ -4192,7 +5087,8 @@ function keepPartial(L) {
 }
 
 // Step up starts each day at stepStart words and grows by a word with every perfect test,
-// up to stepTop. A test with a mistake keeps the same length.
+// up to stepTop. A test with stepDown mistakes or more takes a word away, down to stepStart,
+// and one with fewer keeps the same length. See finishLesson.
 function stepWords() {
   const s = state.settings;
   const today = state.step.day === dayKey() ? state.step.words : 0;
@@ -4256,15 +5152,15 @@ function newLesson(attempt = 1) {
 }
 
 // Tab gives new text. In My text it moves on to the next passage, and in Practice these it
-// gives new drill text, so the drill goes on.
+// gives new text from the same plan, so you stay in Practice these until you go back.
 function skipAhead() {
   if (lesson && lesson.drill) {
-    startLesson(drillText(lesson.drill, state.settings), 1, lesson.drill);
+    drillLesson(lesson.drill);
     renderFocus();
     checkGoals();
     return;
   }
-  const doc = state.settings.mode === "custom" && !zhOn() && !(lesson && lesson.drill) ? activeDoc() : null;
+  const doc = state.settings.mode === "custom" && !zhOn() ? activeDoc() : null;
   if (doc && doc.passages) {
     doc.at = (doc.at + 1) % doc.passages;
     scheduleSave();
@@ -4274,11 +5170,14 @@ function skipAhead() {
 }
 
 // A drill is a Practice these test from the Analysis tab. It counts as a Words test, so it
-// never moves My text along or unlocks a letter, and it goes back to your usual tests after.
+// never grows or shrinks Step up (and shows no mistake dots), moves My text along or unlocks
+// a letter. Drills follow one another until Back to your tests or anything else that starts
+// a usual test, like a setting.
 // A Chinese test comes with zh, the pinyin and word ends from zhText. It counts as Step up
 // or Words, so it never moves My text along or unlocks a letter either.
 function startLesson(text, attempt = 1, drill = null, zh = null) {
   if (lesson && !lesson.done) keepPartial(lesson);
+  if (!drill) dropDrillBack();
   const wordAt = new Uint32Array(text.length + 1);
   const ends = zh ? new Set(zh.ends) : null;
   for (let i = 0; i < text.length; i++) wordAt[i + 1] = wordAt[i] + ((zh ? ends.has(i) : text[i] === " ") ? 1 : 0);
@@ -4303,6 +5202,7 @@ function startLesson(text, attempt = 1, drill = null, zh = null) {
     typed: [],  // what was typed at positions that went wrong, when mistakes move the cursor on
     gaps: new Int16Array(text.length).fill(-1), // ms before each key that was right on the first try, -1 if not
     misses: [], // the first wrong key at each position that went wrong, as [index, key, ms before it]
+    missed: 0,  // positions that went wrong, each counted once, for Step up's mistakes
     afterBackspace: false,
     done: false,
     mode,
@@ -4320,12 +5220,16 @@ function startLesson(text, attempt = 1, drill = null, zh = null) {
   updateVeil();
   updateHands();
   wakeCue();
+  renderDrillOn();
 }
 
 function restartLesson() {
   if (lesson) startLesson(lesson.text, lesson.attempt, lesson.drill, lesson.zh);
   checkGoals();
 }
+
+// The next Practice these test, new text from the same plan.
+const drillLesson = (plan, attempt = 1) => startLesson(drillText(plan, state.settings), attempt, plan);
 
 // Notes the first wrong key at a position for the Analysis tab. Wrong keys typed after it,
 // before the mistake is fixed, follow from that one and aren't noted again.
@@ -4397,7 +5301,10 @@ function typeChar(ch) {
     clearTrail();
   } else {
     L.errors += 1;
-    if (!L.errAt[L.pos]) noteMiss(L, L.pos, ch, gap);
+    if (!L.errAt[L.pos]) {
+      noteMiss(L, L.pos, ch, gap);
+      L.missed += 1; // a place counts once, however many wrong keys it takes
+    }
     L.errAt[L.pos] = 1;
     sound("miss");
     if (s.mistakes !== "move") {
@@ -4453,7 +5360,7 @@ function failAttempt() {
   markNextKey();
   clearTimeout(coolTimer);
   coolTimer = setTimeout(() => {
-    if (lesson === L && L.drill) startLesson(drillText(L.drill, state.settings), L.attempt + 1, L.drill);
+    if (lesson === L && L.drill) drillLesson(L.drill, L.attempt + 1);
     else if (lesson === L) newLesson(L.attempt + 1);
     coolUntil = hold;
     el.board.style.setProperty("--fade", `${Math.round(total * 0.6)}ms`);
@@ -4544,16 +5451,31 @@ function finishLesson() {
   if (view === "progress") renderProgress();
   const perfect = L.errors === 0 && L.text.length > 1;
   perfectRun = perfect ? perfectRun + 1 : 0;
+  // Step up grows a word after a perfect test and takes one away after stepDown mistakes,
+  // each place in the text that went wrong counted once, as the dots under the text show.
   let step = 0;
-  if (perfect && L.mode === "step") {
+  let down = 0;
+  if (L.mode === "step") {
     const was = stepWords();
-    state.step = { day: dayKey(), words: Math.min(s.stepTop, was + 1) };
-    step = was < s.stepTop ? stepWords() : -1; // -1 means it was already at the top
-    scheduleSave();
+    let words = was;
+    if (perfect) words = Math.min(s.stepTop, was + 1);
+    else if (s.stepDown && L.missed >= s.stepDown) words = Math.max(Math.min(s.stepStart, s.stepTop), was - 1);
+    if (perfect) step = was < s.stepTop ? words : -1; // -1 means it was already at the top
+    else if (words < was) down = words;
+    if (perfect || down) {
+      // A change is always later than the step it replaces, even when this clock is behind
+      // one whose copy merged in, or the next merge of that copy would undo it.
+      state.step = { day: dayKey(), words, at: Math.max(Date.now(), (Number(state.step.at) || 0) + 1) };
+      scheduleSave();
+    }
   }
-  newLesson();
+  // Practice these goes on with new text from the same plan until you go back to your tests.
+  if (L.drill) drillLesson(L.drill);
+  else newLesson();
   // A goal celebration says more than a perfect test, so a test that reaches a goal shows that.
-  if (!checkGoals().length && perfect) flourishPerfect(perfectRun, step);
+  if (checkGoals().length) return;
+  if (perfect) flourishPerfect(perfectRun, step);
+  else if (down) noteStepDown(L.missed, down);
 }
 /* 8. Practice screen ------------------------------------------------------- */
 
@@ -4564,6 +5486,7 @@ const el = {
   focusTitle: $("#focusTitle"),
   focusDetail: $("#focusDetail"),
   focusMeter: $("#focusMeter"),
+  focusBack: $("#focusBack"),
   focusFill: $("#focusFill"),
   figures: $("#figures"),
   statSpeed: $("#statSpeed"),
@@ -4579,6 +5502,7 @@ const el = {
   text: $("#text"),
   lessonBar: $("#lessonBar"),
   wordCount: $("#wordCount"),
+  pips: $("#pips"),
   veil: $("#veil"),
   sink: $("#sink"),
   boardEmpty: $("#boardEmpty"),
@@ -4637,8 +5561,12 @@ const el = {
   anaStats: $("#anaStats"),
   anaTrend: $("#anaTrend"),
   anaTrendNote: $("#anaTrendNote"),
+  anaOverview: $("#anaOverview"),
+  anaDrillCard: $("#anaDrillCard"),
   anaDrillKeys: $("#anaDrillKeys"),
   anaDrill: $("#anaDrill"),
+  anaDrillOn: $("#anaDrillOn"),
+  anaBack: $("#anaBack"),
   anaKeys: $("#anaKeys"),
   anaSwaps: $("#anaSwaps"),
   anaPairs: $("#anaPairs"),
@@ -4677,6 +5605,59 @@ const el = {
   cloudDaysRow: $("#cloudDaysRow"),
   cloudDays: $("#cloudDays"),
   cloudRestore: $("#cloudRestore"),
+  cloudGroup: $("#cloudGroup"),
+  cloudDaysHint: $("#cloudDaysHint"),
+  accountGroup: $("#accountGroup"),
+  accountNote: $("#accountNote"),
+  accountForm: $("#accountForm"),
+  googleRow: $("#googleRow"),
+  googleHint: $("#googleHint"),
+  googleBtn: $("#googleBtn"),
+  accountName: $("#accountName"),
+  accountPass: $("#accountPass"),
+  accountPass2Row: $("#accountPass2Row"),
+  accountPass2: $("#accountPass2"),
+  accountSignIn: $("#accountSignIn"),
+  accountCreate: $("#accountCreate"),
+  accountClear: $("#accountClear"),
+  accountMerge: $("#accountMerge"),
+  accountMergeHint: $("#accountMergeHint"),
+  accountMergeLabel: $("#accountMergeLabel"),
+  accountKeep: $("#accountKeep"),
+  accountCancel: $("#accountCancel"),
+  accountDrop: $("#accountDrop"),
+  accountPanel: $("#accountPanel"),
+  accountMethods: $("#accountMethods"),
+  accountNow: $("#accountNow"),
+  accountOut: $("#accountOut"),
+  accountOutHint: $("#accountOutHint"),
+  accountOutAll: $("#accountOutAll"),
+  accountLinkRow: $("#accountLinkRow"),
+  accountLinkHint: $("#accountLinkHint"),
+  accountLinkBtn: $("#accountLinkBtn"),
+  accountPwRow: $("#accountPwRow"),
+  accountPwLabel: $("#accountPwLabel"),
+  accountPwHint: $("#accountPwHint"),
+  accountPwOpen: $("#accountPwOpen"),
+  accountPwForm: $("#accountPwForm"),
+  accountPwNameRow: $("#accountPwNameRow"),
+  accountPwName: $("#accountPwName"),
+  accountPwOldRow: $("#accountPwOldRow"),
+  accountPwOld: $("#accountPwOld"),
+  accountPwNew: $("#accountPwNew"),
+  accountPwNew2: $("#accountPwNew2"),
+  accountPwSave: $("#accountPwSave"),
+  accountPwCancel: $("#accountPwCancel"),
+  accountDelete: $("#accountDelete"),
+  welcome: $("#welcome"),
+  welcomeName: $("#welcomeName"),
+  welcomeClose: $("#welcomeClose"),
+  welcomePages: $("#welcomePages"),
+  welcomeDots: $("#welcomeDots"),
+  welcomeBack: $("#welcomeBack"),
+  welcomeNext: $("#welcomeNext"),
+  welcomeLive: $("#welcomeLive"),
+  welcomeShow: $("#welcomeShow"),
 };
 
 let view = "practice";
@@ -4699,6 +5680,11 @@ function renderPractice() {
 
 // Every letter, colored from red when slow to green once it reaches your target.
 // Adaptive tests list letters in unlock order and the rest list them alphabetically.
+// The outlined letters are the ones getting extra practice, the same ones #focus names.
+// That's the drill's letters while Practice these is on, so renderDrillOn draws the row
+// again whenever a drill starts or ends (rowDrill is the drill it was last drawn for).
+let rowDrill = null;
+
 function renderSequence() {
   const s = state.settings;
   const p = profile();
@@ -4706,7 +5692,10 @@ function renderSequence() {
   const adaptive = s.mode === "adaptive";
   const order = adaptive ? APP.letterOrder : "abcdefghijklmnopqrstuvwxyz";
   const plain = s.mode === "words" || s.mode === "step";
-  const extra = adaptive ? [focusKey(p, s)] : plain && s.weakBoost ? weakLetters(p, s).map(([ch]) => ch) : [];
+  const drill = (lesson && lesson.drill) || null;
+  rowDrill = drill;
+  const weak = !drill && plain && s.weakBoost && !zhOn() ? weakLetters(p, s) : [];
+  const extra = drill ? drill.keys.filter(isLower) : adaptive ? [focusKey(p, s)] : weak.map((w) => w.ch);
   const focus = new Set(extra);
   const items = [...order].map((ch, i) => {
     const rank = APP.letterOrder.indexOf(ch);
@@ -4722,7 +5711,8 @@ function renderSequence() {
     }
     if (adaptive && rank === p.unlocked) item.classList.add("upcoming");
     if (!locked && focus.has(ch)) item.classList.add("drill"); // outlined letters get extra practice
-    item.title = letterSummary(ch, k, locked);
+    const named = weak.find((w) => w.ch === ch);
+    item.title = named ? weakTitle(named) : letterSummary(ch, k, locked);
     return item;
   });
   el.sequence.replaceChildren(...items);
@@ -4739,7 +5729,12 @@ function renderFocus() {
   const p = profile();
   const adaptive = s.mode === "adaptive";
   const drill = lesson && lesson.drill;
-  el.focusDetail.classList.toggle("chips", Boolean(drill));
+  // Words and Step up name your weakest letters while Extra practice for weak letters is on,
+  // the same ones the letter row outlines, and otherwise leave the row to the figures and goals.
+  const plain = s.mode === "words" || s.mode === "step";
+  const weak = plain && s.weakBoost && !drill && !zhOn() ? weakLetters(p, s) : [];
+  el.focusDetail.classList.toggle("chips", Boolean(drill) || weak.length > 0);
+  el.focus.title = ""; // only the weak letters explain themselves, below
   if (drill) {
     // A Practice these test names the keys and switches it leans on.
     el.focus.hidden = false;
@@ -4751,34 +5746,27 @@ function renderFocus() {
     return;
   }
   if (zhOn()) {
+    // Chinese names its language, and Step up keeps quiet about itself the way it does in
+    // English. The word count under the text shows how far it has grown.
     const n = s.mode === "step" ? stepWords() : s.lessonWords;
-    const words = node("strong", null, `${n.toLocaleString("en-US")} ${n === 1 ? "word" : "words"}`);
     el.focus.hidden = false;
     el.focusCap.hidden = true;
     el.focusMeter.hidden = true;
     el.focusDetail.hidden = false;
-    if (s.mode === "step") {
-      el.focusTitle.replaceChildren("Step up in Chinese, ", words);
-      el.focusDetail.textContent = n < s.stepTop
-        ? `Each perfect test adds a word, up to ${s.stepTop.toLocaleString("en-US")}.`
-        : "At the top. Tomorrow starts short again.";
-    } else {
-      el.focusTitle.replaceChildren("Chinese, ", words);
-      el.focusDetail.textContent = "Type each word with your Chinese input method.";
-    }
+    el.focusTitle.replaceChildren("Chinese, ", node("strong", null, `${n.toLocaleString("en-US")} ${n === 1 ? "word" : "words"}`));
+    el.focusDetail.textContent = "Type each word with your Chinese input method.";
     return;
   }
-  el.focus.hidden = s.mode === "words";
+  el.focus.hidden = plain && !weak.length;
   el.focusCap.hidden = !adaptive;
   el.focusMeter.hidden = !adaptive;
   el.focusDetail.hidden = false;
-  if (s.mode === "words") return;
-  if (s.mode === "step") {
-    const n = stepWords();
-    el.focusTitle.replaceChildren("Step up, ", node("strong", null, `${n.toLocaleString("en-US")} ${n === 1 ? "word" : "words"}`));
-    el.focusDetail.textContent = n < s.stepTop
-      ? `Each perfect test adds a word, up to ${s.stepTop.toLocaleString("en-US")}.`
-      : "At the top. Tomorrow starts short again.";
+  if (plain) {
+    if (!weak.length) return;
+    const one = weak.length === 1;
+    el.focusTitle.textContent = one ? "Practicing your weakest letter" : "Practicing your weakest letters";
+    el.focus.title = `Words with ${one ? "this letter" : "these letters"} come up more often. Extra practice for weak letters in Settings turns this off.`;
+    el.focusDetail.replaceChildren(...weakChips(weak));
     return;
   }
   if (s.mode === "custom") {
@@ -4799,6 +5787,31 @@ function renderFocus() {
   else if (k.e >= 0.05) detail += `, ${Math.round(k.e * 100)}% mistakes`;
   el.focusDetail.textContent = detail;
   el.focusFill.style.width = `${(clamp(skill(k, s.targetWpm), 0, 1) * 100).toFixed(1)}%`;
+}
+
+// The weak letters as key caps, outlined like they are in the letter row, in the order
+// weakLetters gives them. Letters weak for the same reason share it ("q z slow, x often
+// missed"), which keeps the status row on one line. Each cap says why it was picked.
+function weakChips(weak) {
+  return [...new Set(weak.map((w) => w.why))].map((why) => {
+    const item = node("span", "weak-key");
+    const caps = weak.filter((w) => w.why === why).map((w) => {
+      const cap = keyCap(w.ch);
+      cap.title = weakTitle(w);
+      return cap;
+    });
+    item.append(...caps, why === "slow" ? "slow" : "often missed");
+    return item;
+  });
+}
+
+// Why a weak letter was picked, with its own figures lately, for its key cap and its letter.
+function weakTitle(w) {
+  const speed = (wpm) => `${Math.round(speedValue(wpm)).toLocaleString("en-US")} ${unitLabel()}`;
+  const more = "so words with it come up more often.";
+  if (w.why === "missed") return `${w.ch} is missed ${Math.round(w.miss * 100)}% of the time lately, ${more}`;
+  const than = w.under ? `under your ${speed(state.settings.targetWpm)} target` : `next to your usual ${speed(w.usual)}`;
+  return `${w.ch} averages ${speed(w.speed)} lately, ${than}, ${more}`;
 }
 
 // Chinese tests count characters instead of letters, so they keep apart from English ones
@@ -4953,27 +5966,34 @@ function flourishPerfect(run, step = 0) {
   if (run > 1) parts.push(`${run.toLocaleString("en-US")} in a row`);
   if (step > 0) parts.push(`now ${step.toLocaleString("en-US")} words`);
   else if (step < 0) parts.push(`at the top with ${state.settings.stepTop.toLocaleString("en-US")} words`);
-  showFlourish(parts.join(", "), false);
+  showFlourish(parts.join(", "));
   el.sequence.classList.remove("shine");
   void el.sequence.offsetWidth;
   el.sequence.classList.add("shine");
   sound("perfect");
 }
 
-function showFlourish(text, clean) {
+// A test that took a word away says so in the Perfect tag's place, in grey, with no ring,
+// light or sound. It's news about the next test, not a celebration, and nothing waits on it.
+function noteStepDown(missed, words) {
+  showFlourish(`${missed.toLocaleString("en-US")} ${missed === 1 ? "mistake" : "mistakes"}, now ${wordsOf(words)}`, "down");
+}
+
+// kind is "" for a perfect test, "clean" for the clean typing goal or "down" for a step down.
+function showFlourish(text, kind = "") {
   const f = el.flourish;
   clearTimeout(flourishTimer);
   f.style.top = "";
   f.style.right = "";
   f.textContent = text;
-  f.classList.remove("show", "clean");
+  f.classList.remove("show", "clean", "down");
   void f.offsetWidth;
-  f.classList.toggle("clean", clean);
+  if (kind) f.classList.add(kind);
   f.classList.add("show");
   flourishTimer = setTimeout(() => {
-    f.classList.remove("show", "clean");
+    f.classList.remove("show", "clean", "down");
     el.sequence.classList.remove("shine");
-  }, clean ? 3700 : 2700);
+  }, kind === "clean" ? 3700 : 2700);
 }
 
 let trace = null; // the line drawn around the text, built the first time it's needed
@@ -4981,7 +6001,7 @@ let traceTimer = 0;
 
 // One fine line draws itself all the way around the text, glows once and fades.
 function flourishClean() {
-  showFlourish(`${fmtGoal(state.settings.cleanGoal)} of clean typing`, true);
+  showFlourish(`${fmtGoal(state.settings.cleanGoal)} of clean typing`, "clean");
   if (!trace) {
     trace = document.createElementNS(SVG_NS, "svg");
     trace.setAttribute("class", "trace");
@@ -5554,7 +6574,8 @@ function paintChar(i) {
   else if (st === 3) cls += " bad";
   if (i === L.pos && !L.done) {
     cls += " cur";
-    if (L.errAt[i] && st === 0 && state.settings.mistakes === "move") cls += " miss";
+    // A place that went wrong stays marked at the cursor, unless its wrong keys show there.
+    if (L.errAt[i] && st === 0 && (state.settings.mistakes === "move" || !L.trail.length)) cls += " miss";
   }
   c.className = cls;
 }
@@ -5582,7 +6603,10 @@ function popTrail() {
   const L = lesson;
   L.trail.pop();
   if (trailEl && trailEl.lastChild) trailEl.lastChild.remove();
-  if (!L.trail.length) clearTrail();
+  if (!L.trail.length) {
+    clearTrail();
+    paintChar(L.pos); // the place is marked again now its wrong keys are gone
+  }
   scrollToCursor();
   moveCaret();
 }
@@ -5608,13 +6632,37 @@ function markTyping() {
   typingTimer = setTimeout(() => el.board.classList.remove("typing"), 700);
 }
 
-// While you type, only the word count and progress line change.
+// While you type, only the word count, the progress line and Step up's mistakes change.
 function updateLive() {
   const L = lesson;
   if (!L) return;
   el.lessonBar.style.width = `${((L.pos / L.text.length) * 100).toFixed(2)}%`;
   el.wordCount.textContent = `${L.wordAt[L.pos]} of ${L.words} ${L.words === 1 ? "word" : "words"}`;
+  renderPips(L);
   moveCaret();
+}
+
+// A dot for each mistake a Step up test may have before it takes a word away, filled as
+// places go wrong. They show only where that can happen, so not in other kinds of test,
+// Practice these (a Words test), One mistake restarts (a mistake starts over) or when Start
+// is at Top (every test is the same length), and they fade when the test is already as
+// short as it gets.
+function renderPips(L) {
+  const s = state.settings;
+  const max = s.stepDown;
+  const start = Math.min(s.stepStart, s.stepTop);
+  el.pips.hidden = L.mode !== "step" || s.suddenDeath || !max || start >= s.stepTop;
+  if (el.pips.hidden) return;
+  if (el.pips.childElementCount !== max) el.pips.replaceChildren(...Array.from({ length: max }, () => node("i")));
+  const n = Math.min(L.missed, max);
+  [...el.pips.children].forEach((pip, i) => pip.classList.toggle("on", i < n));
+  const low = stepWords() <= start;
+  el.pips.classList.toggle("low", low);
+  const label = `${n.toLocaleString("en-US")} of ${max.toLocaleString("en-US")} ${max === 1 ? "mistake" : "mistakes"}${low ? ", already at the shortest" : ""}`;
+  if (el.pips.title !== label) {
+    el.pips.title = label;
+    el.pips.setAttribute("aria-label", label);
+  }
 }
 
 function flashFigures() {
@@ -5636,8 +6684,11 @@ function updateVeil() {
   el.veil.hidden = focused || !ready || !lesson;
 }
 
-// My text with nothing loaded shows a prompt to add something instead of a test.
+// My text with nothing loaded shows a prompt to add something instead of a test. What you
+// typed of the test before still counts, as in startLesson.
 function clearLesson() {
+  if (lesson && !lesson.done) keepPartial(lesson);
+  dropDrillBack();
   lesson = null;
   charEls = [];
   caretEl = null;
@@ -5649,6 +6700,7 @@ function clearLesson() {
   renderFocus();
   updateVeil();
   updateHands();
+  renderDrillOn();
 }
 
 function focusSink() {
@@ -5783,6 +6835,12 @@ function loadPdfReader() {
     pdfReader = new Promise((resolve, reject) => {
       const script = document.createElement("script");
       script.src = APP.pdfScript;
+      // The account's token sits in this browser's storage, so a script from elsewhere is
+      // checked against its known hash where one is set.
+      if (APP.pdfIntegrity) {
+        script.integrity = APP.pdfIntegrity;
+        script.crossOrigin = "anonymous";
+      }
       script.onload = () => {
         if (!window.pdfjsLib) {
           reject(new Error("reader"));
@@ -6008,6 +7066,357 @@ function bindLibrary() {
     e.preventDefault();
     addFiles([...(e.dataTransfer ? e.dataTransfer.files : [])]);
   });
+}
+
+/* Welcome ------------------------------------------------------------------ */
+
+// Someone new gets a short walkthrough on their first visit, right after the first test is
+// drawn. It's a native modal dialog, so the page behind it takes no focus (a click on it
+// closes the welcome), and onKeyDown, onSinkInput and the input method listeners ignore
+// every key while it's open. Closing it in any way counts as seen, in state.welcomed, which
+// merges like the rest of the save, so seeing it on one device is enough. Settings shows it
+// again, from the top of the Test group.
+let welcomeAt = 0;        // the step showing now
+let welcomeAuto = false;  // it opened by itself, not from Settings
+let welcomeStart = false; // Start typing closed it, so it goes on to the test
+
+const MODE_NAMES = { step: "Step up", words: "Words", adaptive: "Adaptive", custom: "My text" };
+const welcomeOpen = () => Boolean(el.welcome && el.welcome.open);
+const wordsOf = (n) => `${n.toLocaleString("en-US")} ${n === 1 ? "word" : "words"}`;
+const passagesOn = (s) => s.mode === "custom" && !zhOn(); // Chinese never types My text
+
+// Someone new has never closed the welcome and has no test on any layout.
+const isNewcomer = () => !state.welcomed && !Object.values(state.profiles).some((p) => p.history.length);
+
+// The four steps. Every number and name comes from the settings as they are now, and from
+// the screen (a touch screen has no Esc or Tab), so the words always match what you'll see.
+function welcomeSteps() {
+  const s = state.settings;
+  const zh = zhOn();
+  const touch = coarse();
+  const next = passagesOn(s) ? "the next passage" : "new text";
+  const tap = touch ? "Tap the text to bring up your keyboard, then type" : "Type";
+  const lead = zh
+    ? `${tap} each word with your Chinese input method${s.pinyin ? ", spelling out the pinyin above it" : ""}.`
+    : `${tap} ${touch ? "it" : "the text"} as you see it.`;
+  let keys = `Press Esc to try the same text again, or Tab for ${next}.`;
+  if (touch && s.zoom === "text") keys = "Tap Leave Text only at the top to bring back the rest of the page.";
+  else if (touch) keys = `With a keyboard attached, press Esc to try the same text again, or Tab for ${next}.`;
+  else if (s.zoom === "text") keys = `Press Tab for ${next}, and Esc to leave Text only.`;
+  // My text is typed just as it was written, so these switches only change the other tests.
+  let marks = "";
+  const decorated = !zh && s.mode !== "custom";
+  if (decorated && s.capitals && s.punctuation) marks = "Tests have capitals and punctuation, and you can turn either off in Settings.";
+  else if (decorated && s.capitals) marks = "Tests have capital letters, and you can turn them off in Settings.";
+  else if (decorated && s.punctuation) marks = "Tests have punctuation, and you can turn it off in Settings.";
+
+  const start = Math.min(s.stepStart, s.stepTop);
+  const grow = start >= s.stepTop
+    ? `Step up is set to start at its top, so every test has ${wordsOf(s.stepTop)}. Lower Start in Settings, and each test with no mistakes adds a word until it gets there.`
+    : `${s.mode === "step" ? "Each" : "In Step up, each"} day starts with a test of ${wordsOf(start)}, and every test with no mistakes adds a word, up to ${s.stepTop.toLocaleString("en-US")}. ${stepDownText(s)} Tomorrow starts short again.`;
+  const kinds = s.mode === "step"
+    ? "Settings has other kinds of test too (Words, Adaptive and My text)."
+    : `You're on ${MODE_NAMES[s.mode]} now. To try Step up, pick it under Text to type in Settings.`;
+
+  // The keyboard shows with Show keyboard on and Zoom on Normal, and takes its colors from
+  // Finger colors.
+  const fixes = [];
+  if (s.zoom !== "normal") fixes.push("set Zoom to Normal");
+  if (!s.showKeyboard) fixes.push(s.fingerColors ? "turn on Show keyboard" : "turn on Show keyboard and Finger colors");
+  else if (fixes.length && !s.fingerColors) fixes.push("turn on Finger colors");
+  const todo = fixes.join(" and ");
+  let board = "Each key takes the color of the finger that presses it, and when you pause, a blue ring shows the next key.";
+  if (todo) board = `${todo[0].toUpperCase()}${todo.slice(1)} in Settings to see each key in the color of the finger that presses it, with a blue ring on the next key when you pause.`;
+  else if (!s.fingerColors) board = "When you pause, a blue ring on the keyboard shows the next key. Turn on Finger colors in Settings to color each key by the finger that presses it.";
+  const ways = {
+    clear: "With Right key clears, a wrong key shows in red and the right key wipes it away, but it still counts as a mistake.",
+    delete: "With Backspace to delete, a wrong key and every key after it stay in red, each one a mistake, until you delete them with Backspace.",
+    move: "With Move on, the cursor carries on past a wrong key, and it counts as a mistake even if you go back with Backspace to fix it.",
+  };
+  const more = s.suddenDeath
+    ? "One mistake restarts is on too, so outside My text any wrong key starts a new test."
+    : "You can pick another way under Mistakes in Settings.";
+  // Extra practice for weak letters only shapes English Step up and Words tests. Someone new
+  // has none yet, so they hear when to expect them.
+  const weakOn = s.weakBoost && !zh && (s.mode === "step" || s.mode === "words");
+  const weakNow = weakOn && weakLetters(profile(), s).length > 0;
+  let weak = "";
+  if (weakOn) weak = `${weakNow ? "Your" : "After a few tests, your"} weakest letters show above the text, and words with them turn up more often.`;
+
+  let goals = "Daily goals are off now, and you can set them under Daily goal in Settings.";
+  if (s.dailyGoal && s.cleanGoal) goals = `The rings fill toward today's goals, ${fmtGoal(s.dailyGoal)} of typing and ${fmtGoal(s.cleanGoal)} of clean typing (in tests with no mistakes). Reaching either one completes the day.`;
+  else if (s.dailyGoal) goals = `The ring fills toward today's goal of ${fmtGoal(s.dailyGoal)} of typing.`;
+  else if (s.cleanGoal) goals = `The ring fills toward today's goal of ${fmtGoal(s.cleanGoal)} of clean typing, in tests with no mistakes.`;
+
+  return [
+    { title: "Just start typing", text: [`${lead} The clock starts with your first key, so there's no rush to begin.`, keys], note: marks, art: artType(s, touch) },
+    { title: "Step up, one word at a time", text: [grow], note: kinds, art: artStep(s) },
+    { title: "Keys and mistakes", text: [board, `${ways[s.mistakes]} ${more}`, weak].filter(Boolean), art: artKeys(s) },
+    {
+      title: "Goals and progress",
+      text: [goals, "Progress charts your speed and accuracy, and Analysis finds your mistakes and builds a test to practice them."],
+      note: welcomeSaves(),
+      art: artGoals(s),
+    },
+  ];
+}
+
+// What a test with mistakes does to Step up. Down after is at most APP.stepDownMax, so it
+// always has a word. With it off, or with One mistake restarts on, mistakes never take a
+// word away.
+const COUNT_WORDS = ["zero", "one", "two", "three", "four", "five"];
+
+function stepDownText(s) {
+  const n = s.stepDown;
+  if (!n || s.suddenDeath) return "After a mistake, the next test stays the same length.";
+  if (n === 1) return "A mistake takes a word away.";
+  const keep = n === 2 ? "One mistake keeps" : n === 3 ? "One or two mistakes keep" : `One to ${COUNT_WORDS[n - 1]} mistakes keep`;
+  return `${keep} the same length, and ${COUNT_WORDS[n]} take a word away.`;
+}
+
+// Where your progress is kept, and how Settings can keep it safe too. Signing in is offered
+// only where this address has accounts. Settings asks the first time it opens, so until then
+// that's the site itself, and a copy anywhere else suggests a backup file.
+function welcomeSaves() {
+  const kind = Store.kind || Store.detect();
+  if (signedIn()) return "Everything saves as you go, in this browser and in your account.";
+  if (Cloud.on) return "Everything saves as you go, in this browser and in your Cloud save.";
+  if (kind === "none") return "This copy can't save on its own, so download a backup in Settings before you close it.";
+  const accounts = Account.conf ? Account.conf.ready === true : location.origin === APP.site;
+  if (accountPlace() === "ok" && accounts) return "Everything saves in this browser as you go, and you can sign in under Settings to have it on every device.";
+  if (kind === "claude") return "Everything saves as you go, and a backup file from Settings keeps a copy of your own.";
+  return "Everything saves in this browser as you go, and a backup file from Settings takes it to another browser.";
+}
+
+// The pictures are built from the page's own pieces, so they follow the theme and the font.
+// Typing fades the letters you've typed, with the underline under the next one. In Chinese
+// it's a word with its pinyin, part way through the second character. A touch screen gets
+// a tap in place of Esc and Tab.
+function artType(s, touch) {
+  const box = node("div", "wa-type");
+  const line = node("p", "wa-line");
+  if (zhOn()) {
+    line.classList.add("zh");
+    line.classList.toggle("nopy", !s.pinyin);
+    [["明", "ming"], ["天", "tian"], ["见", "jian"], ["面", "mian"]].forEach(([ch, py], i) => {
+      const c = node("span", i === 0 ? "ok" : i === 1 ? "cur" : i === 2 ? "gap" : "");
+      const label = node("span", "py");
+      if (i === 1) label.append(node("b", null, py.slice(0, 2)), py.slice(2));
+      else label.textContent = py;
+      c.append(label, ch);
+      line.append(c);
+    });
+  } else {
+    line.classList.toggle("dots", s.spaceDots);
+    [..."a quiet river"].forEach((ch, i) => {
+      const c = node("span", i < 4 ? "ok" : i === 4 ? "cur" : "", ch);
+      if (ch === " ") c.classList.add("sp");
+      line.append(c);
+    });
+  }
+  const keys = node("p", "wa-keys");
+  if (touch) {
+    const hint = node("span", "wa-hint");
+    hint.append(node("span", "wa-tap"), "Tap the text to type");
+    keys.append(hint);
+  } else {
+    const hints = [["Esc", s.zoom === "text" ? "Leave Text only" : "Same text"], ["Tab", passagesOn(s) ? "Next passage" : "New text"]];
+    for (const [key, what] of hints) {
+      const hint = node("span", "wa-hint");
+      hint.append(node("kbd", null, key), what);
+      keys.append(hint);
+    }
+  }
+  box.append(line, keys);
+  return box;
+}
+
+// Step up is a staircase of tests, each a word longer, apart from the one after a test with
+// a mistake, which kept its length. When mistakes can take a word away, the red tests carry
+// the dots of the practice screen. One just short of Down after keeps its length, and one
+// that fills them all is followed by a shorter test.
+function artStep(s) {
+  const box = node("div", "wa-step");
+  const bars = node("div", "wa-bars");
+  const start = Math.min(s.stepStart, s.stepTop);
+  const flat = start >= s.stepTop;
+  const n = flat || s.suddenDeath ? 0 : s.stepDown;
+  // Each bar is [height, mistakes], or [height] for a perfect test. A test with mistakes
+  // but no dots is the old picture's, which only keeps its length.
+  let rise = [[1], [2], [3, -1], [3], [4], [5], [6]];
+  if (flat) rise = [[6], [6], [6], [6], [6], [6], [6]];
+  else if (n === 1) rise = [[1], [2], [3, 1], [2], [3], [4], [5], [6]];
+  else if (n) rise = [[1], [2, n - 1], [2], [3], [4, n], [3], [4], [5]];
+  const tall = Math.max(...rise.map(([h]) => h));
+  rise.forEach(([h, missed], i) => {
+    const bar = node("i", missed ? "miss" : i === rise.length - 1 ? "top" : null);
+    bar.style.setProperty("--h", (h / tall).toFixed(3));
+    bar.style.setProperty("--i", i);
+    if (missed > 0) {
+      const dots = node("span", "wa-pips");
+      for (let k = 0; k < n; k++) dots.append(node("span", k < missed ? "on" : null));
+      bar.append(dots);
+    }
+    bars.append(bar);
+  });
+  const scale = node("p", "wa-scale");
+  scale.append(node("span", null, wordsOf(start)));
+  if (!flat) scale.append(node("span", null, wordsOf(s.stepTop)));
+  box.append(bars, scale);
+  return box;
+}
+
+// The home row of your layout in its finger colors, with the blue ring on the next key.
+function artKeys(s) {
+  const row = node("div", "wa-kb");
+  const home = LAYOUTS[s.layout].rows[2];
+  const fingers = FINGER_PATTERNS[s.fingerPattern][2];
+  for (const i of [0, 1, 2, 3, 6, 7, 8, 9]) {
+    const key = node("span", "wa-key", home[i]);
+    key.dataset.f = fingers[i];
+    if (i === 3 || i === 6) key.classList.add("home");
+    if (i === 6) key.classList.add("next");
+    row.append(key);
+    if (i === 3) row.append(node("span", "wa-gap"));
+  }
+  return row;
+}
+
+// The goal rings of the practice screen, part way there, beside a few bars of a speed chart.
+function artGoals(s) {
+  const box = node("div", "wa-goals");
+  const rings = node("div", "wa-rings");
+  for (const [goal, share, label] of [[s.dailyGoal, 0.4, "Typing today"], [s.cleanGoal, 0.6, "Clean typing today"]]) {
+    if (!goal) continue;
+    const g = node("div", "goal");
+    const ring = svgEl("svg", { class: "ring", viewBox: "0 0 36 36", "aria-hidden": "true" });
+    ring.append(svgEl("circle", { class: "ring-track", cx: 18, cy: 18, r: 15.5 }), svgEl("circle", { class: "ring-fill", cx: 18, cy: 18, r: 15.5 }));
+    const text = node("div", "goal-text");
+    text.append(node("span", "goal-value"), node("span", "goal-note"));
+    g.append(ring, text);
+    fillGoal(g, goal * share * 60000, goal, label, false);
+    rings.append(g);
+  }
+  const chart = node("div", "wa-chart");
+  for (const h of [0.34, 0.3, 0.44, 0.5, 0.42, 0.58, 0.66, 0.8]) {
+    const bar = node("i");
+    bar.style.setProperty("--h", h);
+    chart.append(bar);
+  }
+  if (rings.children.length) box.append(rings);
+  box.append(chart);
+  return box;
+}
+
+// auto is true for the welcome that opens by itself, and false when Settings shows it.
+function openWelcome(auto) {
+  const d = el.welcome;
+  if (!d || d.open || typeof d.showModal !== "function") return;
+  el.welcomeName.textContent = auto ? `Welcome to ${APP.name}` : `How ${APP.name} works`;
+  const steps = welcomeSteps();
+  el.welcomePages.replaceChildren(...steps.map((step) => {
+    const page = node("div", "welcome-page");
+    const art = node("div", "welcome-art");
+    art.setAttribute("aria-hidden", "true");
+    art.append(step.art);
+    page.append(art, node("h3", "welcome-title", step.title), ...step.text.map((t) => node("p", "welcome-text", t)));
+    if (step.note) page.append(node("p", "welcome-note", step.note));
+    return page;
+  }));
+  el.welcomeDots.replaceChildren(...steps.map(() => node("i")));
+  el.welcomeLive.textContent = "";
+  welcomeAuto = auto;
+  welcomeStart = false;
+  showWelcomeStep(0, false);
+  d.showModal();
+  // The dialog itself takes focus, not Next, so someone who starts typing without noticing
+  // it presses nothing. Enter and the arrow keys still page through it.
+  d.focus({ preventScroll: true });
+  d.scrollTop = 0;
+}
+
+function showWelcomeStep(i, announce) {
+  const pages = [...el.welcomePages.children];
+  welcomeAt = clamp(i, 0, pages.length - 1);
+  pages.forEach((page, n) => page.classList.toggle("on", n === welcomeAt));
+  [...el.welcomeDots.children].forEach((dot, n) => dot.classList.toggle("on", n === welcomeAt));
+  el.welcomeBack.hidden = welcomeAt === 0;
+  el.welcomeNext.textContent = welcomeAt === pages.length - 1 ? "Start typing" : "Next";
+  el.welcome.scrollTop = 0; // on a short screen each step starts from its picture
+  if (announce) el.welcomeLive.textContent = `Step ${welcomeAt + 1} of ${pages.length}. ${pages[welcomeAt].querySelector(".welcome-title").textContent}`;
+}
+
+function moveWelcome(by) {
+  const to = welcomeAt + by;
+  if (to < 0 || to >= el.welcomePages.children.length) return;
+  const onBack = document.activeElement === el.welcomeBack;
+  showWelcomeStep(to, true);
+  if (onBack && el.welcomeBack.hidden) el.welcomeNext.focus(); // Back is gone on the first step
+}
+
+// Next goes on a step, and on the last step Start typing closes it and goes to the test.
+function nextWelcome() {
+  if (welcomeAt < el.welcomePages.children.length - 1) {
+    moveWelcome(1);
+    return;
+  }
+  welcomeStart = true;
+  el.welcome.close();
+}
+
+// Esc closes the dialog by itself. Tab and Shift Tab go round its buttons, even from a click
+// that left focus outside them, the arrow keys page through the steps, and Enter on the
+// dialog itself works like Next.
+function onWelcomeKey(e) {
+  if (!welcomeOpen() || e.altKey || e.ctrlKey || e.metaKey) return;
+  if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+    e.preventDefault();
+    moveWelcome(e.key === "ArrowRight" ? 1 : -1);
+  } else if (e.key === "Enter" && document.activeElement === el.welcome) {
+    e.preventDefault();
+    if (!e.repeat) nextWelcome();
+  } else if (e.key === "Tab") {
+    e.preventDefault();
+    const stops = [el.welcomeClose, el.welcomeBack, el.welcomeNext].filter((b) => !b.hidden);
+    const at = stops.indexOf(document.activeElement);
+    const to = at < 0 ? stops.length - 1 : (at + (e.shiftKey ? -1 : 1) + stops.length) % stops.length;
+    stops[to].focus();
+  }
+}
+
+// However it closes, the welcome counts as seen. Closed before its last step, it says where
+// to find it again. On Practice the next key types into the test, and Start typing from
+// Settings goes there first.
+function onWelcomeClosed() {
+  state.welcomed = Date.now();
+  scheduleSave(0);
+  if (welcomeAuto && welcomeAt < el.welcomePages.children.length - 1) showToast("You'll find this tour in Settings");
+  if (welcomeStart && view !== "practice") showView("practice");
+  else if (view === "practice") focusSink();
+  welcomeAuto = false;
+  welcomeStart = false;
+}
+
+function bindWelcome() {
+  const d = el.welcome;
+  el.welcomeShow.addEventListener("click", () => openWelcome(false));
+  el.welcomeClose.addEventListener("click", () => d.close());
+  el.welcomeBack.addEventListener("click", () => moveWelcome(-1));
+  el.welcomeNext.addEventListener("click", nextWelcome);
+  // A click on the dimmed page around it closes it too, but not one that started inside it,
+  // like a drag to select its words. Clicks on the backdrop come to the dialog itself.
+  let fromOutside = false;
+  const outside = (e) => {
+    const r = d.getBoundingClientRect();
+    return e.target === d && (e.clientX < r.left || e.clientX >= r.right || e.clientY < r.top || e.clientY >= r.bottom);
+  };
+  d.addEventListener("pointerdown", (e) => { fromOutside = outside(e); });
+  d.addEventListener("click", (e) => {
+    if (fromOutside && outside(e)) d.close();
+    fromOutside = false;
+  });
+  document.addEventListener("keydown", onWelcomeKey);
+  d.addEventListener("close", onWelcomeClosed);
 }
 
 /* 9. Keyboard -------------------------------------------------------------- */
@@ -7502,6 +8911,7 @@ const SHIFT_SLIPS = {
   extra: { name: "Shift by mistake", note: "Shift came down on a key that needs none" },
 };
 let analysisNow = null; // the analysis on screen, which Practice these builds its test from
+let anaPlan = null;     // the plan its Practice these card shows
 
 const needsShift = (ch) => (ch >= "A" && ch <= "Z") || Boolean(UNSHIFT[ch]);
 const baseKey = (ch) => (ch >= "A" && ch <= "Z" ? ch.toLowerCase() : UNSHIFT[ch] || ch);
@@ -7894,9 +9304,11 @@ function renderAnaOverview(A) {
 }
 
 function renderAnaDrill(A) {
-  const chips = drillChips(drillPlan(A));
+  anaPlan = drillPlan(A);
+  const chips = drillChips(anaPlan);
   el.anaDrillKeys.replaceChildren(...(chips.length ? chips : [node("p", "ana-none", "Nothing stands out yet, so keep typing and check back.")]));
   el.anaDrill.hidden = !chips.length;
+  renderDrillOn();
 }
 
 function renderAnaKeys(A) {
@@ -8078,17 +9490,80 @@ function renderAnaRecent(A) {
   el.anaRecent.replaceChildren(...(chips.length ? chips : [node("p", "ana-none", "No mistakes in your detailed tests. Well done.")]));
 }
 
-// Practice these starts a test built from the analysis on screen, back on the Practice tab.
+// Practice these starts tests built from the analysis on screen, back on the Practice tab.
+// They all come from the keys picked now, and they keep coming until you choose Back to your
+// tests. Their keys are English, so they switch Chinese off, and state.drillBack keeps the
+// language to go back to. It's saved, so leaving during a drill brings Chinese back next
+// time too (see hydrate). Starting again during a drill keeps it.
 function startDrill() {
   if (!ready) return;
   const A = analysisNow || analyze(profile().history, state.settings);
   const plan = drillPlan(A);
   if (!plan.keys.length && !plan.pairs.length) return;
-  if (zhOn()) setSetting("language", "en");
+  const zh = zhOn();
+  if (zh) setSetting("language", "en");
   showView("practice");
-  startLesson(drillText(plan, state.settings), 1, plan);
+  // The card can sit partway down Analysis. This brings the top of Practice into view, and on
+  // a phone it moves what's on screen too, which can sit apart from the page's own scroll.
+  document.body.scrollIntoView({ block: "start" });
+  drillLesson(plan);
+  if (zh) {
+    state.drillBack = "zh"; // after the switch, whose usual test would have dropped it
+    scheduleSave();
+  }
   renderFocus();
   checkGoals();
+}
+
+// Back to your tests ends Practice these and starts your usual next test, in Chinese again
+// if Practice these switched it off. What you typed of the drill still counts, and the next
+// key you press types into the new test.
+function endDrill() {
+  if (!ready || !(lesson && lesson.drill)) return;
+  if (view !== "practice") {
+    showView("practice");
+    document.body.scrollIntoView({ block: "start" }); // from the Analysis card, as in startDrill
+  }
+  if (state.drillBack === "zh" && !zhOn()) {
+    setSetting("language", "zh"); // which starts the new test too
+  } else {
+    newLesson();
+    refreshKeyboard();
+  }
+  checkGoals();
+  focusSink();
+}
+
+// Once Practice these is over, there's no language to go back to.
+function dropDrillBack() {
+  if (!state.drillBack) return;
+  state.drillBack = "";
+  scheduleSave();
+}
+
+// Keys and switches of a plan, to tell whether two plans show the same chips.
+const planName = (plan) => `${plan.keys.join("")}|${plan.pairs.join(" ")}`;
+
+// While Practice these is on, Practice and the Analysis card both show Back to your tests,
+// and the letter row outlines the drill's letters. The card comes first on Analysis, so a
+// phone shows it without scrolling, with a line that says it's on. The line names the
+// drill's keys when the card's, from the analysis on screen, have moved on since. Every new
+// test, tab change and card render runs this, so it all goes away whenever something else
+// starts a usual test. It never runs the analysis.
+function renderDrillOn() {
+  const drill = lesson && lesson.drill;
+  if ((drill || null) !== rowDrill) renderSequence(); // the letter row outlines the drill's letters
+  el.focusBack.hidden = !drill;
+  el.anaDrillOn.hidden = !drill;
+  el.anaBack.hidden = !drill;
+  if (drill) {
+    const same = anaPlan && planName(anaPlan) === planName(drill);
+    el.anaDrillOn.replaceChildren(...(same ? ["Practice these is on."] : ["Practice these is on, with", ...drillChips(drill)]));
+  }
+  if (Boolean(drill) !== (el.anaBody.firstElementChild === el.anaDrillCard)) {
+    if (drill) el.anaBody.prepend(el.anaDrillCard);
+    else el.anaOverview.after(el.anaDrillCard);
+  }
 }
 
 /* 11. Settings ------------------------------------------------------------- */
@@ -8099,6 +9574,7 @@ const EFFECTS = {
   lessonWords: ["lesson"],
   stepStart: ["lesson"],
   stepTop: ["lesson"],
+  stepDown: ["live"],
   wordPool: ["lesson", "practice"],
   suddenDeath: ["restart"],
   targetWpm: ["keyboard", "practice"],
@@ -8135,6 +9611,7 @@ function applyTheme() {
   el.board.classList.toggle("dots", s.spaceDots);
   el.board.classList.toggle("full", s.textView === "full");
   el.board.classList.toggle("nopy", !s.pinyin);
+  if (Account.gis === 2) drawGoogle(); // Google's button follows the page theme
 }
 
 function buildLayoutOptions() {
@@ -8213,7 +9690,7 @@ function bindSettings() {
     } else if (ctrl.type === "range") {
       ctrl.addEventListener("input", () => setSetting(key, Number(ctrl.value)));
     } else if (ctrl.type === "number") {
-      const lo = Number(ctrl.min) || 1;
+      const lo = ctrl.min ? Number(ctrl.min) : 1; // Down after goes down to 0
       const hi = Number(ctrl.max) || APP.maxWords;
       let timer = 0;
       const commit = () => {
@@ -8362,6 +9839,10 @@ async function restoreBackup(data) {
       await uploadDocs();
     } catch (err) {
       // texts follow on the next save
+      if (Cloud.kind === "account") {
+        for (const doc of state.docs) Account.due.add(doc.id);
+        saveCloudConfig();
+      }
     }
     cloudDirty = true;
     pushCloud();
@@ -8396,6 +9877,7 @@ function afterMerge() {
   buildKeyboard();
   renderPractice();
   syncSettingsUI();
+  if (lesson) renderPips(lesson); // a merge can change the step or the settings
   if (view === "progress") renderProgress();
   if (view === "analysis") renderAnalysis();
   if (view === "settings") renderLibrary();
@@ -8412,7 +9894,9 @@ function timeAgo(ts) {
 
 function renderCloudStatus() {
   if (!el || !el.cloudNote) return;
-  const on = Cloud.on;
+  // One cloud per browser, so your own save Worker steps aside while an account is in use.
+  el.cloudGroup.hidden = Cloud.kind === "account";
+  const on = Cloud.on && Cloud.kind !== "account";
   el.cloudNow.hidden = !on;
   el.cloudOff.hidden = !on;
   el.cloudConnect.textContent = on ? "Reconnect" : "Connect";
@@ -8422,11 +9906,17 @@ function renderCloudStatus() {
     reach: "Couldn't reach the save address. Your progress is safe in this browser, and it will keep trying.",
   };
   let note = "Not connected. Right now your progress lives only in this browser.";
+  if (!on && accountPlace() === "ok" && Account.conf && Account.conf.ready) note = "For people who run their own save Worker in Cloudflare. Most people want an account instead.";
   if (on && Cloud.error) note = problems[Cloud.error];
   else if (on && Cloud.lastOk) note = `Connected. Last saved to your Cloudflare account ${timeAgo(Cloud.lastOk)}.`;
   else if (on) note = "Connected.";
   el.cloudNote.textContent = note;
   el.cloudNote.classList.toggle("warn", on && Boolean(Cloud.error));
+  if (!Cloud.on) el.cloudDaysRow.hidden = true; // a session that ended, or Cloud save turned off
+  el.cloudDaysHint.textContent = Cloud.kind === "account"
+    ? "Your account keeps the first copy of each of the last 14 days you practiced. Restoring one brings back the progress it had, and undoes a Reset progress made since, on every device."
+    : "Your Cloudflare account keeps the first copy of each day. Restoring one brings back the progress it had, and undoes a Reset progress made since, on every device.";
+  renderAccount();
 }
 
 async function uploadDocs() {
@@ -8445,13 +9935,15 @@ async function loadCloudDays() {
     const raw = await Cloud.call("GET", "backups");
     const days = raw ? JSON.parse(raw) : [];
     el.cloudDays.replaceChildren(...days.map((day) => {
-      const option = node("option", null, new Date(`${day}T12:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }));
+      const option = node("option", null, new Date(`${day}T12:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }));
       option.value = day;
       return option;
     }));
     el.cloudDaysRow.hidden = !days.length;
   } catch (err) {
     el.cloudDaysRow.hidden = true;
+    // An account that signed this browser out says so here too, and nothing tries again.
+    if (Cloud.kind === "account" && ["key", "revoked"].includes(cloudProblem(err))) cloudFailed(err);
   }
 }
 
@@ -8462,9 +9954,10 @@ async function onCloudConnect() {
     el.cloudNote.textContent = "Add both the save address and the save key first.";
     return;
   }
-  const before = { url: Cloud.url, key: Cloud.key };
+  const before = { url: Cloud.url, key: Cloud.key, kind: Cloud.kind };
   Cloud.url = url;
   Cloud.key = key;
+  Cloud.kind = "key";
   el.cloudNote.textContent = "Connecting";
   try {
     const remote = await Cloud.call("GET", APP.storageKey);
@@ -8478,6 +9971,7 @@ async function onCloudConnect() {
     }
     await uploadDocs();
     if (!Cloud.device) Cloud.device = newDeviceId();
+    Account.marker = null;
     await saveCloudConfig();
     Cloud.error = "";
     cloudDirty = true;
@@ -8487,6 +9981,7 @@ async function onCloudConnect() {
   } catch (err) {
     Cloud.url = before.url;
     Cloud.key = before.key;
+    Cloud.kind = before.kind;
     Cloud.error = "";
     renderCloudStatus();
     const problems = {
@@ -8504,9 +9999,11 @@ async function onCloudOff() {
   cloudTimer = 0;
   Cloud.url = "";
   Cloud.key = "";
+  Cloud.kind = "";
   Cloud.error = "";
   Cloud.lastOk = 0;
   Cloud.seen = 0;
+  cloudSeen = "";
   await Store.remove(APP.cloudConfig);
   el.cloudKey.value = "";
   el.cloudDaysRow.hidden = true;
@@ -8515,7 +10012,7 @@ async function onCloudOff() {
 
 async function onCloudNow() {
   cloudDirty = true;
-  if (await pushCloud()) showToast("Saved to your Cloudflare account");
+  if (await pushCloud()) showToast(Cloud.kind === "account" ? "Saved to your account" : "Saved to your Cloudflare account");
 }
 
 let cloudRestoreArmed = 0;
@@ -8528,7 +10025,10 @@ function disarmCloudRestore() {
 
 async function onCloudRestore() {
   const day = el.cloudDays.value;
-  if (!day) return;
+  if (!day || !Cloud.on) {
+    disarmCloudRestore();
+    return;
+  }
   if (!cloudRestoreArmed) {
     el.cloudRestore.textContent = "Click again to restore";
     el.cloudRestore.classList.add("armed");
@@ -8548,7 +10048,7 @@ async function onCloudRestore() {
     newLesson();
     showToast("Daily copy restored");
   } catch (err) {
-    Cloud.error = cloudProblem(err);
+    cloudFailed(err);
     renderCloudStatus();
   }
 }
@@ -8579,6 +10079,1053 @@ function onResetClick() {
   showToast("Progress reset");
 }
 
+/* Accounts ----------------------------------------------------------------- */
+
+// Accounts keep your progress on every device. They live at this page's own address, run by
+// site-worker.js, so they work on the site itself and not in a Claude artifact, a file opened
+// from disk or a page without the account service.
+function accountPlace() {
+  const kind = Store.kind || Store.detect();
+  if (kind === "claude") return "claude";
+  if (location.protocol === "file:") return "file";
+  try {
+    if (window.top !== window) return "frame";
+  } catch (err) {
+    return "frame";
+  }
+  if (!window.isSecureContext || !window.crypto || !crypto.subtle) return "insecure";
+  if (kind !== "browser") return "none";
+  return "ok";
+}
+
+const siteName = () => APP.site.replace(/^https:\/\//, "");
+
+// Asks the site once per page what it offers. A failure to reach it asks again the next time
+// Settings opens.
+function loadAccountConfig() {
+  if (Account.confLoading) return Account.confLoading;
+  Account.confFailed = false;
+  Account.confLoading = authCall("config", undefined, "", 8000).then((res) => {
+    const data = res.data;
+    // A site that's out of requests for the day answers with an error page, which isn't the
+    // same as having no accounts at all.
+    if (!res.status || res.status === 429 || res.status >= 500) {
+      Account.confFailed = true;
+      Account.confLoading = null;
+    } else if (res.status === 404 || data.v !== 1) {
+      Account.conf = { missing: true };
+    } else {
+      Account.conf = {
+        ready: data.ready === true,
+        google: typeof data.google === "string" ? data.google : "",
+        googleAt: typeof data.googleAt === "string" ? data.googleAt : "",
+      };
+    }
+    renderCloudStatus();
+  });
+  return Account.confLoading;
+}
+
+function openAccount() {
+  if (accountPlace() === "ok" && !Account.conf) loadAccountConfig();
+  renderAccount();
+}
+
+// Account requests go to this page's own address, with the session token only when one is
+// needed. A reply that isn't JSON comes back as an empty object, and a request that fails or
+// takes too long as status 0.
+async function authCall(path, body, token, ms = APP.cloudTimeout) {
+  const stop = new AbortController();
+  const timer = setTimeout(() => stop.abort(), ms);
+  try {
+    const headers = {};
+    if (body !== undefined) headers["Content-Type"] = "application/json";
+    if (token) headers.Authorization = `Bearer ${token}`;
+    const res = await fetch(`${APP.accountApi}/auth/${path}`, {
+      method: body === undefined ? "GET" : "POST",
+      headers,
+      body: body === undefined ? undefined : JSON.stringify(body),
+      cache: "no-store",
+      signal: stop.signal,
+    });
+    let data = {};
+    try {
+      data = await res.json();
+    } catch (err) {
+      // a reply that isn't JSON, like a plain error page
+    }
+    return { status: res.status, data: data && typeof data === "object" ? data : {} };
+  } catch (err) {
+    return { status: 0, data: { error: "reach" } };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// Usernames are matched without regard to case or look alike characters.
+const normalName = (raw) => String(raw || "").normalize("NFKC").trim().toLowerCase();
+const nameOk = (name) => /^[a-z0-9][a-z0-9._-]{2,31}$/.test(name);
+
+function b64url(bytes) {
+  const all = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+  let bin = "";
+  for (let i = 0; i < all.length; i++) bin += String.fromCharCode(all[i]);
+  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+const randomToken = () => b64url(crypto.getRandomValues(new Uint8Array(32)));
+
+// The password never leaves this browser. What's sent is a slow hash of it, salted with the
+// username. Never change the rounds, the salt text or the NFKC step, or every password stops
+// working.
+async function passwordProof(name, password) {
+  const enc = new TextEncoder();
+  const base = await crypto.subtle.importKey("raw", enc.encode(password.normalize("NFKC")), "PBKDF2", false, ["deriveBits"]);
+  const bits = await crypto.subtle.deriveBits(
+    { name: "PBKDF2", hash: "SHA-256", salt: enc.encode(`keyprint:v1:${name}`), iterations: APP.passwordRounds },
+    base,
+    256,
+  );
+  return b64url(bits);
+}
+
+// The server never sees the password, so the browser is the only place to check it.
+const EASY_PASSWORDS = ["password", "password1", "12345678", "123456789", "1234567890", "qwertyui", "qwerty123", "iloveyou", "keyprint", "abcdefgh", "11111111", "00000000", "letmein1", "sunshine", "princess", "football", "baseball", "welcome1", "admin123", "trustno1"];
+
+function passwordProblem(name, password, creating) {
+  if (password.length < APP.passwordMin) return `Use a password of at least ${APP.passwordMin} characters.`;
+  if (!creating) return "";
+  const plain = password.normalize("NFKC").trim().toLowerCase();
+  if (plain === name) return "Your password can't be your username.";
+  if (EASY_PASSWORDS.includes(plain) || /^(.)\1*$/.test(password)) return "That password is too easy to guess. Try a longer one.";
+  return "";
+}
+
+function localProgress() {
+  let tests = 0;
+  for (const p of Object.values(state.profiles)) tests += p && Array.isArray(p.history) ? p.history.length : 0;
+  return { tests, texts: state.docs.length };
+}
+
+const count = (n, one, many) => `${n.toLocaleString("en-US")} ${n === 1 ? one : many}`;
+
+function methodsText(u) {
+  if (u.google && u.email && u.username) return `Google, ${u.email}, and username ${u.username}.`;
+  if (u.google && u.username) return `Google and username ${u.username}.`;
+  if (u.username) return `Username ${u.username}.`;
+  if (u.google && u.email) return `Google, ${u.email}.`;
+  return "Google.";
+}
+
+function waitText(seconds) {
+  const s = Math.max(1, Math.ceil(Number(seconds) || 1));
+  if (s < 60) return count(s, "second", "seconds");
+  return count(Math.ceil(s / 60), "minute", "minutes");
+}
+
+// An error or a step hint takes the place of the account note until the next action.
+function setAccountNote(text, warn = false) {
+  Account.message = { text, warn };
+  el.accountNote.textContent = text;
+  el.accountNote.classList.toggle("warn", warn);
+  el.accountNote.hidden = false;
+}
+
+const signedIn = () => Cloud.kind === "account" && Cloud.on;
+
+// Signing in, or a sign in that worked, puts the form back to one password field.
+function endCreateStep() {
+  el.accountPass2Row.hidden = true;
+  el.accountPass2.value = "";
+  el.accountPass.autocomplete = "current-password";
+  Account.createStep = false;
+}
+
+async function onAccountSubmit(creating) {
+  if (Account.busy || Account.leaving || signedIn()) return;
+  Account.message = null;
+  if (!creating) endCreateStep();
+  const name = normalName(el.accountName.value);
+  const password = el.accountPass.value;
+  const stop = (text) => {
+    setAccountNote(text, true);
+    renderAccount();
+  };
+  if (!name || !password) return stop("Add a username and a password first.");
+  if (!nameOk(name)) return stop("Use 3 to 32 letters, numbers, dots, dashes or underscores for your username, starting with a letter or number.");
+  const problem = passwordProblem(name, password, creating);
+  if (problem) return stop(problem);
+  // A new password is typed twice, so a typo can't lock you out.
+  if (creating && !Account.createStep) {
+    Account.createStep = true;
+    el.accountPass2Row.hidden = false;
+    el.accountPass.autocomplete = "new-password";
+    setAccountNote("Type your password again, then click Create account.");
+    renderAccount();
+    el.accountPass2.focus();
+    return;
+  }
+  if (creating && el.accountPass2.value !== password) return stop("The two passwords don't match.");
+  Account.busy = true;
+  setAccountNote(creating ? "Creating your account" : "Signing in");
+  renderAccount();
+  let res;
+  try {
+    const proof = await passwordProof(name, password);
+    res = await authCall(creating ? "signup" : "signin", { username: name, proof });
+  } catch (err) {
+    res = { status: 0, data: { error: "reach" } };
+  } finally {
+    Account.busy = false;
+  }
+  el.accountPass.value = "";
+  el.accountPass2.value = "";
+  if (res.status === 200 || res.status === 201) {
+    await askAboutProgress(res.data, "password");
+    return;
+  }
+  stop(authProblem(res));
+}
+
+// Progress already in this browser is only added to an account when you say it's yours, and
+// never to someone else's account than the one it came from.
+// via is "password" or "google".
+async function askAboutProgress(result, via = "password") {
+  if (Account.leaving) return;
+  const user = cleanUser(result && result.user);
+  if (!user || !isToken(result.token, user.id)) {
+    setAccountNote("Something went wrong. Try again in a moment.", true);
+    renderAccount();
+    return;
+  }
+  const signin = { token: result.token, user, created: result.created === true, via };
+  const owner = Cloud.kind === "account" && Cloud.user ? Cloud.user.id : "";
+  if (owner === user.id) return adoptAccount(signin, true); // the session had ended, and it's the same person
+  const here = localProgress();
+  // A Google account new to Keyprint asks first too, so someone who already has an account
+  // with a username doesn't end up in a second, empty one without knowing.
+  if (!here.tests && !here.texts && !(signin.created && via === "google")) return adoptAccount(signin, !owner);
+  Account.message = null;
+  Account.pending = signin;
+  disarmMerge();
+  renderAccount();
+}
+
+function mergeOwner() {
+  return Cloud.kind === "account" && Cloud.user && Account.pending && Cloud.user.id !== Account.pending.user.id ? Cloud.user : null;
+}
+
+// Another account's progress is only asked about while there's some here.
+function pendingOwner() {
+  const here = localProgress();
+  return here.tests || here.texts ? mergeOwner() : null;
+}
+
+// Signing in as someone else and leaving progress out both clear this browser, so they take a
+// second click.
+function onAccountKeep() {
+  if (!Account.pending || Account.busy || Account.leaving) return;
+  if (pendingOwner() && !Account.keepArmed) {
+    armAccount("keepArmed", el.accountKeep, "Click again to remove it", "Remove it and sign in", "again");
+    return;
+  }
+  adoptAccount(Account.pending, !mergeOwner());
+}
+
+function onAccountDrop() {
+  if (!Account.pending || Account.busy || Account.leaving) return;
+  if (pendingOwner()) {
+    cancelPending();
+    return;
+  }
+  if (!Account.dropArmed) {
+    armAccount("dropArmed", el.accountDrop, "Click again to clear it", "Leave it out", "again");
+    return;
+  }
+  adoptAccount(Account.pending, false);
+}
+
+// The sign in isn't used, so its session is signed out again, as far as that goes. An account
+// Google made just now is deleted instead, so that Google account can still be added to one you
+// already have.
+function cancelPending() {
+  const p = Account.pending;
+  if (!p || Account.busy || Account.leaving) return;
+  if (p.created && p.via === "google") authCall("delete", { confirm: "delete" }, p.token, 5000);
+  else authCall("signout", { all: false }, p.token, 5000);
+  Account.pending = null;
+  Account.message = null;
+  disarmMerge();
+  renderAccount();
+}
+
+function disarmMerge() {
+  for (const [slot, btn] of [["keepArmed", el.accountKeep], ["dropArmed", el.accountDrop]]) {
+    clearTimeout(Account[slot]);
+    Account[slot] = 0;
+    btn.classList.remove("armed");
+    btn.dataset.armed = "";
+  }
+}
+
+// Texts that only your own save Worker has come along when your progress moves into an
+// account, including ones added on another device and never opened here.
+async function fetchCloudDocs() {
+  if (Cloud.kind !== "key") return;
+  for (const doc of state.docs) {
+    if (docCache.has(doc.id) || (await Store.loadDoc(doc.id))) continue;
+    const text = await Cloud.call("GET", Store.docKey(doc.id));
+    if (!text) continue; // no copy exists anywhere
+    docCache.set(doc.id, { text, passages: splitPassages(text) });
+    await Store.saveDoc(doc.id, text); // best effort, since docCache holds it either way
+  }
+}
+
+function clearLocalInPlace() {
+  wipeLocal();
+  docCache.clear();
+  unfinished = null;
+  // A test half typed on screen and the weak letters named so far belong to the progress
+  // that's going, so neither reaches the account coming in (newLesson would count the test).
+  if (lesson) lesson.counted = true;
+  weakCache = null;
+  hydrate(JSON.parse(JSON.stringify({ version: APP.version, settings: DEFAULTS })));
+}
+
+// Every sign in, new account and Google sign in ends here. Nothing changes until the account
+// has been read, and then the config is written first, so other tabs stop before anything
+// here changes.
+async function adoptAccount(result, keep) {
+  if (Account.busy || Account.leaving) return;
+  Account.busy = true;
+  Account.switching = true;
+  disarmMerge();
+  // Your own save Worker gets a last save first either way, so it has everything this browser
+  // has before anything here changes. Adding it moves it, texts included, into the account.
+  const keyPush = Cloud.kind === "key" && Cloud.on;
+  const moving = keep && keyPush;
+  const sameOwner = Boolean(Cloud.kind === "account" && Cloud.user && Cloud.user.id === result.user.id);
+  // Another tab of this browser may sign in or out meanwhile. Its change wins, and this one
+  // stops without writing anything. cloudSeen still holds the config from before this sign in,
+  // so any write by another tab shows up as a change.
+  const lost = () => Account.leaving || accountChange(cloudIdentity(cloudSeen), cloudIdentity(readConfigNow()));
+  let before = null;
+  const giveUp = () => {
+    if (before) Object.assign(Cloud, before);
+    authCall("signout", { all: false }, result.token, 5000); // the new session isn't used
+    leaveTab();
+  };
+  setAccountNote(moving ? "Bringing your Cloud save progress along" : keyPush ? "Saving your progress first" : result.created ? "Creating your account" : "Signing in");
+  renderAccount();
+  try {
+    if (keyPush) {
+      // A last read, merge and write to your own save Worker, which folds its left copies in.
+      if (saveTimer || localDirty) {
+        clearTimeout(saveTimer);
+        saveTimer = 0;
+        saveLocal();
+      }
+      cloudDirty = true;
+      if (!(await pushCloud())) throw new Error("move");
+      try {
+        if (moving) await fetchCloudDocs();
+        else await uploadDocs(); // texts here reach your save Worker before this browser is cleared
+      } catch (err) {
+        throw new Error("move");
+      }
+    }
+    if (lost()) return giveUp();
+    await settleCloud();
+    if (lost()) return giveUp();
+    // Taken after the move, so a failed read puts back exactly what the last save left.
+    before = { kind: Cloud.kind, url: Cloud.url, key: Cloud.key, user: Cloud.user, seen: Cloud.seen, lastOk: Cloud.lastOk, putAt: Cloud.putAt, error: Cloud.error };
+    Object.assign(Cloud, { kind: "account", url: accountBase(), key: result.token, user: result.user, seen: 0, lastOk: 0, putAt: -1e9, error: "", retry: 60000 });
+    leftCopy = false;
+    if (!isDeviceId(Cloud.device)) Cloud.device = newDeviceId();
+    let got;
+    try {
+      got = await readCloud(state);
+    } catch (err) {
+      Object.assign(Cloud, before);
+      throw err;
+    }
+    // Nothing awaits between this check and the write, so they happen together.
+    if (lost()) return giveUp();
+    Account.marker = null;
+    if (!sameOwner) {
+      // Lists of texts from before belong to another account, or to none.
+      Account.due = new Set();
+      Account.held = new Set();
+      Account.heldAt = 0;
+    }
+    await saveCloudConfig();
+    if (lost()) return giveUp();
+    if (!keep) clearLocalInPlace();
+    // Left marks from another cloud mean nothing here, and could make foldLeft skip a real slot.
+    const here = snapshot();
+    here.devices = [];
+    if (keep && !moving && !sameOwner) {
+      // A Reset progress made here before this browser had anything to do with the account
+      // isn't a reset of the account, and neither is a restore made here. So the progress here
+      // takes the account's resets, and its tests and letters join the account's.
+      const theirs = got.theirs && got.theirs.profiles ? got.theirs.profiles : {};
+      for (const [id, p] of Object.entries(here.profiles || {})) if (p) p.resetAt = theirs[id] ? theirs[id].resetAt || 0 : 0;
+      here.restoredAt = 0;
+    }
+    // The account's settings and open text win when it has a copy, and every test is kept.
+    let start = got.theirs ? mergeSaves(got.theirs, here, true) : here;
+    start = foldLeft(start, got.left, true);
+    hydrate(start);
+    // Whoever signs in has used Keyprint here, so the welcome for someone new doesn't open
+    // again for an account with no tests yet, after Leave it out or a sign out, say.
+    if (!state.welcomed) state.welcomed = Date.now();
+    Cloud.seen = got.theirs ? got.theirs.savedAt || 0 : 0;
+    const listed = new Set((got.theirs && Array.isArray(got.theirs.docs) ? got.theirs.docs : []).map((d) => d && d.id));
+    for (const d of state.docs) if (!listed.has(d.id) && !Account.held.has(d.id)) Account.due.add(d.id);
+    if (lost()) return giveUp();
+    await saveCloudConfig();
+    el.cloudKey.value = ""; // the save key isn't kept once you're in an account
+    el.cloudUrl.value = "";
+    Account.switching = false;
+    saveLocal();
+    if (Account.leaving) return;
+    if (state.docId && !(await openDoc(state.docId))) state.docId = "";
+    afterMerge();
+    newLesson();
+    cloudDirty = true;
+    await pushCloud(); // a failure shows in the note and tries again
+    if (Account.leaving) return;
+    uploadDue();
+    loadCloudDays();
+    endCreateStep();
+    Account.message = null;
+    showToast(result.created ? "Account created" : "Signed in");
+  } catch (err) {
+    const move = err && err.message === "move";
+    let copy = "Couldn't reach your account. Check your connection and try again.";
+    if (move) copy = moving ? "Couldn't reach your Cloud save to bring its newest progress along. Try again in a moment." : "Couldn't reach your Cloud save to save your newest progress there first. Try again in a moment.";
+    setAccountNote(copy, true);
+  } finally {
+    Account.busy = false;
+    Account.switching = false;
+    Account.pending = null;
+    disarmMerge();
+    if (!Account.leaving) renderAccount();
+  }
+}
+
+let dueRun = Promise.resolve(); // the latest uploadDue, which signing out waits for
+
+// Texts go up one at a time in the background, and a failure never undoes a sign in. Asking
+// while a run is going hands back that run.
+function uploadDue() {
+  if (!Account.uploading && signedIn()) dueRun = sendDue();
+  return dueRun;
+}
+
+async function sendDue() {
+  Account.uploading = true;
+  const key = Cloud.key;
+  const same = () => Cloud.kind === "account" && Cloud.key === key && !Account.leaving;
+  try {
+    for (const id of [...Account.due]) {
+      if (!same()) break;
+      const doc = state.docs.find((d) => d.id === id);
+      const text = !doc ? "" : docCache.has(id) ? docCache.get(id).text : await Store.loadDoc(id);
+      if (!text) {
+        Account.due.delete(id);
+        if (same()) saveCloudConfig([id]);
+        continue;
+      }
+      let failed = null;
+      try {
+        await Cloud.call("PUT", Store.docKey(id), text);
+      } catch (err) {
+        failed = err;
+      }
+      if (!same()) break;
+      const problem = failed ? cloudProblem(failed) : "";
+      // The account still has your progress, and only a text waits, so a passing problem
+      // leaves the note alone. The next save that works tries again.
+      if (problem && problem !== "full") {
+        if (problem === "key" || problem === "revoked") cloudFailed(failed);
+        break;
+      }
+      if (problem === "full") holdText(id);
+      Account.due.delete(id);
+      saveCloudConfig([id]);
+    }
+  } finally {
+    Account.uploading = false;
+    renderAccount();
+  }
+}
+
+// Waits for texts on their way to the account, then sends any still waiting, and says whether
+// the account has them all. Signing out clears this browser's only copy of a text, so it asks
+// first.
+async function settleTexts() {
+  await Promise.all([...textSends]);
+  // Another tab of this browser may have texts waiting that this one never tried.
+  joinTextLists(readConfigNow());
+  try {
+    const going = Account.uploading;
+    await uploadDue();
+    // A run that was already going may have started before a text joined the list.
+    if (going && Account.due.size) await uploadDue();
+  } catch (err) {
+    // a run that broke leaves its texts waiting, which the answer below says
+  }
+  return !Account.due.size;
+}
+
+// Whether a text the account had no room for is still here, so this browser has its only copy.
+async function heldHere() {
+  for (const id of Account.held) {
+    if (!state.docs.some((d) => d.id === id)) continue;
+    if (docCache.has(id) || (await Store.loadDoc(id))) return true;
+  }
+  return false;
+}
+
+// Signing out writes the note first, so every other tab stops, then clears this browser and
+// reloads. It never waits on the cloud queue, so a cloud save can call it.
+async function clearBrowser(why) {
+  if (Account.leaving) return;
+  Account.leaving = true;
+  Account.switching = true;
+  ready = false;
+  clearTimeout(saveTimer);
+  saveTimer = 0;
+  localDirty = false;
+  clearTimeout(cloudTimer);
+  cloudTimer = 0;
+  cloudDirty = false;
+  leftCopy = true; // nothing more goes to the cloud from this page
+  if (window.google && google.accounts && google.accounts.id) {
+    try {
+      google.accounts.id.disableAutoSelect();
+    } catch (err) {
+      // Google's script may be half loaded, and signing out goes on without it
+    }
+  }
+  Account.marker = { out: Date.now(), why, fresh: true };
+  Object.assign(Cloud, { kind: "", url: "", key: "", user: null });
+  Account.due = new Set();
+  Account.held = new Set();
+  await saveCloudConfig(); // first, so every other tab stops before anything is removed
+  wipeLocal();
+  location.reload();
+}
+
+// The first start after a sign out clears anything a tab that hadn't stopped yet wrote back.
+async function finishSignOut() {
+  wipeLocal();
+  Account.marker.fresh = false;
+  await saveCloudConfig();
+  const why = Account.marker.why;
+  if (why === "revoked") Account.note = "You were signed out from another browser, so your progress was cleared here. It's safe in your account.";
+  Account.toast = { out: "Signed out", revoked: "Signed out", deleted: "Account deleted", cleared: "Browser cleared" }[why] || "Signed out";
+}
+
+// Two click buttons change their label for a few seconds, then go back.
+function armAccount(slot, btn, label, rest, mode) {
+  clearTimeout(Account[slot]);
+  btn.textContent = label;
+  btn.classList.add("armed");
+  btn.dataset.armed = mode;
+  Account[slot] = setTimeout(() => disarmAccount(slot, btn, rest), 4000);
+}
+
+function disarmAccount(slot, btn, rest) {
+  const anyway = btn.dataset.armed === "anyway";
+  clearTimeout(Account[slot]);
+  Account[slot] = 0;
+  btn.textContent = rest;
+  btn.classList.remove("armed");
+  btn.dataset.armed = "";
+  // The warning names Sign out anyway, so it goes when the button does, and the note shows
+  // how things stand now.
+  if (anyway && !Account.busy) {
+    Account.message = null;
+    renderAccount();
+  }
+}
+
+async function onAccountOut(all) {
+  if (Account.busy || !signedIn()) return;
+  const btn = all ? el.accountOutAll : el.accountOut;
+  const slot = all ? "allArmed" : "outArmed";
+  const rest = all ? "Sign out everywhere" : "Sign out";
+  const anyway = Boolean(Account[slot]) && btn.dataset.armed === "anyway";
+  disarmAccount(slot, btn, rest);
+  Account.message = null;
+  Account.busy = true;
+  setAccountNote("Saving your progress first");
+  renderAccount();
+  try {
+    if (!anyway) {
+      if (saveTimer || localDirty) {
+        clearTimeout(saveTimer);
+        saveTimer = 0;
+        saveLocal();
+      }
+      if (Cloud.on) {
+        cloudDirty = true;
+        let ok = await pushCloud();
+        // A text is progress too, and this browser may have the only copy, so the account
+        // needs every one before this browser is cleared.
+        if (ok && !Account.leaving && signedIn()) ok = await settleTexts();
+        const held = ok && !Account.leaving && signedIn() && (await heldHere());
+        if (Account.leaving || !signedIn()) {
+          Account.message = null; // the session ended meanwhile, which the note says
+          return;
+        }
+        if (!ok || held) {
+          setAccountNote(held
+            ? "A text in My text didn't fit in your account, so it's only in this browser. Remove a text to make room, or click Sign out anyway to clear it from here."
+            : "Your newest progress hasn't reached your account yet. Try again in a moment, or click Sign out anyway to clear this browser now.", true);
+          Account.busy = false;
+          renderAccount();
+          armAccount(slot, btn, "Sign out anyway", rest, "anyway");
+          return;
+        }
+      }
+    }
+    setAccountNote("Signing out");
+    renderAccount();
+    await settleCloud();
+    const res = await authCall("signout", { all }, Cloud.key, all ? APP.cloudTimeout : 5000);
+    if (all && res.status !== 200) {
+      setAccountNote("Couldn't reach your account, so your other browsers are still signed in. Try again in a moment.", true);
+      if (cloudDirty) scheduleCloud();
+      return;
+    }
+    await clearBrowser("out");
+  } finally {
+    if (!Account.leaving) {
+      Account.busy = false;
+      renderAccount();
+    }
+  }
+}
+
+function onAccountOutAll() {
+  if (Account.busy) return;
+  if (!Account.allArmed) {
+    armAccount("allArmed", el.accountOutAll, "Click again to sign out everywhere", "Sign out everywhere", "again");
+    return;
+  }
+  onAccountOut(true);
+}
+
+async function onAccountDelete() {
+  if (Account.busy || !signedIn()) return;
+  if (!Account.deleteArmed) {
+    armAccount("deleteArmed", el.accountDelete, "Click again to delete", "Delete account", "again");
+    return;
+  }
+  disarmAccount("deleteArmed", el.accountDelete, "Delete account");
+  Account.message = null;
+  Account.busy = true;
+  setAccountNote("Deleting your account");
+  renderAccount();
+  try {
+    // A save still running would otherwise come back as Revoked and clear this browser first.
+    await settleCloud();
+    const res = await authCall("delete", { confirm: "delete" }, Cloud.key);
+    if (res.status === 200) {
+      await clearBrowser("deleted");
+      return;
+    }
+    if (res.data.error === "recent" || res.status === 401) setAccountNote(authProblem(res, true), true);
+    else setAccountNote("Couldn't reach your account, so it isn't deleted. Try again in a moment.", true);
+    if (cloudDirty) scheduleCloud();
+  } finally {
+    if (!Account.leaving) {
+      Account.busy = false;
+      renderAccount();
+    }
+  }
+}
+
+function onAccountClear() {
+  if (Account.busy) return;
+  if (!Account.clearArmed) {
+    armAccount("clearArmed", el.accountClear, "Click again to clear", "Clear this browser", "again");
+    return;
+  }
+  disarmAccount("clearArmed", el.accountClear, "Clear this browser");
+  clearBrowser("cleared");
+}
+
+// A password account changes its password here, and a Google only account adds one.
+function openPasswordForm() {
+  if (!signedIn()) return;
+  const has = Cloud.user.password;
+  el.accountPwOldRow.hidden = !has;
+  el.accountPwNameRow.hidden = has;
+  el.accountPwForm.hidden = false;
+  (has ? el.accountPwOld : el.accountPwName).focus();
+}
+
+function closePasswordForm() {
+  el.accountPwForm.hidden = true;
+  for (const f of [el.accountPwName, el.accountPwOld, el.accountPwNew, el.accountPwNew2]) f.value = "";
+}
+
+async function onPasswordSave() {
+  if (Account.busy || !signedIn()) return;
+  Account.message = null;
+  const user = Cloud.user;
+  const has = user.password;
+  const name = has ? user.username : normalName(el.accountPwName.value);
+  const fresh = el.accountPwNew.value;
+  const stop = (text) => {
+    setAccountNote(text, true);
+    renderAccount();
+  };
+  if (!has && !nameOk(name)) return stop("Use 3 to 32 letters, numbers, dots, dashes or underscores for your username, starting with a letter or number.");
+  if (has && !el.accountPwOld.value) return stop("Your current password doesn't match.");
+  const problem = passwordProblem(name, fresh, true);
+  if (problem) return stop(problem);
+  if (fresh !== el.accountPwNew2.value) return stop("The two passwords don't match.");
+  Account.busy = true;
+  setAccountNote("Saving your password");
+  renderAccount();
+  let res;
+  try {
+    const body = { proof: await passwordProof(name, fresh) };
+    if (has) body.old = await passwordProof(user.username, el.accountPwOld.value);
+    else body.username = name;
+    res = await authCall("password", body, Cloud.key);
+  } catch (err) {
+    res = { status: 0, data: { error: "reach" } };
+  } finally {
+    Account.busy = false;
+  }
+  if (res.status === 200) {
+    const next = cleanUser(res.data.user);
+    if (next && next.id === user.id && signedIn()) {
+      Cloud.user = next;
+      saveCloudConfig();
+    }
+    closePasswordForm();
+    Account.message = null;
+    renderAccount();
+    showToast("Password saved");
+    return;
+  }
+  if (res.status === 401 && res.data.error === "wrong") return stop("Your current password doesn't match.");
+  stop(authProblem(res, true));
+}
+
+// Google's script loads only while Settings shows one of its buttons, and only on a site
+// registered with Google.
+function loadGoogle() {
+  if (view !== "settings" || !Account.conf || !Account.conf.google || Account.gis !== 0 || !googleTarget()) return;
+  Account.gis = 1;
+  const script = document.createElement("script");
+  script.src = APP.googleScript;
+  script.async = true;
+  let timer = 0;
+  const fail = () => {
+    if (Account.gis !== 1) return;
+    clearTimeout(timer);
+    Account.gis = 3;
+    renderAccount();
+  };
+  timer = setTimeout(fail, 15000);
+  script.onerror = fail;
+  script.onload = () => {
+    if (Account.gis !== 1) return;
+    if (!(window.google && google.accounts && google.accounts.id)) {
+      fail();
+      return;
+    }
+    clearTimeout(timer);
+    Account.gis = 2;
+    startGoogle();
+  };
+  document.head.appendChild(script);
+}
+
+// Each attempt gets a new secret that only this page holds. Google signs its hash into the
+// token, so a token seen anywhere else can't be used again.
+async function startGoogle() {
+  if (Account.gis !== 2) return;
+  const proof = randomToken();
+  const nonce = b64url(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(proof)));
+  Account.proof = proof;
+  try {
+    google.accounts.id.initialize({
+      client_id: Account.conf.google,
+      callback: onGoogleCredential,
+      nonce,
+      ux_mode: "popup",
+      auto_select: false,
+      context: "signin",
+      itp_support: true,
+      cancel_on_tap_outside: true,
+    });
+  } catch (err) {
+    Account.gis = 3;
+    renderAccount();
+    return;
+  }
+  Account.gisDrawn = "";
+  drawGoogle();
+}
+
+// The Google button that shows now, if any.
+function googleTarget() {
+  if (view !== "settings") return null;
+  if (!el.accountPanel.hidden && !el.accountLinkRow.hidden) return el.accountLinkBtn;
+  if (!el.accountForm.hidden && !el.googleRow.hidden && !el.googleBtn.hidden) return el.googleBtn;
+  return null;
+}
+
+function drawGoogle() {
+  if (Account.gis !== 2) return;
+  const target = googleTarget();
+  if (!target) return;
+  const set = document.documentElement.dataset.theme;
+  const dark = set ? set === "dark" : Boolean(window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
+  const theme = dark ? "filled_black" : "outline";
+  if (Account.gisDrawn === target.id + theme) return;
+  try {
+    google.accounts.id.renderButton(target, { type: "standard", theme, size: "large", text: "continue_with", shape: "rectangular", logo_alignment: "left", width: 260, locale: "en" });
+    Account.gisDrawn = target.id + theme;
+  } catch (err) {
+    Account.gis = 3;
+    renderAccount();
+  }
+}
+
+async function onGoogleCredential(res) {
+  if (Account.busy || Account.leaving) return;
+  const proof = Account.proof;
+  const credential = String((res && res.credential) || "");
+  const linking = signedIn();
+  Account.message = null;
+  Account.busy = true;
+  setAccountNote(linking ? "Adding Google" : "Signing in");
+  renderAccount();
+  let out;
+  try {
+    out = await authCall(linking ? "link" : "google", { credential, proof }, linking ? Cloud.key : "");
+  } finally {
+    Account.busy = false;
+  }
+  startGoogle(); // a fresh nonce for the next attempt
+  if (linking && out.status === 200) {
+    const user = cleanUser(out.data.user);
+    if (user && signedIn() && user.id === Cloud.user.id) {
+      Cloud.user = user;
+      saveCloudConfig();
+    }
+    Account.message = null;
+    renderAccount();
+    showToast("Google added");
+    return;
+  }
+  if (Account.leaving) return;
+  if (!linking && (out.status === 200 || out.status === 201)) {
+    await askAboutProgress(out.data, "google");
+    return;
+  }
+  setAccountNote(authProblem(out, linking), true);
+  renderAccount();
+}
+
+// What an account answer means, in words. On requests with a session, a session that ended
+// is handled here too.
+function authProblem(res, bearer = false) {
+  const error = res && res.data && typeof res.data.error === "string" ? res.data.error : "";
+  const reach = "Couldn't reach your account. Check your connection and try again.";
+  if (!res || !res.status || error === "later" || error === "reach") return reach;
+  if (bearer && (error === "session" || error === "revoked")) {
+    const name = Cloud.user ? Cloud.user.name : "";
+    if (error === "revoked") setTimeout(() => clearBrowser("revoked"), 0);
+    else sessionEnded();
+    return `Your sign in ran out. Sign in again as ${name} to keep saving. Your progress is safe in this browser.`;
+  }
+  const copy = {
+    username: "Use 3 to 32 letters, numbers, dots, dashes or underscores for your username, starting with a letter or number.",
+    taken: "That username is taken. Pick another, or sign in if it's yours.",
+    wrong: "That username and password don't match.",
+    closed: "Too many new accounts today. Try again tomorrow.",
+    full: "Keyprint has no room for new accounts right now. Try again later.",
+    google: "Sign in with Google didn't work. Try again, or use a username and password.",
+    credential: "Sign in with Google didn't work. Try again, or use a username and password.",
+    linked: "That Google account already has its own Keyprint account. To add it here instead, sign in with Google, delete that account (its progress goes with it), then sign in here again and add Google.",
+    has: "This account already has Google.",
+    recent: `For your safety, sign out and sign in again, then do this within ${APP.freshSignIn / 60000} minutes.`,
+    setup: "Accounts aren't set up on this site yet.",
+  };
+  if (error === "busy") return `Too many tries. Wait ${waitText(res.data.retry)}, then try again.`;
+  if (copy[error]) return copy[error];
+  if (!error && (res.status === 429 || res.status >= 500)) return reach;
+  return "Something went wrong. Try again in a moment.";
+}
+
+// The Account group shows one thing at a time, the first of these that applies.
+function renderAccount() {
+  if (!el || !el.accountNote) return;
+  const place = accountPlace();
+  const site = siteName();
+  const conf = Account.conf;
+  const user = Cloud.user;
+  const ended = Cloud.kind === "account" && !Cloud.on && Boolean(user);
+  let show = "";
+  let note = "";
+  let warn = false;
+  if (place !== "ok") {
+    note = place === "claude" ? `Accounts work at ${site}. Here, Claude keeps your progress.` : `Accounts work at ${site}. Here, your progress stays in this browser.`;
+  } else if (Account.message && Account.busy) {
+    note = Account.message.text; // the step in progress
+  } else if (Account.pending) {
+    show = "merge";
+    const p = Account.pending;
+    const owner = pendingOwner();
+    const here = localProgress();
+    const progress = Boolean(here.tests || here.texts);
+    const parts = [];
+    if (here.tests) parts.push(count(here.tests, "test", "tests"));
+    if (here.texts) parts.push(count(here.texts, "text", "texts"));
+    const what = parts.join(" and ");
+    const hint = [];
+    if (p.created && p.via === "google") hint.push(`This Google account${p.user.email ? `, ${p.user.email},` : ""} is new to Keyprint, so this makes a new account for it. Already have one with a username? Click Cancel, sign in with your username, then add Google.`);
+    else if (p.created) hint.push(`Your account ${p.user.name} is ready.`);
+    if (owner) hint.push(`This browser still has progress from ${owner.name} that may not be in their account. Signing in as someone else removes it from this browser.`);
+    else if (progress && Cloud.kind === "key" && Cloud.on) hint.push(`This browser has your Cloud save progress, ${what}. Add it to move it into ${p.created ? "this account" : `the account ${p.user.name}`}. Your save Worker keeps its copy either way.`);
+    else if (progress) hint.push(`This browser already has progress, ${what}. Add it to ${p.created ? "your account" : `the account ${p.user.name}`} if it's yours, or leave it out and it's cleared from this browser.`);
+    el.accountMergeLabel.textContent = progress ? "Progress in this browser" : "New account";
+    el.accountMergeHint.textContent = hint.join(" ");
+    el.accountKeep.textContent = Account.keepArmed ? "Click again to remove it" : owner ? "Remove it and sign in" : progress ? "Add it" : "Create it";
+    el.accountDrop.textContent = owner ? "Cancel" : Account.dropArmed ? "Click again to clear it" : "Leave it out";
+    el.accountDrop.hidden = !owner && !progress;
+    el.accountCancel.hidden = Boolean(owner);
+  } else if (signedIn()) {
+    show = "panel";
+    el.accountMethods.textContent = methodsText(user);
+    el.accountOutHint.textContent = "Saves your progress to your account, then clears it from this browser so the next person starts fresh."
+      + (user.google ? " Keyprint can't sign you out of Google, so on a shared computer sign out of Google too." : "");
+    el.accountLinkRow.hidden = !(conf && conf.google && !user.google && Account.gis !== 3);
+    el.accountPwLabel.textContent = user.password ? "Change password" : "Add a password";
+    el.accountPwHint.textContent = user.password
+      ? "Your other browsers are signed out, and keep their progress until you sign in there again."
+      : "Lets you sign in with a username too, where Sign in with Google doesn't work.";
+    el.accountPwOpen.textContent = user.password ? "Change" : "Add";
+    el.accountPwOldRow.hidden = !user.password;
+    el.accountPwNameRow.hidden = user.password;
+    const problems = {
+      reach: "Couldn't reach your account. Your progress is safe in this browser, and it will keep trying.",
+      setup: "Accounts aren't working on this site right now. Your progress is safe in this browser.",
+      full: "Your account is full. Remove a text in My text to make room.",
+    };
+    const held = [...Account.held].filter((id) => state.docs.some((d) => d.id === id)).length;
+    if (held && Cloud.error !== "reach" && Cloud.error !== "setup") {
+      // Until a held text fits, this browser has its only copy, so the warning stays.
+      note = `Your account has no room for ${held === 1 ? "a text" : count(held, "text", "texts")} in My text, so ${held === 1 ? "it's" : "they're"} only in this browser for now. ${held === 1 ? "It tries" : "They try"} again each day, and removing a text makes room.`;
+      warn = true;
+    } else if (problems[Cloud.error]) {
+      note = problems[Cloud.error];
+      warn = true;
+    } else if (Account.due.size) {
+      note = `Signed in as ${user.name}. Saving your texts to your account.`;
+    } else if (Cloud.lastOk) {
+      note = `Signed in as ${user.name}. Last saved to your account ${timeAgo(Cloud.lastOk)}.`;
+    } else {
+      note = `Signed in as ${user.name}.`;
+    }
+  } else if (!conf) {
+    note = Account.confFailed ? "Couldn't reach Keyprint to check for accounts. Try again in a moment." : "Checking";
+    warn = Account.confFailed;
+  } else if (conf.missing) {
+    note = `Accounts aren't available at this address. They work at ${site}.`;
+  } else if (!conf.ready) {
+    note = "Accounts aren't set up on this site yet.";
+  } else {
+    show = "form";
+    el.googleRow.hidden = !(conf.google || conf.googleAt);
+    el.googleBtn.hidden = !conf.google || Account.gis === 3;
+    if (conf.google && Account.gis === 3) el.googleHint.textContent = "Sign in with Google couldn't load here. You can still use a username and password.";
+    else if (conf.google) el.googleHint.textContent = "Sign in or create an account with nothing new to remember. Already have a username? Sign in with it, then add Google.";
+    else el.googleHint.textContent = `Sign in with Google works at ${site}. Here, use a username and password.`;
+    el.accountClear.hidden = !ended;
+    if (ended && !el.accountName.value && user.username) el.accountName.value = user.username;
+    if (ended) {
+      note = `Your sign in ran out. Sign in again as ${user.name} to keep saving. Your progress is safe in this browser.`;
+      warn = true;
+    } else if (Cloud.kind === "key" && Cloud.on) {
+      note = "Cloud save is on with your own key. Signing in moves your progress into an account instead, and your save Worker keeps its copy.";
+    } else {
+      note = Account.note || "Sign in to keep your progress on every device. Without an account it stays in this browser.";
+    }
+  }
+  if (Account.message && place === "ok") {
+    note = Account.message.text;
+    warn = Account.message.warn;
+  }
+  el.accountForm.hidden = show !== "form";
+  el.accountMerge.hidden = show !== "merge";
+  el.accountPanel.hidden = show !== "panel";
+  el.accountNote.textContent = note;
+  el.accountNote.classList.toggle("warn", warn);
+  el.accountNote.hidden = !note;
+  if (googleTarget()) {
+    if (Account.gis === 0) loadGoogle();
+    else drawGoogle();
+  }
+  renderSavedNote();
+}
+
+function renderSavedNote() {
+  if (!el || !el.savedNote) return;
+  const kind = Store.kind || Store.detect();
+  if (kind === "browser" && accountPlace() === "ok" && signedIn()) {
+    el.savedNote.textContent = "Everything saves in this browser and in your account.";
+    return;
+  }
+  if (kind === "browser" && accountPlace() === "ok" && Account.conf && Account.conf.ready) {
+    el.savedNote.textContent = "Everything saves automatically in this browser. Sign in under Account to have it on every device, or use a backup file to move it.";
+    return;
+  }
+  const savedNotes = {
+    claude: "Everything saves automatically and stays here between visits. A backup file is extra insurance.",
+    browser: "Everything saves automatically in this browser. Use a backup file to move your progress to another browser or computer.",
+    none: "This copy can't save on its own. Download a backup before you close it, then restore it next time.",
+  };
+  el.savedNote.textContent = savedNotes[kind];
+}
+
+function bindAccount() {
+  for (const form of [el.accountForm, el.accountPwForm]) form.addEventListener("submit", (e) => e.preventDefault());
+  el.accountSignIn.addEventListener("click", () => onAccountSubmit(false));
+  el.accountCreate.addEventListener("click", () => onAccountSubmit(true));
+  const onEnter = (input, run) => input.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    run();
+  });
+  onEnter(el.accountName, () => onAccountSubmit(!el.accountPass2Row.hidden));
+  onEnter(el.accountPass, () => onAccountSubmit(!el.accountPass2Row.hidden));
+  onEnter(el.accountPass2, () => onAccountSubmit(true));
+  onEnter(el.accountPwNew2, onPasswordSave);
+  el.accountClear.addEventListener("click", onAccountClear);
+  el.accountKeep.addEventListener("click", onAccountKeep);
+  el.accountDrop.addEventListener("click", onAccountDrop);
+  el.accountCancel.addEventListener("click", cancelPending);
+  el.accountNow.addEventListener("click", onCloudNow);
+  el.accountOut.addEventListener("click", () => onAccountOut(false));
+  el.accountOutAll.addEventListener("click", onAccountOutAll);
+  el.accountPwOpen.addEventListener("click", openPasswordForm);
+  el.accountPwSave.addEventListener("click", onPasswordSave);
+  el.accountPwCancel.addEventListener("click", closePasswordForm);
+  el.accountDelete.addEventListener("click", onAccountDelete);
+}
+
 /* 12. Events --------------------------------------------------------------- */
 
 function showView(name) {
@@ -8599,6 +11146,7 @@ function showView(name) {
     renderLibrary();
     renderCloudStatus();
     loadCloudDays();
+    openAccount();
   }
   if (name === "practice") {
     measureLines();
@@ -8610,6 +11158,7 @@ function showView(name) {
     });
     focusSink();
   }
+  renderDrillOn();
   updateHands();
 }
 
@@ -8724,9 +11273,12 @@ function zhInput(text) {
 }
 
 function onKeyDown(e) {
+  // The welcome takes every key while it's open, so Esc closes it and Tab moves through it.
+  if (welcomeOpen()) return;
   if (view !== "practice") return;
   const t = e.target;
   if (t !== el.sink && t instanceof Element && t.closest("input, textarea, select, [contenteditable='true']")) return;
+  if (t === el.focusBack && (e.key === " " || e.key === "Enter")) return; // presses the button instead of typing
   updateCaps(e);
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   // A key the input method takes is left to it. What it types comes through the hidden input.
@@ -8776,6 +11328,10 @@ function onKeyDown(e) {
 // While an input method is still building a word, its text waits in the input, except in
 // English on a phone, where each letter goes in at once.
 function onSinkInput() {
+  if (welcomeOpen()) {
+    if (!composing) el.sink.value = ""; // nothing typed behind the welcome reaches the test
+    return;
+  }
   if (composing && (zhOn() || !coarse())) return;
   const v = el.sink.value;
   if (!v) return;
@@ -8817,7 +11373,7 @@ function bindEvents() {
   document.addEventListener("keyup", updateCaps);
   el.sink.addEventListener("input", onSinkInput);
   el.sink.addEventListener("beforeinput", (e) => {
-    if (e.inputType !== "deleteContentBackward") return;
+    if (e.inputType !== "deleteContentBackward" || welcomeOpen()) return;
     // While an input method builds a word, Backspace takes back its letters instead.
     if ((composing || e.isComposing) && (zhOn() || !coarse())) return;
     e.preventDefault();
@@ -8826,11 +11382,11 @@ function bindEvents() {
   el.sink.addEventListener("compositionstart", () => {
     composing = true;
     imeText = "";
-    if (zhOn()) imeActivity();
+    if (zhOn() && !welcomeOpen()) imeActivity();
   });
   el.sink.addEventListener("compositionupdate", (e) => {
     imeText = e.data || "";
-    if (!zhOn()) return;
+    if (!zhOn() || welcomeOpen()) return;
     imeActivity();
     paintPinyin();
     markNextKey();
@@ -8841,7 +11397,7 @@ function bindEvents() {
     // Some browsers send the finished word just before this event and some just after, so
     // it's read from the input once both have had their turn.
     setTimeout(onSinkInput, 0);
-    if (!zhOn()) return;
+    if (!zhOn() || welcomeOpen()) return;
     paintPinyin();
     markNextKey();
   });
@@ -8871,8 +11427,18 @@ function bindEvents() {
     if (document.visibilityState === "hidden") flushSaves();
   });
   // Another tab of this browser saved. Its progress is folded into this tab, so this tab's
-  // next save can't write over it.
+  // next save can't write over it. If it signed in or out instead, this tab's progress may be
+  // someone else's, so this tab reloads without saving.
   window.addEventListener("storage", (e) => {
+    if (e.key === APP.cloudConfig) {
+      if (accountChange(cloudIdentity(cloudSeen), cloudIdentity(e.newValue))) leaveTab();
+      else joinTextLists(e.newValue); // texts another tab is putting up, or found no room for
+      return;
+    }
+    if (e.key === APP.storageKey && !e.newValue && Cloud.kind === "account") {
+      leaveTab();
+      return;
+    }
     if (!ready || e.key !== APP.storageKey || !e.newValue) return;
     try {
       hydrate(mergeSaves(snapshot(), JSON.parse(e.newValue), true));
@@ -8888,11 +11454,18 @@ function bindEvents() {
   el.cloudNow.addEventListener("click", onCloudNow);
   el.cloudOff.addEventListener("click", onCloudOff);
   el.cloudRestore.addEventListener("click", onCloudRestore);
+  bindAccount();
+  // A page kept in the back forward cache may come back after a sign in or out elsewhere.
+  window.addEventListener("pageshow", (e) => {
+    if (e.persisted && accountChange(cloudIdentity(cloudSeen), cloudIdentity(readConfigNow()))) leaveTab();
+  });
   setInterval(() => {
     if (view === "settings") renderCloudStatus();
   }, 30000);
   el.unlockNext.addEventListener("click", unlockNextKey);
   el.anaDrill.addEventListener("click", startDrill);
+  el.anaBack.addEventListener("click", endDrill);
+  el.focusBack.addEventListener("click", endDrill);
   el.calPrev.addEventListener("click", () => {
     calOffset = Math.min(calOffset + 1, 60);
     renderCalendar();
@@ -8905,6 +11478,7 @@ function bindEvents() {
   el.restoreBtn.addEventListener("click", () => el.restoreInput.click());
   el.restoreInput.addEventListener("change", onRestoreFile);
   bindLibrary();
+  bindWelcome();
   el.resetBtn.addEventListener("click", onResetClick);
 
   let resizeTimer = 0;
@@ -8942,8 +11516,11 @@ async function init() {
   el.text.replaceChildren(node("span", "loading", "Loading your progress"));
 
   applyTheme();
-  const local = await Store.load();
+  // The config comes first, so the first start after a sign out clears whatever a tab that
+  // hadn't stopped yet wrote back, before anything is read.
   await loadCloudConfig();
+  if (Account.marker && Account.marker.fresh) await finishSignOut();
+  const local = await Store.load();
   let start = local;
   let listed = true; // whether the cloud copy lists this browser, so others can find its left copies
   if (Cloud.on) {
@@ -8958,31 +11535,36 @@ async function init() {
       // Browsers that were hidden or closed may have left copies newer than the main one.
       start = foldLeft(start, left, false);
     } catch (err) {
-      Cloud.error = cloudProblem(err);
+      // An account that signed this browser out on purpose clears it before drawing anything.
+      if (Cloud.kind === "account" && cloudProblem(err) === "revoked") {
+        await clearBrowser("revoked");
+        return;
+      }
+      cloudFailed(err); // a session that ran out keeps the progress here
     }
   }
   hydrate(start);
   applyTheme();
   applyZoom();
+  if (Account.leaving) return; // another tab signed in or out meanwhile, and this one reloads
   ready = true;
   if (start !== local) saveLocal(); // keeps this browser and the cloud copy in step
   // Other browsers only read the left copies of browsers the cloud copy lists, so a browser
   // that isn't listed yet saves to the cloud straight away instead of waiting for a change.
   if (!listed) pushCloud();
-  el.cloudUrl.value = Cloud.url.replace(/^https:\/\//, "");
-  el.cloudKey.value = Cloud.key;
+  if (Cloud.kind === "account" && Cloud.on && Account.due.size) uploadDue();
+  // The account's token never goes into the page.
+  if (Cloud.kind === "key") {
+    el.cloudUrl.value = Cloud.url.replace(/^https:\/\//, "");
+    el.cloudKey.value = Cloud.key;
+  }
   renderCloudStatus();
   if (legacyText) {
     await addDoc("", legacyText);
     legacyText = "";
   }
   if (state.docId && !(await openDoc(state.docId))) state.docId = "";
-  const savedNotes = {
-    claude: "Everything saves automatically and stays here between visits. A backup file is extra insurance.",
-    browser: "Everything saves automatically in this browser. Use a backup file to move your progress to another browser or computer.",
-    none: "This copy can't save on its own. Download a backup before you close it, then restore it next time.",
-  };
-  el.savedNote.textContent = savedNotes[Store.kind || Store.detect()];
+  renderSavedNote();
   buildKeyboard();
   renderPractice();
   syncSettingsUI(true);
@@ -8991,6 +11573,11 @@ async function init() {
   if (document.fonts && document.fonts.ready) {
     document.fonts.ready.then(() => { measureLines(); scrollToCursor(); drawHands(); markNextKey(); moveCaret(true); }).catch(() => {});
   }
+  // Someone new meets the welcome right after their first test is drawn. A browser that was
+  // signed out has been used before, so it skips the welcome, and the toast saying so shows.
+  // Test scripts that only want to type set window.keyprintNoWelcome before the page loads.
+  if (window.keyprintNoWelcome !== true && isNewcomer() && !Account.marker) openWelcome(true);
+  if (Account.toast) showToast(Account.toast);
 }
 
 init();
