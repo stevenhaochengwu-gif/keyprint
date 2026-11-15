@@ -4291,10 +4291,13 @@ function wordsText(s) {
     words.push(slots.has(i) ? next(letters.splice(Math.floor(Math.random() * letters.length), 1)[0]) : next());
   }
   // Decorating can swap a word for a contraction or a number, or start a sentence with a
-  // capital, so a short test that lost its only weak letter is decorated again.
+  // capital, so a short test that lost its only weak letter is decorated again. With every
+  // mark on, a try of a short test loses it up to about one time in eight, and more for some
+  // words, so four more tries still ran out about once in 8,000 short tests. Twelve all but
+  // never do, and a test that holds its letter takes no extra try at all.
   const holds = (text) => weak.some((w) => text.includes(w.ch));
   let text = decorate(words, s, next, false);
-  for (let tries = 0; count && !holds(text) && tries < 4; tries++) text = decorate(words, s, next, false);
+  for (let tries = 0; count && !holds(text) && tries < 12; tries++) text = decorate(words, s, next, false);
   return text;
 }
 
