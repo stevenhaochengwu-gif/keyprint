@@ -2136,6 +2136,148 @@ label.row { cursor: pointer; }
         <p>Changes save automatically.</p>
       </div>
 
+      <div class="group" id="accountGroup">
+        <h3>Account</h3>
+        <p class="saved-note" id="accountNote" aria-live="polite"></p>
+        <form id="accountForm" novalidate hidden>
+          <div class="row" id="googleRow" hidden>
+            <div class="row-text">
+              <span class="row-label">Google</span>
+              <span class="row-hint" id="googleHint">Sign in or create an account with nothing new to remember. Already have a username? Sign in with it, then add Google.</span>
+            </div>
+            <div class="g-btn" id="googleBtn"></div>
+          </div>
+          <label class="row stack" for="accountName" id="accountNameRow">
+            <span class="row-text">
+              <span class="row-label" id="accountNameLabel">Username</span>
+              <span class="row-hint" id="accountNameHint">3 to 32 letters, numbers, dots, dashes or underscores.</span>
+            </span>
+            <input class="field" id="accountName" type="text" autocomplete="username" autocapitalize="off" spellcheck="false" maxlength="32">
+          </label>
+          <label class="row stack" for="accountCode" id="accountCodeRow" hidden>
+            <span class="row-text">
+              <span class="row-label">Code from your email</span>
+              <span class="row-hint" id="accountCodeHint"></span>
+            </span>
+            <input class="field" id="accountCode" type="text" inputmode="numeric" autocomplete="one-time-code" spellcheck="false" maxlength="12">
+          </label>
+          <label class="row stack" for="accountPass" id="accountPassRow">
+            <span class="row-text">
+              <span class="row-label" id="accountPassLabel">Password</span>
+              <span class="row-hint" id="accountPassHint">At least 8 characters. Nobody can reset it for you, so keep it in a password manager.</span>
+            </span>
+            <input class="field" id="accountPass" type="password" autocomplete="current-password" maxlength="200">
+          </label>
+          <label class="row stack" for="accountPass2" id="accountPass2Row" hidden>
+            <span class="row-text">
+              <span class="row-label">Type it again</span>
+              <span class="row-hint">So a typo can't lock you out.</span>
+            </span>
+            <input class="field" id="accountPass2" type="password" autocomplete="new-password" maxlength="200">
+          </label>
+          <div class="row" id="accountButtons">
+            <div class="tool">
+              <button class="btn" type="button" id="accountSignIn">Sign in</button>
+              <button class="btn quiet" type="button" id="accountCreate">Create account</button>
+              <button class="btn quiet" type="button" id="accountForgot" hidden>Forgot password</button>
+              <button class="btn quiet" type="button" id="accountClear" hidden>Clear this browser</button>
+            </div>
+          </div>
+          <div class="row" id="accountStepButtons" hidden>
+            <div class="tool">
+              <button class="btn" type="button" id="accountStepOk">Confirm</button>
+              <button class="btn quiet" type="button" id="accountStepAgain">Send a new code</button>
+              <button class="btn quiet" type="button" id="accountStepCancel">Cancel</button>
+            </div>
+          </div>
+        </form>
+        <div class="row" id="accountMerge" hidden>
+          <div class="row-text">
+            <span class="row-label" id="accountMergeLabel">Progress in this browser</span>
+            <span class="row-hint" id="accountMergeHint"></span>
+          </div>
+          <div class="tool">
+            <button class="btn" type="button" id="accountKeep">Add it</button>
+            <button class="btn quiet" type="button" id="accountDrop">Leave it out</button>
+            <button class="btn quiet" type="button" id="accountCancel">Cancel</button>
+          </div>
+        </div>
+        <div id="accountPanel" hidden>
+          <div class="row">
+            <div class="row-text">
+              <span class="row-label">Signed in with</span>
+              <span class="row-hint" id="accountMethods"></span>
+            </div>
+            <button class="btn quiet" type="button" id="accountNow">Save now</button>
+          </div>
+          <div class="row">
+            <div class="row-text">
+              <span class="row-label">Sign out</span>
+              <span class="row-hint" id="accountOutHint">Saves your progress to your account, then clears it from this browser so the next person starts fresh.</span>
+            </div>
+            <button class="btn" type="button" id="accountOut">Sign out</button>
+          </div>
+          <div class="row">
+            <div class="row-text">
+              <span class="row-label">Sign out everywhere</span>
+              <span class="row-hint">Signs out every browser, this one too. Each one clears your progress the next time it opens Keyprint, which helps if you forgot to sign out on a shared computer. Changes a browser hadn't saved yet are lost.</span>
+            </div>
+            <button class="btn" type="button" id="accountOutAll">Sign out everywhere</button>
+          </div>
+          <div class="row" id="accountLinkRow" hidden>
+            <div class="row-text">
+              <span class="row-label">Add Google</span>
+              <span class="row-hint" id="accountLinkHint">Lets you sign in with Google too, which is your way back in if you forget your password.</span>
+            </div>
+            <div class="g-btn" id="accountLinkBtn"></div>
+          </div>
+          <div class="row" id="accountPwRow">
+            <div class="row-text">
+              <span class="row-label" id="accountPwLabel">Change password</span>
+              <span class="row-hint" id="accountPwHint">Your other browsers are signed out, and keep their progress until you sign in there again.</span>
+            </div>
+            <button class="btn" type="button" id="accountPwOpen">Change</button>
+          </div>
+          <form id="accountPwForm" novalidate hidden>
+            <label class="row stack" for="accountPwName" id="accountPwNameRow" hidden>
+              <span class="row-text">
+                <span class="row-label">Username</span>
+                <span class="row-hint">3 to 32 letters, numbers, dots, dashes or underscores. It can't be changed later.</span>
+              </span>
+              <input class="field" id="accountPwName" type="text" autocomplete="username" autocapitalize="off" spellcheck="false" maxlength="32">
+            </label>
+            <label class="row stack" for="accountPwOld" id="accountPwOldRow" hidden>
+              <span class="row-text"><span class="row-label">Current password</span></span>
+              <input class="field" id="accountPwOld" type="password" autocomplete="current-password" maxlength="200">
+            </label>
+            <label class="row stack" for="accountPwNew">
+              <span class="row-text">
+                <span class="row-label">New password</span>
+                <span class="row-hint">At least 8 characters.</span>
+              </span>
+              <input class="field" id="accountPwNew" type="password" autocomplete="new-password" maxlength="200">
+            </label>
+            <label class="row stack" for="accountPwNew2">
+              <span class="row-text"><span class="row-label">Type it again</span></span>
+              <input class="field" id="accountPwNew2" type="password" autocomplete="new-password" maxlength="200">
+            </label>
+            <div class="row">
+              <div class="tool">
+                <button class="btn" type="button" id="accountPwSave">Save password</button>
+                <button class="btn quiet" type="button" id="accountPwCancel">Cancel</button>
+              </div>
+            </div>
+          </form>
+          <div class="row">
+            <div class="row-text">
+              <span class="row-label">Delete account</span>
+              <span class="row-hint">Deletes your account and everything in it, then clears this browser. Other browsers clear themselves the next time they open Keyprint. Download a backup first if you want to keep anything.</span>
+            </div>
+            <button class="btn danger" type="button" id="accountDelete">Delete account</button>
+          </div>
+        </div>
+      </div>
+
       <div class="group">
         <h3>Language</h3>
         <div class="row">
@@ -2503,133 +2645,6 @@ label.row { cursor: pointer; }
         </label>
       </div>
 
-      <div class="group" id="accountGroup">
-        <h3>Account</h3>
-        <p class="saved-note" id="accountNote" aria-live="polite"></p>
-        <form id="accountForm" novalidate hidden>
-          <div class="row" id="googleRow" hidden>
-            <div class="row-text">
-              <span class="row-label">Google</span>
-              <span class="row-hint" id="googleHint">Sign in or create an account with nothing new to remember. Already have a username? Sign in with it, then add Google.</span>
-            </div>
-            <div class="g-btn" id="googleBtn"></div>
-          </div>
-          <label class="row stack" for="accountName">
-            <span class="row-text">
-              <span class="row-label">Username</span>
-              <span class="row-hint">3 to 32 letters, numbers, dots, dashes or underscores.</span>
-            </span>
-            <input class="field" id="accountName" type="text" autocomplete="username" autocapitalize="off" spellcheck="false" maxlength="32">
-          </label>
-          <label class="row stack" for="accountPass">
-            <span class="row-text">
-              <span class="row-label">Password</span>
-              <span class="row-hint">At least 8 characters. Nobody can reset it for you, so keep it in a password manager.</span>
-            </span>
-            <input class="field" id="accountPass" type="password" autocomplete="current-password" maxlength="200">
-          </label>
-          <label class="row stack" for="accountPass2" id="accountPass2Row" hidden>
-            <span class="row-text">
-              <span class="row-label">Type it again</span>
-              <span class="row-hint">So a typo can't lock you out.</span>
-            </span>
-            <input class="field" id="accountPass2" type="password" autocomplete="new-password" maxlength="200">
-          </label>
-          <div class="row">
-            <div class="tool">
-              <button class="btn" type="button" id="accountSignIn">Sign in</button>
-              <button class="btn quiet" type="button" id="accountCreate">Create account</button>
-              <button class="btn quiet" type="button" id="accountClear" hidden>Clear this browser</button>
-            </div>
-          </div>
-        </form>
-        <div class="row" id="accountMerge" hidden>
-          <div class="row-text">
-            <span class="row-label" id="accountMergeLabel">Progress in this browser</span>
-            <span class="row-hint" id="accountMergeHint"></span>
-          </div>
-          <div class="tool">
-            <button class="btn" type="button" id="accountKeep">Add it</button>
-            <button class="btn quiet" type="button" id="accountDrop">Leave it out</button>
-            <button class="btn quiet" type="button" id="accountCancel">Cancel</button>
-          </div>
-        </div>
-        <div id="accountPanel" hidden>
-          <div class="row">
-            <div class="row-text">
-              <span class="row-label">Signed in with</span>
-              <span class="row-hint" id="accountMethods"></span>
-            </div>
-            <button class="btn quiet" type="button" id="accountNow">Save now</button>
-          </div>
-          <div class="row">
-            <div class="row-text">
-              <span class="row-label">Sign out</span>
-              <span class="row-hint" id="accountOutHint">Saves your progress to your account, then clears it from this browser so the next person starts fresh.</span>
-            </div>
-            <button class="btn" type="button" id="accountOut">Sign out</button>
-          </div>
-          <div class="row">
-            <div class="row-text">
-              <span class="row-label">Sign out everywhere</span>
-              <span class="row-hint">Signs out every browser, this one too. Each one clears your progress the next time it opens Keyprint, which helps if you forgot to sign out on a shared computer. Changes a browser hadn't saved yet are lost.</span>
-            </div>
-            <button class="btn" type="button" id="accountOutAll">Sign out everywhere</button>
-          </div>
-          <div class="row" id="accountLinkRow" hidden>
-            <div class="row-text">
-              <span class="row-label">Add Google</span>
-              <span class="row-hint" id="accountLinkHint">Lets you sign in with Google too, which is your way back in if you forget your password.</span>
-            </div>
-            <div class="g-btn" id="accountLinkBtn"></div>
-          </div>
-          <div class="row" id="accountPwRow">
-            <div class="row-text">
-              <span class="row-label" id="accountPwLabel">Change password</span>
-              <span class="row-hint" id="accountPwHint">Your other browsers are signed out, and keep their progress until you sign in there again.</span>
-            </div>
-            <button class="btn" type="button" id="accountPwOpen">Change</button>
-          </div>
-          <form id="accountPwForm" novalidate hidden>
-            <label class="row stack" for="accountPwName" id="accountPwNameRow" hidden>
-              <span class="row-text">
-                <span class="row-label">Username</span>
-                <span class="row-hint">3 to 32 letters, numbers, dots, dashes or underscores. It can't be changed later.</span>
-              </span>
-              <input class="field" id="accountPwName" type="text" autocomplete="username" autocapitalize="off" spellcheck="false" maxlength="32">
-            </label>
-            <label class="row stack" for="accountPwOld" id="accountPwOldRow" hidden>
-              <span class="row-text"><span class="row-label">Current password</span></span>
-              <input class="field" id="accountPwOld" type="password" autocomplete="current-password" maxlength="200">
-            </label>
-            <label class="row stack" for="accountPwNew">
-              <span class="row-text">
-                <span class="row-label">New password</span>
-                <span class="row-hint">At least 8 characters.</span>
-              </span>
-              <input class="field" id="accountPwNew" type="password" autocomplete="new-password" maxlength="200">
-            </label>
-            <label class="row stack" for="accountPwNew2">
-              <span class="row-text"><span class="row-label">Type it again</span></span>
-              <input class="field" id="accountPwNew2" type="password" autocomplete="new-password" maxlength="200">
-            </label>
-            <div class="row">
-              <div class="tool">
-                <button class="btn" type="button" id="accountPwSave">Save password</button>
-                <button class="btn quiet" type="button" id="accountPwCancel">Cancel</button>
-              </div>
-            </div>
-          </form>
-          <div class="row">
-            <div class="row-text">
-              <span class="row-label">Delete account</span>
-              <span class="row-hint">Deletes your account and everything in it, then clears this browser. Other browsers clear themselves the next time they open Keyprint. Download a backup first if you want to keep anything.</span>
-            </div>
-            <button class="btn danger" type="button" id="accountDelete">Delete account</button>
-          </div>
-        </div>
-      </div>
-
       <div class="group" id="cloudGroup">
         <h3>Cloud save</h3>
         <p class="saved-note" id="cloudNote"></p>
@@ -2948,6 +2963,7 @@ const APP = {
   passwordRounds: 600000, // PBKDF2 rounds your browser runs on a password before sending it. Never change it, or every password stops working
   passwordMin: 8,      // characters a new password needs at least
   freshSignIn: 900000, // ms after signing in when adding Google or a first password, or deleting the account, is allowed, FRESH in site-worker.js
+  codeLife: 900000,    // ms a code sent by email works, CODE_LIFE in site-worker.js
   googleScript: "https://accounts.google.com/gsi/client",
   site: "https://type.stevenwu.org", // where accounts and Sign in with Google work, named in notes
   letterOrder: "etaoinshrdlcumwfgypbvkjxqz", // adaptive tests unlock letters in this order
@@ -3383,6 +3399,9 @@ const Account = {
   keepArmed: 0,
   dropArmed: 0,
   createStep: false,  // Create account asked for the password a second time
+  step: "",           // "confirm" while a new account waits for its emailed code, "reset" for a new password
+  stepEmail: "",      // the address that step's code went to
+  stepProof: "",      // the new account's password proof, kept in memory until its code comes back
 };
 
 // Text ids a config lists as due or held, the same way every time one is read.
@@ -3837,7 +3856,10 @@ function cleanUser(u) {
   const username = typeof u.username === "string" && nameOk(u.username) ? u.username : "";
   const email = typeof u.email === "string" ? u.email.slice(0, 254) : "";
   const name = (typeof u.name === "string" ? u.name.trim() : "").slice(0, 120) || "Google account";
-  return { id: u.id, name, username, email, google: Boolean(u.google), password: Boolean(u.password) };
+  // login is what the password goes with, an email address or a username from before email.
+  // A user saved before it was sent has none, and then the username stands in.
+  const login = typeof u.login === "string" && (nameOk(u.login) || emailOk(u.login)) ? u.login : username;
+  return { id: u.id, name, username, email, login, google: Boolean(u.google), password: Boolean(u.password) };
 }
 
 const isToken = (t, uid) => typeof t === "string" && /^kp1\.[a-z0-9]{20}\.[A-Za-z0-9_-]{43}$/.test(t) && t.split(".")[1] === uid;
@@ -5613,13 +5635,28 @@ const el = {
   googleRow: $("#googleRow"),
   googleHint: $("#googleHint"),
   googleBtn: $("#googleBtn"),
+  accountNameRow: $("#accountNameRow"),
+  accountNameLabel: $("#accountNameLabel"),
+  accountNameHint: $("#accountNameHint"),
   accountName: $("#accountName"),
+  accountCodeRow: $("#accountCodeRow"),
+  accountCodeHint: $("#accountCodeHint"),
+  accountCode: $("#accountCode"),
+  accountPassRow: $("#accountPassRow"),
+  accountPassLabel: $("#accountPassLabel"),
+  accountPassHint: $("#accountPassHint"),
   accountPass: $("#accountPass"),
   accountPass2Row: $("#accountPass2Row"),
   accountPass2: $("#accountPass2"),
+  accountButtons: $("#accountButtons"),
   accountSignIn: $("#accountSignIn"),
   accountCreate: $("#accountCreate"),
+  accountForgot: $("#accountForgot"),
   accountClear: $("#accountClear"),
+  accountStepButtons: $("#accountStepButtons"),
+  accountStepOk: $("#accountStepOk"),
+  accountStepAgain: $("#accountStepAgain"),
+  accountStepCancel: $("#accountStepCancel"),
   accountMerge: $("#accountMerge"),
   accountMergeHint: $("#accountMergeHint"),
   accountMergeLabel: $("#accountMergeLabel"),
@@ -10119,6 +10156,8 @@ function loadAccountConfig() {
         ready: data.ready === true,
         google: typeof data.google === "string" ? data.google : "",
         googleAt: typeof data.googleAt === "string" ? data.googleAt : "",
+        mail: data.mail === true,   // new accounts take an email address and a code sent to it
+        write: data.write === true, // Write's word lists are made here
       };
     }
     renderCloudStatus();
@@ -10162,9 +10201,14 @@ async function authCall(path, body, token, ms = APP.cloudTimeout) {
   }
 }
 
-// Usernames are matched without regard to case or look alike characters.
+// Usernames and email addresses are matched without regard to case or look alike characters.
 const normalName = (raw) => String(raw || "").normalize("NFKC").trim().toLowerCase();
 const nameOk = (name) => /^[a-z0-9][a-z0-9._-]{2,31}$/.test(name);
+// The same rule as EMAIL_RE in site-worker.js.
+const emailOk = (email) => email.length <= 254 && /^[a-z0-9.!#$%&'*+/=?^_`{|}~-]{1,64}@[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/.test(email);
+// Whether this site makes accounts by email address, with a code to confirm it. Without a
+// mail service it takes usernames, as it did before.
+const mailMode = () => Boolean(Account.conf && Account.conf.mail);
 
 function b64url(bytes) {
   const all = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
@@ -10176,8 +10220,8 @@ function b64url(bytes) {
 const randomToken = () => b64url(crypto.getRandomValues(new Uint8Array(32)));
 
 // The password never leaves this browser. What's sent is a slow hash of it, salted with the
-// username. Never change the rounds, the salt text or the NFKC step, or every password stops
-// working.
+// email address or username it goes with. Never change the rounds, the salt text or the NFKC
+// step, or every password stops working.
 async function passwordProof(name, password) {
   const enc = new TextEncoder();
   const base = await crypto.subtle.importKey("raw", enc.encode(password.normalize("NFKC")), "PBKDF2", false, ["deriveBits"]);
@@ -10196,7 +10240,7 @@ function passwordProblem(name, password, creating) {
   if (password.length < APP.passwordMin) return `Use a password of at least ${APP.passwordMin} characters.`;
   if (!creating) return "";
   const plain = password.normalize("NFKC").trim().toLowerCase();
-  if (plain === name) return "Your password can't be your username.";
+  if (plain === name) return name.includes("@") ? "Your password can't be your email address." : "Your password can't be your username.";
   if (EASY_PASSWORDS.includes(plain) || /^(.)\1*$/.test(password)) return "That password is too easy to guess. Try a longer one.";
   return "";
 }
@@ -10210,6 +10254,11 @@ function localProgress() {
 const count = (n, one, many) => `${n.toLocaleString("en-US")} ${n === 1 ? one : many}`;
 
 function methodsText(u) {
+  // An account made with an email address signs in with it and a password.
+  if (u.login.includes("@")) {
+    if (u.google && u.email && u.email !== u.login) return `Google, ${u.email}, and email ${u.login}.`;
+    return u.google ? `Google and email ${u.login}.` : `Email ${u.login}.`;
+  }
   if (u.google && u.email && u.username) return `Google, ${u.email}, and username ${u.username}.`;
   if (u.google && u.username) return `Google and username ${u.username}.`;
   if (u.username) return `Username ${u.username}.`;
@@ -10241,18 +10290,30 @@ function endCreateStep() {
   Account.createStep = false;
 }
 
+const USERNAME_RULE = "Use 3 to 32 letters, numbers, dots, dashes or underscores for your username, starting with a letter or number.";
+const NOT_EMAIL = "That doesn't look like an email address.";
+
+// Sign in takes an email address, or a username from before accounts had email. Create
+// account takes whichever this site makes accounts with. With email, nothing is made until
+// the code sent to the address comes back, which is the next step.
 async function onAccountSubmit(creating) {
-  if (Account.busy || Account.leaving || signedIn()) return;
+  if (Account.busy || Account.leaving || signedIn() || Account.step) return;
   Account.message = null;
   if (!creating) endCreateStep();
+  const mail = mailMode();
   const name = normalName(el.accountName.value);
+  const byEmail = name.includes("@");
   const password = el.accountPass.value;
   const stop = (text) => {
     setAccountNote(text, true);
     renderAccount();
   };
-  if (!name || !password) return stop("Add a username and a password first.");
-  if (!nameOk(name)) return stop("Use 3 to 32 letters, numbers, dots, dashes or underscores for your username, starting with a letter or number.");
+  if (!name || !password) return stop(mail ? "Add your email and a password first." : "Add a username and a password first.");
+  if (byEmail || (creating && mail)) {
+    // A site without email makes no account for an address, though one made earlier signs in.
+    if (creating && !mail) return stop(USERNAME_RULE);
+    if (!emailOk(name)) return stop(NOT_EMAIL);
+  } else if (!nameOk(name)) return stop(mail ? NOT_EMAIL : USERNAME_RULE);
   const problem = passwordProblem(name, password, creating);
   if (problem) return stop(problem);
   // A new password is typed twice, so a typo can't lock you out.
@@ -10267,12 +10328,13 @@ async function onAccountSubmit(creating) {
   }
   if (creating && el.accountPass2.value !== password) return stop("The two passwords don't match.");
   Account.busy = true;
-  setAccountNote(creating ? "Creating your account" : "Signing in");
+  setAccountNote(!creating ? "Signing in" : mail ? "Sending your code" : "Creating your account");
   renderAccount();
   let res;
+  let proof = "";
   try {
-    const proof = await passwordProof(name, password);
-    res = await authCall(creating ? "signup" : "signin", { username: name, proof });
+    proof = await passwordProof(name, password);
+    res = await authCall(creating ? "signup" : "signin", byEmail ? { email: name, proof } : { username: name, proof });
   } catch (err) {
     res = { status: 0, data: { error: "reach" } };
   } finally {
@@ -10284,7 +10346,138 @@ async function onAccountSubmit(creating) {
     await askAboutProgress(res.data, "password");
     return;
   }
+  if (creating && res.status === 202) {
+    beginStep("confirm", name, proof, `We sent a 6 digit code to ${name}. Type it here to finish. It can take a minute, and it may be in your spam folder.`);
+    return;
+  }
+  if (!creating && res.status === 403 && res.data.error === "confirm") {
+    beginStep("confirm", name, proof, `Your account is waiting for the code we sent to ${name}. Type it here, or send a new one.`);
+    return;
+  }
+  if (byEmail && res.status === 401 && res.data.error === "wrong") return stop("That email and password don't match.");
   stop(authProblem(res));
+}
+
+// A step waits for the code from an email. Confirm finishes a new account, and reset sets a
+// new password. The new account's proof stays in memory only, so a reload starts over, and
+// signing in with the same password then asks for the code again.
+function beginStep(kind, email, proof, text) {
+  endCreateStep();
+  Object.assign(Account, { step: kind, stepEmail: email, stepProof: proof });
+  for (const f of [el.accountCode, el.accountPass, el.accountPass2]) f.value = "";
+  setAccountNote(text);
+  renderAccount();
+  el.accountCode.focus();
+}
+
+function endStep() {
+  Object.assign(Account, { step: "", stepEmail: "", stepProof: "" });
+  for (const f of [el.accountCode, el.accountPass, el.accountPass2]) f.value = "";
+}
+
+function cancelStep() {
+  if (Account.busy || !Account.step) return;
+  endStep();
+  Account.message = null;
+  renderAccount();
+}
+
+async function onStepOk() {
+  if (Account.busy || Account.leaving || !Account.step) return;
+  const kind = Account.step;
+  const email = Account.stepEmail;
+  const stop = (text) => {
+    setAccountNote(text, true);
+    renderAccount();
+  };
+  const code = el.accountCode.value.replace(/\D/g, "");
+  if (code.length !== 6) return stop("Type the 6 digit code from the email.");
+  const password = el.accountPass.value;
+  if (kind === "reset") {
+    const problem = passwordProblem(email, password, true);
+    if (problem) return stop(problem);
+    if (el.accountPass2.value !== password) return stop("The two passwords don't match.");
+  }
+  Account.message = null;
+  Account.busy = true;
+  setAccountNote(kind === "reset" ? "Saving your new password" : "Creating your account");
+  renderAccount();
+  let res;
+  try {
+    const proof = kind === "reset" ? await passwordProof(email, password) : Account.stepProof;
+    res = await authCall(kind === "reset" ? "reset" : "confirm", { email, code, proof });
+  } catch (err) {
+    res = { status: 0, data: { error: "reach" } };
+  } finally {
+    Account.busy = false;
+  }
+  if (res.status === 200 || res.status === 201) {
+    endStep();
+    await askAboutProgress(res.data, "password");
+    return;
+  }
+  if (res.status === 409) {
+    // Someone confirmed this address first, most likely you in another tab.
+    endStep();
+    el.accountName.value = email;
+    return stop("That address already has an account. Sign in with it instead.");
+  }
+  stop(authProblem(res));
+}
+
+async function onStepAgain() {
+  if (Account.busy || Account.leaving || !Account.step) return;
+  const kind = Account.step;
+  const email = Account.stepEmail;
+  Account.message = null;
+  Account.busy = true;
+  setAccountNote("Sending a new code");
+  renderAccount();
+  let res;
+  try {
+    res = await authCall(kind === "reset" ? "forgot" : "signup", kind === "reset" ? { email } : { email, proof: Account.stepProof });
+  } finally {
+    Account.busy = false;
+  }
+  if (res.status === 202) {
+    el.accountCode.value = "";
+    setAccountNote(`A new code is on its way to ${email}. Only the newest code works.`);
+    renderAccount();
+    el.accountCode.focus();
+    return;
+  }
+  setAccountNote(authProblem(res), true);
+  renderAccount();
+}
+
+// Forgot password sends a code to the address in the email field. The answer is the same
+// whether or not the address has an account, so the note doesn't say it has one.
+async function onForgot() {
+  if (Account.busy || Account.leaving || signedIn() || Account.step) return;
+  endCreateStep();
+  Account.message = null;
+  const email = normalName(el.accountName.value);
+  if (!emailOk(email)) {
+    setAccountNote("Type your email address first, then click Forgot password.", true);
+    renderAccount();
+    el.accountName.focus();
+    return;
+  }
+  Account.busy = true;
+  setAccountNote("Sending your code");
+  renderAccount();
+  let res;
+  try {
+    res = await authCall("forgot", { email });
+  } finally {
+    Account.busy = false;
+  }
+  if (res.status === 202) {
+    beginStep("reset", email, "", `If ${email} has an account, a 6 digit code is on its way. Type it here with a new password. It can take a minute, and it may be in your spam folder.`);
+    return;
+  }
+  setAccountNote(authProblem(res), true);
+  renderAccount();
 }
 
 // Progress already in this browser is only added to an account when you say it's yours, and
@@ -10759,14 +10952,19 @@ function onAccountClear() {
   clearBrowser("cleared");
 }
 
+// The email address a Google only account's first password goes with. Google vouched for
+// it, so it needs no code, and without one, or on a site with no email, it takes a username.
+const firstPasswordEmail = (u) => (!u.password && mailMode() && emailOk(u.email) ? u.email : "");
+
 // A password account changes its password here, and a Google only account adds one.
 function openPasswordForm() {
   if (!signedIn()) return;
   const has = Cloud.user.password;
+  const named = has || Boolean(firstPasswordEmail(Cloud.user));
   el.accountPwOldRow.hidden = !has;
-  el.accountPwNameRow.hidden = has;
+  el.accountPwNameRow.hidden = named;
   el.accountPwForm.hidden = false;
-  (has ? el.accountPwOld : el.accountPwName).focus();
+  (has ? el.accountPwOld : named ? el.accountPwNew : el.accountPwName).focus();
 }
 
 function closePasswordForm() {
@@ -10779,13 +10977,14 @@ async function onPasswordSave() {
   Account.message = null;
   const user = Cloud.user;
   const has = user.password;
-  const name = has ? user.username : normalName(el.accountPwName.value);
+  const viaEmail = firstPasswordEmail(user);
+  const name = has ? user.login : viaEmail || normalName(el.accountPwName.value);
   const fresh = el.accountPwNew.value;
   const stop = (text) => {
     setAccountNote(text, true);
     renderAccount();
   };
-  if (!has && !nameOk(name)) return stop("Use 3 to 32 letters, numbers, dots, dashes or underscores for your username, starting with a letter or number.");
+  if (!has && !viaEmail && !nameOk(name)) return stop(USERNAME_RULE);
   if (has && !el.accountPwOld.value) return stop("Your current password doesn't match.");
   const problem = passwordProblem(name, fresh, true);
   if (problem) return stop(problem);
@@ -10796,7 +10995,8 @@ async function onPasswordSave() {
   let res;
   try {
     const body = { proof: await passwordProof(name, fresh) };
-    if (has) body.old = await passwordProof(user.username, el.accountPwOld.value);
+    if (has) body.old = await passwordProof(name, el.accountPwOld.value);
+    else if (viaEmail) body.email = viaEmail;
     else body.username = name;
     res = await authCall("password", body, Cloud.key);
   } catch (err) {
@@ -10950,14 +11150,20 @@ function authProblem(res, bearer = false) {
     else sessionEnded();
     return `Your sign in ran out. Sign in again as ${name} to keep saving. Your progress is safe in this browser.`;
   }
+  const other = mailMode() ? "your email and a password" : "a username and password";
   const copy = {
-    username: "Use 3 to 32 letters, numbers, dots, dashes or underscores for your username, starting with a letter or number.",
+    username: USERNAME_RULE,
+    email: NOT_EMAIL,
     taken: "That username is taken. Pick another, or sign in if it's yours.",
     wrong: "That username and password don't match.",
+    code: "That code didn't work. Check it, or send a new one.",
+    confirm: "That account is waiting for the code from its email. Sign in with its password to type the code.",
+    mail: "Couldn't send the email. Try again in a moment.",
+    mails: "Keyprint can't send any more emails today. Try again tomorrow.",
     closed: "Too many new accounts today. Try again tomorrow.",
     full: "Keyprint has no room for new accounts right now. Try again later.",
-    google: "Sign in with Google didn't work. Try again, or use a username and password.",
-    credential: "Sign in with Google didn't work. Try again, or use a username and password.",
+    google: `Sign in with Google didn't work. Try again, or use ${other}.`,
+    credential: `Sign in with Google didn't work. Try again, or use ${other}.`,
     linked: "That Google account already has its own Keyprint account. To add it here instead, sign in with Google, delete that account (its progress goes with it), then sign in here again and add Google.",
     has: "This account already has Google.",
     recent: `For your safety, sign out and sign in again, then do this within ${APP.freshSignIn / 60000} minutes.`,
@@ -10995,7 +11201,8 @@ function renderAccount() {
     if (here.texts) parts.push(count(here.texts, "text", "texts"));
     const what = parts.join(" and ");
     const hint = [];
-    if (p.created && p.via === "google") hint.push(`This Google account${p.user.email ? `, ${p.user.email},` : ""} is new to Keyprint, so this makes a new account for it. Already have one with a username? Click Cancel, sign in with your username, then add Google.`);
+    const own = mailMode() ? "your email" : "a username";
+    if (p.created && p.via === "google") hint.push(`This Google account${p.user.email ? `, ${p.user.email},` : ""} is new to Keyprint, so this makes a new account for it. Already have one with ${own}? Click Cancel, sign in with ${mailMode() ? "your email" : "your username"}, then add Google.`);
     else if (p.created) hint.push(`Your account ${p.user.name} is ready.`);
     if (owner) hint.push(`This browser still has progress from ${owner.name} that may not be in their account. Signing in as someone else removes it from this browser.`);
     else if (progress && Cloud.kind === "key" && Cloud.on) hint.push(`This browser has your Cloud save progress, ${what}. Add it to move it into ${p.created ? "this account" : `the account ${p.user.name}`}. Your save Worker keeps its copy either way.`);
@@ -11012,13 +11219,20 @@ function renderAccount() {
     el.accountOutHint.textContent = "Saves your progress to your account, then clears it from this browser so the next person starts fresh."
       + (user.google ? " Keyprint can't sign you out of Google, so on a shared computer sign out of Google too." : "");
     el.accountLinkRow.hidden = !(conf && conf.google && !user.google && Account.gis !== 3);
+    const viaEmail = firstPasswordEmail(user);
     el.accountPwLabel.textContent = user.password ? "Change password" : "Add a password";
     el.accountPwHint.textContent = user.password
       ? "Your other browsers are signed out, and keep their progress until you sign in there again."
-      : "Lets you sign in with a username too, where Sign in with Google doesn't work.";
+      : viaEmail
+        ? `Lets you sign in with ${viaEmail} and a password too, where Sign in with Google doesn't work.`
+        : "Lets you sign in with a username too, where Sign in with Google doesn't work.";
     el.accountPwOpen.textContent = user.password ? "Change" : "Add";
     el.accountPwOldRow.hidden = !user.password;
-    el.accountPwNameRow.hidden = user.password;
+    el.accountPwNameRow.hidden = user.password || Boolean(viaEmail);
+    // An email account gets back in with Forgot password, so Google is only a second way in.
+    el.accountLinkHint.textContent = user.login.includes("@")
+      ? "Lets you sign in with Google too, with nothing to type."
+      : "Lets you sign in with Google too, which is your way back in if you forget your password.";
     const problems = {
       reach: "Couldn't reach your account. Your progress is safe in this browser, and it will keep trying.",
       setup: "Accounts aren't working on this site right now. Your progress is safe in this browser.",
@@ -11048,13 +11262,36 @@ function renderAccount() {
     note = "Accounts aren't set up on this site yet.";
   } else {
     show = "form";
-    el.googleRow.hidden = !(conf.google || conf.googleAt);
+    const mail = Boolean(conf.mail);
+    const step = Account.step;
+    const other = mail ? "your email and a password" : "a username and password";
+    el.googleRow.hidden = Boolean(step) || !(conf.google || conf.googleAt);
     el.googleBtn.hidden = !conf.google || Account.gis === 3;
-    if (conf.google && Account.gis === 3) el.googleHint.textContent = "Sign in with Google couldn't load here. You can still use a username and password.";
-    else if (conf.google) el.googleHint.textContent = "Sign in or create an account with nothing new to remember. Already have a username? Sign in with it, then add Google.";
-    else el.googleHint.textContent = `Sign in with Google works at ${site}. Here, use a username and password.`;
+    if (conf.google && Account.gis === 3) el.googleHint.textContent = `Sign in with Google couldn't load here. You can still use ${other}.`;
+    else if (conf.google) el.googleHint.textContent = `Sign in or create an account with nothing new to remember. Already have ${mail ? "an account with your email" : "a username"}? Sign in with it, then add Google.`;
+    else el.googleHint.textContent = `Sign in with Google works at ${site}. Here, use ${other}.`;
+    // With email, the form asks for an address, and a step shows only what that step needs,
+    // the code for a new account, or the code and a new password for a reset.
+    el.accountNameRow.hidden = Boolean(step);
+    el.accountNameLabel.textContent = mail ? "Email" : "Username";
+    el.accountNameHint.textContent = mail
+      ? "Creating an account sends a code to this address. A username from before signs in here too."
+      : "3 to 32 letters, numbers, dots, dashes or underscores.";
+    el.accountName.maxLength = mail ? 254 : 32;
+    el.accountName.inputMode = mail ? "email" : "text";
+    el.accountCodeRow.hidden = !step;
+    el.accountCodeHint.textContent = `It works for ${APP.codeLife / 60000} minutes.`;
+    el.accountPassRow.hidden = step === "confirm";
+    el.accountPassLabel.textContent = step === "reset" ? "New password" : "Password";
+    el.accountPassHint.textContent = mail ? "At least 8 characters." : "At least 8 characters. Nobody can reset it for you, so keep it in a password manager.";
+    el.accountPass.autocomplete = step === "reset" || Account.createStep ? "new-password" : "current-password";
+    el.accountPass2Row.hidden = !(step === "reset" || Account.createStep);
+    el.accountButtons.hidden = Boolean(step);
+    el.accountForgot.hidden = !mail;
+    el.accountStepButtons.hidden = !step;
+    el.accountStepOk.textContent = step === "reset" ? "Set new password" : "Confirm";
     el.accountClear.hidden = !ended;
-    if (ended && !el.accountName.value && user.username) el.accountName.value = user.username;
+    if (ended && !el.accountName.value && user.login) el.accountName.value = user.login;
     if (ended) {
       note = `Your sign in ran out. Sign in again as ${user.name} to keep saving. Your progress is safe in this browser.`;
       warn = true;
@@ -11110,9 +11347,14 @@ function bindAccount() {
     run();
   });
   onEnter(el.accountName, () => onAccountSubmit(!el.accountPass2Row.hidden));
-  onEnter(el.accountPass, () => onAccountSubmit(!el.accountPass2Row.hidden));
-  onEnter(el.accountPass2, () => onAccountSubmit(true));
+  onEnter(el.accountPass, () => (Account.step ? onStepOk() : onAccountSubmit(!el.accountPass2Row.hidden)));
+  onEnter(el.accountPass2, () => (Account.step ? onStepOk() : onAccountSubmit(true)));
+  onEnter(el.accountCode, onStepOk);
   onEnter(el.accountPwNew2, onPasswordSave);
+  el.accountForgot.addEventListener("click", onForgot);
+  el.accountStepOk.addEventListener("click", onStepOk);
+  el.accountStepAgain.addEventListener("click", onStepAgain);
+  el.accountStepCancel.addEventListener("click", cancelStep);
   el.accountClear.addEventListener("click", onAccountClear);
   el.accountKeep.addEventListener("click", onAccountKeep);
   el.accountDrop.addEventListener("click", onAccountDrop);
