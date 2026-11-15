@@ -3974,7 +3974,7 @@ function sendLeaving() {
   }
   // Pieces from Write that changed since then come along, so words written just before the
   // page went away reach the account too.
-  copy.writes = (copy.writes || []).filter((w) => w && w.edited > since);
+  copy.writes = (copy.writes || []).filter((w) => w && Math.max(w.edited || 0, w.added || 0) > since);
   copy.devices = (copy.devices || []).map((d) => ({ id: d.id, seen: d.seen, left: d.id === Cloud.device ? d.left : 0 }));
   copy.leftAt = Date.now(); // this browser's clock, so its copies always count up
   Cloud.call("PUT", slotName(Cloud.device), JSON.stringify(copy), true).catch(() => {
@@ -7488,7 +7488,8 @@ function fieldSource() {
 }
 
 // Asks for the word list. Gives {lines} from the model, or {why} when none came, which is
-// "signin", "none", "busy" (today's lists are used up), "refused" or "reach".
+// "signin", "none" (no account service here), "off" (this site makes no lists), "busy"
+// (today's lists are used up), "refused" or "reach".
 async function askField(prompt, doc, zh) {
   const source = fieldSource();
   if (source === "claude") {
@@ -7510,7 +7511,7 @@ async function askField(prompt, doc, zh) {
     else if (error === "session") sessionEnded();
     return { why: "signin" };
   }
-  if (res.status === 404) return { why: "none" };
+  if (res.status === 404) return { why: "off" };
   if (res.status === 429 && (error === "busy" || error === "closed")) return { why: "busy" };
   if (res.status === 422) return { why: "refused" };
   return { why: "reach" };
@@ -7518,7 +7519,8 @@ async function askField(prompt, doc, zh) {
 
 const WRITE_WHY = {
   signin: "Sign in under Account in Settings and each piece gets a word list made for it. This warm-up uses your own words.",
-  none: "Word lists are made at type.stevenwu.org for people with an account. Here the warm-up uses your own words.",
+  none: `Word lists are made at ${APP.site.replace(/^https:\/\//, "")} for people with an account. Here the warm-up uses your own words.`,
+  off: "Word lists aren't set up on this site yet, so this warm-up uses your own words.",
   busy: "You've had all of today's word lists, so this warm-up uses your own words.",
   refused: "A word list couldn't be made for that, so this warm-up uses your own words.",
   reach: "Couldn't reach the word list maker, so this warm-up uses your own words.",
@@ -7754,7 +7756,8 @@ function renderWrite() {
     el.writeStart.disabled = Write.busy;
     el.writeFile.disabled = Write.busy;
     el.writePrompt.disabled = Write.busy;
-    const last = state.writes.find((w) => w.zh === zhOn());
+    const worked = (w) => Math.max(w.edited, w.added);
+    const last = state.writes.filter((w) => w.zh === zhOn()).sort((a, b) => worked(b) - worked(a))[0];
     el.writeResume.hidden = !last || Write.busy;
     if (last) {
       el.writeResume.textContent = `Continue ${last.title.length > 32 ? `${last.title.slice(0, 30)}...` : last.title}`;
@@ -11081,6 +11084,8 @@ function onResetClick() {
     return;
   }
   disarmReset();
+  // A test half typed belongs to the record that's going, so its keys stay out of the new one.
+  if (lesson) lesson.counted = true;
   state.profiles[state.settings.layout] = { ...newProfile(), resetAt: Date.now() };
   buildKeyboard();
   renderPractice();
@@ -12501,7 +12506,7 @@ function onKeyDown(e) {
   if (view !== "practice") return;
   const t = e.target;
   if (t !== el.sink && t instanceof Element && t.closest("input, textarea, select, [contenteditable='true']")) return;
-  if (t === el.focusBack && (e.key === " " || e.key === "Enter")) return; // presses the button instead of typing
+  if ((t === el.focusBack || t === el.focusWrite) && (e.key === " " || e.key === "Enter")) return; // presses the button instead of typing
   updateCaps(e);
   if (drafting()) {
     // Your piece is on the board, so no key restarts or skips anything. See draftKey.
