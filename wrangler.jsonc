@@ -26,7 +26,12 @@
   "migrations": [{ "tag": "accounts-1", "new_sqlite_classes": ["Directory", "Vault"] }],
   // Public settings. The Google client ID isn't a secret, and leaving it empty turns Sign in
   // with Google off. GOOGLE_ORIGINS lists the pages registered with that client, comma separated.
-  "vars": { "GOOGLE_CLIENT_ID": "", "GOOGLE_ORIGINS": "https://type.stevenwu.org" },
+  // MAIL_FROM is the sender of the account emails, like "Keyprint <hello@example.com>", on a
+  // domain verified with Resend. New accounts take an email address and a code once it and the
+  // RESEND_API_KEY secret are both set, and a username until then.
+  // Secrets are set in the Cloudflare dashboard and never here. RESEND_API_KEY sends the emails,
+  // ANTHROPIC_API_KEY makes the word lists for Write, and PEPPER is optional.
+  "vars": { "GOOGLE_CLIENT_ID": "", "GOOGLE_ORIGINS": "https://type.stevenwu.org", "MAIL_FROM": "" },
   // Keep the workers.dev address and the custom domain, which the save Worker lists in SITES.
   "workers_dev": true,
   "routes": [{ "pattern": "type.stevenwu.org", "custom_domain": true }]
