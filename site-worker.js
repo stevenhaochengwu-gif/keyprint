@@ -3,7 +3,8 @@
 // usual 404 through ASSETS. Each account keeps its progress in its own Durable Object (a Vault),
 // and one more Durable Object (the Directory) knows every email, username and Google account and
 // how much every account stores. With a mail service set up, new accounts take an email address
-// and a code sent to it. The script also asks Claude for the word lists behind Write.
+// and a code sent to it. The script also asks a model for the word lists behind Write, Workers AI
+// through the AI binding, or Claude when the site has a key for it.
 // CLAUDE.md lists the routes and every answer they give.
 //
 // It has no imports and uses only Web APIs and the Durable Object SQL API, so a copy of it runs
@@ -44,7 +45,9 @@ const WRITE_TEXT = 24000;        // characters of a document the model reads, AP
 const WRITE_PROMPT = 600;        // characters of what the person says they're about to write
 const WRITE_WORDS = 60;          // entries asked for in a word list
 const WRITE_LINES = 150;         // entries at most taken from the model's answer
-const WRITE_MODEL = "claude-haiku-5-5"; // a small, fast model is enough for a list of words
+const WRITE_AI = "@cf/zai-org/glm-4.7-flash"; // the Workers AI model that makes word lists, small, fast and good at Chinese
+const WRITE_AI_TOKENS = 1500;   // tokens at most in a Workers AI answer, enough for the longest list
+const WRITE_MODEL = "claude-haiku-5-5"; // the Claude model that makes them instead on a site with a key
 const WRITE_API = "https://api.anthropic.com/v1/messages";
 const WRITE_VERSION = "2026-10-21";
 const MAIL_API = "https://api.resend.com/emails";
@@ -459,7 +462,7 @@ function config(env, url) {
     google: clientId && listed ? clientId : "",
     googleAt: clientId && !listed ? origins[0] || "" : "",
     mail: mailOn(env),
-    write: Boolean(env.ANTHROPIC_API_KEY),
+    write: writeOn(env),
   });
 }
 
@@ -696,8 +699,11 @@ async function data(request, env, url) {
 /* 9. Write ----------------------------------------------------------------- */
 
 // The word list behind Write. Someone signed in says what they're about to write, or sends the
-// start of a document, and Claude answers with the words they're likely to use. The key is the
-// ANTHROPIC_API_KEY secret, which never reaches the page, and without it the route isn't there.
+// start of a document, and a model answers with the words they're likely to use. That's Workers
+// AI through the AI binding, which needs no key and is free within the account's daily
+// allowance. A site with the ANTHROPIC_API_KEY secret asks Claude instead, and the key never
+// reaches the page. With neither, the route isn't there.
+const writeOn = (env) => Boolean(env.ANTHROPIC_API_KEY || env.AI);
 const WRITE_TASK = [
   "Keyprint is a typing trainer. Before someone writes a piece of their own, such as a letter, an essay or a poem, they warm up by typing the vocabulary of that piece, so the words are already in their hands and their head when they start writing. You make that vocabulary.",
   `The person says what they are about to write inside piece tags, or gives a document they are writing from or replying to inside document tags, or both. Answer with about ${WRITE_WORDS} entries they are likely to reach for while writing it. Most are single words, the nouns, verbs and adjectives of the subject, with names and terms from the document where they matter. Up to a quarter are short phrases of two to four words that belong to this kind of writing, like thinking of you in a letter home, or on the other hand in an essay. Prefer words that are specific to the subject and its register over words that turn up everywhere, and leave out bare function words such as the, and, of. Match the tone of the piece, warm and plain for a family letter, precise for an academic essay, concrete and sensory for a poem.`,
@@ -706,15 +712,16 @@ const WRITE_TASK = [
 const WRITE_FORM = "Write one entry on each line and nothing else, with no numbers, bullets, headings or notes. Use lowercase except for names. Use only letters, apostrophes, hyphens and spaces.";
 const WRITE_FORM_ZH = "Write the entries in Simplified Chinese. Most have two to four characters, and a few set phrases may be longer. Write one entry on each line and nothing else, with no numbers, bullets, headings or notes. After each entry put a space and then its pinyin without tone marks, one syllable for each character with spaces between them and v for \u00fc, like \u6211\u4eec wo men.";
 
-// The entries in the model's answer, one a line, without list marks, repeats or anything too
-// long to be a word or a short phrase.
+// The entries in the model's answer, one a line, without list marks, the marks of bold or a
+// heading, repeats or anything too long to be a word or a short phrase.
 function fieldLines(words) {
   const seen = new Set();
   const out = [];
   for (const raw of String(words).split("\n")) {
-    const line = raw.replace(/^[\s*\u2022\d.)-]+/, "").replace(/\s+/g, " ").trim();
+    const line = raw.replace(/^[\s*\u2022\d.)#>_`-]+/, "").replace(/[\s*_`]+$/, "").replace(/\s+/g, " ").trim();
     const key = line.toLowerCase();
-    if (!line || line.length > 80 || seen.has(key)) continue;
+    // A line that ends in a colon is a heading the model added, not an entry.
+    if (!line || line.length > 80 || /[:\uff1a]$/.test(line) || seen.has(key)) continue;
     seen.add(key);
     out.push(line);
     if (out.length >= WRITE_LINES) break;
@@ -722,12 +729,54 @@ function fieldLines(words) {
   return out;
 }
 
-// Asks Claude for the list. Gives {lines}, or {fail} with "refused" when the model declines
-// and "later" for anything that may pass.
-async function askWords(env, prompt, doc, zh) {
+// Asks for the list. Gives {lines}, or {fail} with "refused" when the model declines and
+// "later" for anything that may pass.
+function askWords(env, prompt, doc, zh) {
   const parts = [];
   if (prompt) parts.push(`<piece>${prompt}</piece>`);
   if (doc) parts.push(`<document>${doc}</document>`);
+  const task = [...WRITE_TASK, zh ? WRITE_FORM_ZH : WRITE_FORM].join("\n\n");
+  return env.ANTHROPIC_API_KEY ? askClaude(env, task, parts.join("\n")) : askAI(env, task, parts.join("\n"));
+}
+
+// The words of a Workers AI answer. Newer models answer like a chat completion and older ones
+// with a response string, and a model that thinks aloud puts that part inside think tags.
+function aiText(out) {
+  const first = out && Array.isArray(out.choices) ? out.choices[0] : null;
+  const message = first && first.message;
+  const said = message && typeof message.content === "string" ? message.content : out && typeof out.response === "string" ? out.response : "";
+  return { said: said.replace(/<think>[\s\S]*?<\/think>/gi, "").trim(), refused: Boolean(message && typeof message.refusal === "string" && message.refusal) };
+}
+
+// Asks Workers AI. The allowance is counted across the whole Cloudflare account, and once a
+// day's is gone the call throws, which reads as "later", so the page uses the person's own
+// words. Thinking is off, since a list of words needs none and its tokens would count.
+async function askAI(env, task, said) {
+  // The file has no timers, so the time limit is an abort signal that the race listens to.
+  const limit = AbortSignal.timeout(25000);
+  const late = new Promise((yes, no) => limit.addEventListener("abort", () => no(new DOMException("late", "TimeoutError")), { once: true }));
+  let out;
+  try {
+    out = await Promise.race([
+      env.AI.run(WRITE_AI, {
+        messages: [{ role: "system", content: task }, { role: "user", content: said }],
+        max_completion_tokens: WRITE_AI_TOKENS,
+        temperature: 0.6,
+        chat_template_kwargs: { enable_thinking: false },
+      }),
+      late,
+    ]);
+  } catch (err) {
+    console.error("api", "write", err && err.name);
+    return { fail: "later" };
+  }
+  const got = aiText(out);
+  if (!got.said && got.refused) return { fail: "refused" };
+  return { lines: fieldLines(got.said) };
+}
+
+// Asks Claude, on a site with a key.
+async function askClaude(env, task, said) {
   let res;
   try {
     res = await fetch(WRITE_API, {
@@ -737,8 +786,8 @@ async function askWords(env, prompt, doc, zh) {
         model: WRITE_MODEL,
         max_tokens: 4000,
         output_config: { effort: "low" },
-        system: [...WRITE_TASK, zh ? WRITE_FORM_ZH : WRITE_FORM].join("\n\n"),
-        messages: [{ role: "user", content: parts.join("\n") }],
+        system: task,
+        messages: [{ role: "user", content: said }],
       }),
       signal: AbortSignal.timeout(25000),
     });
@@ -760,7 +809,7 @@ async function askWords(env, prompt, doc, zh) {
 // POST /api/write/field {prompt, text, lang} with the session token gives {words}. The
 // Directory counts each list, so one account and the whole site stay within a day's budget.
 async function write(request, env, url, name) {
-  if (name !== "field" || !env.ANTHROPIC_API_KEY) return json(404, { error: "route" });
+  if (name !== "field" || !writeOn(env)) return json(404, { error: "route" });
   if (!env.DIRECTORY || !env.VAULT) return json(500, { error: "setup" });
   if (request.method !== "POST") return json(405, { error: "method" });
   const ip = request.headers.get("CF-Connecting-IP") || "unknown";

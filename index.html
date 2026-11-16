@@ -660,7 +660,7 @@ h2, h3, p { margin: 0; }
   margin: 0 calc(var(--gap) / 2) var(--gap);
   border-radius: 4px;
   background: var(--key);
-  transition: background-color 0.2s ease, opacity 0.2s ease;
+  transition: background-color 0.2s ease, opacity 0.2s ease, transform 0.06s ease-out, box-shadow 0.06s ease-out;
 }
 
 .kb-row:last-child .key { margin-bottom: 0; }
@@ -719,8 +719,16 @@ h2, h3, p { margin: 0; }
   opacity: 0.9;
   transition: left 0.08s ease, top 0.08s ease, width 0.08s ease, height 0.08s ease, opacity 0.2s ease;
 }
-.key.down { filter: brightness(1.25); }
+/* A key that's down sinks a little and takes a tint, at once, and eases back up when you let
+   go. Held is a key on your keyboard, and down a letter typed where there are no key events. */
+.key.down, .key.held {
+  transform: translateY(calc(var(--U) * 0.04));
+  box-shadow: inset 0 0 0 var(--U) color-mix(in oklab, var(--ink) 22%, transparent);
+  transition: none;
+}
+.key.mod.down, .key.mod.held { box-shadow: inset 0 0 0 1px var(--ink-2), inset 0 0 0 var(--U) color-mix(in oklab, var(--ink) 22%, transparent); }
 .key.oops { box-shadow: 0 0 0 2px var(--bg), 0 0 0 3.5px var(--miss); }
+.key.oops.down, .key.oops.held { box-shadow: 0 0 0 2px var(--bg), 0 0 0 3.5px var(--miss), inset 0 0 0 var(--U) color-mix(in oklab, var(--ink) 22%, transparent); }
 .key.printing .lg { animation: print 0.6s ease both; }
 
 @keyframes print { from { opacity: 0; } to { opacity: 1; } }
@@ -3072,6 +3080,7 @@ const APP = {
   coolDowns: { short: 600, medium: 1200, long: 2000 }, // ms of fading pause after a mistake in One mistake restarts
   trailMax: 10,        // wrong keys shown in a row before the cursor
   cueDelay: 500,       // ms without typing before the blue ring shows the next key
+  keyShow: 70,         // ms a key on the board stays down at least, so the quickest tap still shows
   mergeWords: 60,      // My text joins short paragraphs into passages of up to this many words
   splitWords: 200,     // and splits paragraphs longer than this
   pieceWords: 140,     // into pieces of about this many words, at sentence ends
@@ -3187,26 +3196,27 @@ const KEY_NAMES = IS_MAC
   : { back: "backspace", tab: "tab", caps: "caps lock", enter: "enter", shift: "shift" };
 
 // The bottom row, 15 key widths across like the rows above it. A Mac gets its modifier
-// symbols and arrow keys too.
+// symbols and arrow keys too. Each key lists the codes of the keys it stands for, so it can
+// go down when one of them does.
 const BOTTOM_ROW = IS_MAC
   ? [
-      { name: "fn", w: 1 },
-      { name: "control", sym: "\u2303", w: 1 },
-      { name: "option", sym: "\u2325", w: 1 },
-      { name: "command", sym: "\u2318", w: 1.25 },
+      { name: "fn", w: 1, codes: ["Fn"] },
+      { name: "control", sym: "\u2303", w: 1, codes: ["ControlLeft", "ControlRight"] },
+      { name: "option", sym: "\u2325", w: 1, codes: ["AltLeft"] },
+      { name: "command", sym: "\u2318", w: 1.25, codes: ["MetaLeft"] },
       { space: true, w: 5.5 },
-      { name: "command", sym: "\u2318", w: 1.25 },
-      { name: "option", sym: "\u2325", w: 1 },
-      { sym: "\u2190", w: 1 },
-      { sym: "\u2191", sym2: "\u2193", w: 1 },
-      { sym: "\u2192", w: 1 },
+      { name: "command", sym: "\u2318", w: 1.25, codes: ["MetaRight"] },
+      { name: "option", sym: "\u2325", w: 1, codes: ["AltRight"] },
+      { sym: "\u2190", w: 1, codes: ["ArrowLeft"] },
+      { sym: "\u2191", sym2: "\u2193", w: 1, codes: ["ArrowUp", "ArrowDown"] },
+      { sym: "\u2192", w: 1, codes: ["ArrowRight"] },
     ]
   : [
-      { name: "ctrl", w: 1.5 },
-      { name: "alt", w: 1.5 },
+      { name: "ctrl", w: 1.5, codes: ["ControlLeft"] },
+      { name: "alt", w: 1.5, codes: ["AltLeft"] },
       { space: true, w: 9 },
-      { name: "alt", w: 1.5 },
-      { name: "ctrl", w: 1.5 },
+      { name: "alt", w: 1.5, codes: ["AltRight"] },
+      { name: "ctrl", w: 1.5, codes: ["ControlRight"] },
     ];
 
 /* 3. Helpers --------------------------------------------------------------- */
@@ -8433,6 +8443,8 @@ function bindWelcome() {
 let keyEls = new Map();
 let shiftKeys = { L: null, R: null };
 let litKeys = [];
+let codeEls = new Map();    // each key on the board, by the code of the key it stands for
+const heldKeys = new Map(); // the keys that are down now, by code
 
 function makeKey({ label = "", w = 1, mod = false, finger = null, ch = null, sym = "", sym2 = "" }) {
   const key = node("div", mod ? "key mod" : "key");
@@ -8467,31 +8479,40 @@ function buildKeyboard() {
   keyEls = new Map();
   litKeys = [];
   posEls = [];
+  // The old keys are about to go, and whatever was down on them with them.
+  for (const key of new Set([...codeEls.values(), ...keyEls.values()])) clearTimeout(key.liftTimer);
+  heldKeys.clear();
+  codeEls = new Map();
+  const named = (codes, key) => {
+    for (const code of codes) codeEls.set(code, key);
+    return key;
+  };
   const rowEls = rows.map((chars, r) => {
     const row = node("div", "kb-row");
     posEls[r] = [];
-    if (r === 1) row.appendChild(makeKey({ label: KEY_NAMES.tab, w: 1.5, mod: true }));
-    if (r === 2) row.appendChild(makeKey({ label: KEY_NAMES.caps, w: 1.75, mod: true }));
-    if (r === 3) shiftKeys.L = row.appendChild(makeKey({ label: KEY_NAMES.shift, w: 2.25, mod: true }));
+    if (r === 1) named(["Tab"], row.appendChild(makeKey({ label: KEY_NAMES.tab, w: 1.5, mod: true })));
+    if (r === 2) named(["CapsLock"], row.appendChild(makeKey({ label: KEY_NAMES.caps, w: 1.75, mod: true })));
+    if (r === 3) shiftKeys.L = named(["ShiftLeft"], row.appendChild(makeKey({ label: KEY_NAMES.shift, w: 2.25, mod: true })));
     [...chars].forEach((ch, i) => {
       const wide = r === 1 && i === chars.length - 1;
       const key = makeKey({ label: ch, w: wide ? 1.5 : 1, finger: fingers[r][i], ch });
       if (r === 2 && (i === 3 || i === 6)) key.classList.add("home");
       posEls[r].push(key);
+      named([CODE_ROWS[r][i]], key);
       row.appendChild(key);
     });
-    if (r === 0) row.appendChild(makeKey({ label: KEY_NAMES.back, w: 2, mod: true }));
-    if (r === 2) row.appendChild(makeKey({ label: KEY_NAMES.enter, w: 2.25, mod: true }));
-    if (r === 3) shiftKeys.R = row.appendChild(makeKey({ label: KEY_NAMES.shift, w: 2.75, mod: true }));
+    if (r === 0) named(["Backspace"], row.appendChild(makeKey({ label: KEY_NAMES.back, w: 2, mod: true })));
+    if (r === 2) named(["Enter", "NumpadEnter"], row.appendChild(makeKey({ label: KEY_NAMES.enter, w: 2.25, mod: true })));
+    if (r === 3) shiftKeys.R = named(["ShiftRight"], row.appendChild(makeKey({ label: KEY_NAMES.shift, w: 2.75, mod: true })));
     return row;
   });
   const bottom = node("div", "kb-row");
   for (const item of BOTTOM_ROW) {
     if (item.space) {
-      spaceKey = bottom.appendChild(makeKey({ w: item.w, finger: 8, ch: " " }));
+      spaceKey = named(["Space"], bottom.appendChild(makeKey({ w: item.w, finger: 8, ch: " " })));
       spaceKey.classList.add("space");
     } else {
-      bottom.appendChild(makeKey({ label: item.name || "", sym: item.sym || "", sym2: item.sym2 || "", w: item.w, mod: true }));
+      named(item.codes || [], bottom.appendChild(makeKey({ label: item.name || "", sym: item.sym || "", sym2: item.sym2 || "", w: item.w, mod: true })));
     }
   }
   el.kbRows.replaceChildren(...rowEls, bottom);
@@ -8688,15 +8709,102 @@ function placeCue(cue, key) {
   cue.classList.add("on");
 }
 
+// A letter that was just typed. A wrong one gets a red ring. A right one only needs showing
+// where no key went down for it, as on a phone, whose keyboard sends text and no key events.
 function pressVisual(ch, wrong) {
   const target = keyFor(ch);
   if (!target) return;
+  if (!wrong && heldKeys.size) return;
   const key = target.el;
   clearTimeout(key.pressTimer);
   key.classList.remove("down", "oops");
-  void key.offsetWidth;
   key.classList.add(wrong ? "oops" : "down");
   key.pressTimer = setTimeout(() => key.classList.remove("down", "oops"), wrong ? 260 : 110);
+}
+
+// Every key on the board goes down the moment its key on your keyboard does, and comes up
+// when you let go, Shift, Tab and the rest of the row at the bottom included. A key is found
+// by where it sits (its code), so the board matches whichever layout it shows. Nothing here
+// waits on the test, so it shows with the very next frame.
+const MOD_KEYS = [
+  ["shiftKey", ["ShiftLeft", "ShiftRight"]],
+  ["ctrlKey", ["ControlLeft", "ControlRight"]],
+  ["altKey", ["AltLeft", "AltRight"]],
+  ["metaKey", ["MetaLeft", "MetaRight"]],
+];
+const MOD_CODES = new Set(MOD_KEYS.flatMap(([, codes]) => codes));
+
+// The board's key for a key event. A keyboard that gives no code is matched by what the key
+// is or types instead.
+function boardKey(e) {
+  if (e.code && e.code !== "Unidentified") return codeEls.get(e.code) || (e.key === "Fn" ? codeEls.get("Fn") : null) || null;
+  const k = e.key;
+  if (typeof k !== "string" || k === "Unidentified" || k === "Process" || k === "Dead") return null;
+  if (k === "Shift") return e.location === 2 ? shiftKeys.R : shiftKeys.L;
+  if (k === " ") return spaceKey;
+  if (k.length === 1) {
+    const target = keyFor(k);
+    return target ? target.el : null;
+  }
+  const side = e.location === 2 ? "Right" : "Left";
+  return codeEls.get(k) || codeEls.get(`${k === "Control" || k === "Alt" || k === "Meta" ? k : ""}${side}`) || null;
+}
+
+function pressKey(id, key) {
+  heldKeys.set(id, key);
+  clearTimeout(key.liftTimer);
+  key.heldAt = performance.now();
+  key.classList.add("held");
+}
+
+// Lets a key up, unless another key that shares it is still down. A tap shorter than a frame
+// would never be seen, so a key stays down for a moment at least.
+function liftKey(id) {
+  const key = heldKeys.get(id);
+  if (!key) return;
+  heldKeys.delete(id);
+  for (const other of heldKeys.values()) if (other === key) return;
+  const left = APP.keyShow - (performance.now() - key.heldAt);
+  clearTimeout(key.liftTimer);
+  if (left > 0) key.liftTimer = setTimeout(() => key.classList.remove("held"), left);
+  else key.classList.remove("held");
+}
+
+// A key shown going down and coming straight back up, for one whose letting go can't be told.
+function tapKey(key) {
+  clearTimeout(key.liftTimer);
+  key.classList.add("held");
+  key.liftTimer = setTimeout(() => {
+    for (const other of heldKeys.values()) if (other === key) return;
+    key.classList.remove("held");
+  }, APP.keyShow + 50);
+}
+
+function liftKeys(all) {
+  for (const id of [...heldKeys.keys()]) if (all || !MOD_CODES.has(id)) liftKey(id);
+}
+
+function onBoardKey(e) {
+  const down = e.type === "keydown";
+  const key = boardKey(e);
+  const coded = Boolean(e.code && e.code !== "Unidentified");
+  if (key && e.code === "CapsLock" && IS_MAC) {
+    // A Mac sends one event for each press of Caps Lock, a keydown going on and a keyup going off.
+    tapKey(key);
+  } else if (key && !coded) {
+    if (down && !e.repeat) tapKey(key);
+  } else if (down) {
+    if (key && !e.repeat) pressKey(e.code, key);
+  } else {
+    liftKey(e.code);
+    // macOS sends no keyup for a key let go while Command is down, so those come up with it.
+    if (e.key === "Meta") liftKeys(false);
+  }
+  // A modifier whose keyup never came, as after a shortcut that left the page, comes up with
+  // the next key that shows it isn't down.
+  for (const [flag, codes] of MOD_KEYS) {
+    if (!e[flag]) for (const code of codes) liftKey(code);
+  }
 }
 
 function celebrateUnlock(ch) {
@@ -12604,6 +12712,13 @@ function bindEvents() {
     flashZenHint();
   });
   document.addEventListener("keyup", updateCaps);
+  // The keys on the board follow the keyboard before anything else hears of a key.
+  document.addEventListener("keydown", onBoardKey, true);
+  document.addEventListener("keyup", onBoardKey, true);
+  window.addEventListener("blur", () => liftKeys(true));
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) liftKeys(true);
+  });
   el.sink.addEventListener("input", onSinkInput);
   el.sink.addEventListener("beforeinput", (e) => {
     if (e.inputType !== "deleteContentBackward" || welcomeOpen()) return;
