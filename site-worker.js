@@ -1,8 +1,8 @@
 // The site Worker for Keyprint. Cloudflare serves index.html as a static file and runs this
 // script for requests under /api, which hold accounts, and for paths with no file, which get the
-// usual 404 through ASSETS. Each account keeps its progress in its own Durable Object (a Vault),
-// and one more Durable Object (the Directory) knows every email, username and Google account and
-// how much every account stores. With a mail service set up, new accounts take an email address
+// usual 404 through ASSETS. Each account keeps its progress, and the name and picture it shows,
+// in its own Durable Object (a Vault), and one more Durable Object (the Directory) knows every
+// email, username and Google account and how much every account stores. With a mail service set up, new accounts take an email address
 // and a code sent to it. The script also asks a model for the word lists behind Write, Workers AI
 // through the AI binding, or Claude when the site has a key for it.
 // CLAUDE.md lists the routes and every answer they give.
@@ -38,10 +38,13 @@ const CODE_TRIES = 5;            // tries one emailed code takes before a new on
 const MAILS_PER_ADDRESS = 5;     // emails to one email address in an hour
 const MAILS_PER_PLACE = 10;      // emails asked for from one address (an IPv6 /64) in an hour
 const MAILS_PER_DAY = 90;        // emails across the site in one UTC day, under the 100 a day of Resend's free plan
-const WRITE_PER_DAY = 40;        // word lists one account may ask for in 24 hours
+const CALLED_MAX = 40;           // characters in the name an account shows
+const FACE_MAX = 60000;          // bytes in the picture an account shows, a small square as a data URL, APP.faceMax in index.html
+const WRITE_PER_DAY = 20;        // word lists one account may ask for in 24 hours
 const WRITE_SITE_DAY = 1000;     // word lists across the site in one UTC day
 const WRITE_BODY = 40000;        // characters in a word list request
 const WRITE_TEXT = 24000;        // characters of a document the model reads, APP.writeDoc in index.html
+const WRITE_BYTES = 30000;       // bytes of that document at most, so Chinese, at three bytes a character, costs no more to read than English
 const WRITE_PROMPT = 600;        // characters of what the person says they're about to write
 const WRITE_WORDS = 60;          // entries asked for in a word list
 const WRITE_LINES = 150;         // entries at most taken from the model's answer
@@ -69,7 +72,9 @@ const JWT_RE = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/;
 const SUB_RE = /^[0-9A-Za-z_-]{1,255}$/;
 const MAIN = "keyprint-state-v1";
 const SLOT = "keyprint-pending-";
-const CAPS = { main: MAIN_MAX, slot: SLOT_MAX, doc: DOC_MAX };
+const FACE = "keyprint-face";
+const FACE_RE = /^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/;
+const CAPS = { main: MAIN_MAX, slot: SLOT_MAX, doc: DOC_MAX, face: FACE_MAX };
 const UID_LETTERS = "abcdefghijklmnopqrstuvwxyz0123456789";
 
 /* 2. Helpers --------------------------------------------------------------- */
@@ -118,6 +123,24 @@ function normalEmail(raw) {
 // The name of a password login, an email address or one of the older usernames. A username
 // never holds an at sign, so the two can't be mixed up.
 const normalLogin = (raw) => (typeof raw === "string" && raw.includes("@") ? normalEmail(raw) : normalName(raw));
+
+// A short mark that changes when an account's picture does, so a browser only fetches the
+// picture when its own copy is out of date. The page works out the same mark for the picture
+// it holds (faceMark in index.html), over the same characters.
+function faceMark(bytes) {
+  let h = 2166136261;
+  for (let i = 0; i < bytes.length; i++) h = Math.imul(h ^ bytes[i], 16777619);
+  return `${(h >>> 0).toString(36)}.${bytes.length.toString(36)}`;
+}
+
+// What someone is called, the name their account shows. It isn't a way in and needn't be theirs
+// alone, so any script goes. Line breaks and invisible characters come out, a run of spaces
+// becomes one, and it stops at CALLED_MAX characters. Empty means no name.
+function normalCalled(raw) {
+  if (typeof raw !== "string") return "";
+  const name = raw.normalize("NFKC").replace(/[\p{Cc}\p{Zl}\p{Zp}]/gu, " ").replace(/\p{Cf}/gu, "").replace(/\s+/g, " ").trim();
+  return [...name].slice(0, CALLED_MAX).join("").trim();
+}
 
 // Six digits for an emailed code. Bytes of 250 or more are drawn again, so every digit is
 // equally likely.
@@ -239,6 +262,7 @@ function nameKind(name) {
   if (name === "backups") return "days";
   if (/^keyprint-pending-[a-z0-9]{8,24}$/.test(name)) return "slot";
   if (/^keyprint-doc:[a-z0-9]{4,40}$/.test(name)) return "doc";
+  if (name === FACE) return "face";
   if (/^backup-\d{4}-\d{2}-\d{2}$/.test(name)) return "day";
   return "";
 }
@@ -355,7 +379,7 @@ async function verifyGoogle(env, credential, proof, origin) {
   const nonce = b64url(await crypto.subtle.digest("SHA-256", utf8(proof)));
   if (typeof claims.nonce !== "string" || claims.nonce !== nonce) return refuse(401, "nonce");
   const email = claims.email_verified === true && typeof claims.email === "string" && claims.email.length <= 254 ? claims.email.toLowerCase() : "";
-  return { sub: claims.sub, email, nonce, exp: claims.exp };
+  return { sub: claims.sub, email, nonce, exp: claims.exp, name: typeof claims.name === "string" ? claims.name : "" };
 }
 
 /* 5. Email ----------------------------------------------------------------- */
@@ -466,15 +490,19 @@ function config(env, url) {
   });
 }
 
+// The user JSON with the name the account shows, which its Vault keeps.
+const withCalled = (user, called) => ({ ...user, called: typeof called === "string" ? called : "" });
+
 // Makes a session in the account's Vault and answers with its token. When this fails after
 // signing up, the account exists anyway, so a retry gets taken and signing in then works.
-// sole ends every other session first, as a plain sign out, for a password reset.
-async function signedIn(env, found, status, created, sole = false) {
+// sole ends every other session first, as a plain sign out, for a password reset. called is
+// the name given as the account is made, which the Vault keeps if it has none yet.
+async function signedIn(env, found, status, created, sole = false, called = "") {
   if (!found || !UID_RE.test(found.uid)) throw new Error("directory");
-  const made = await ask(vault(env, found.uid), "session-new", { uid: found.uid, sole });
+  const made = await ask(vault(env, found.uid), "session-new", { uid: found.uid, sole, called });
   const secret = made.data.secret;
   if (made.status !== 200 || !isProof(secret)) throw new Error("session");
-  return json(status, { token: `kp1.${found.uid}.${secret}`, user: found.user, created });
+  return json(status, { token: `kp1.${found.uid}.${secret}`, user: withCalled(found.user, made.data.called), created });
 }
 
 // Answers a request that may have sent an email, the same way whether or not one went out.
@@ -501,7 +529,7 @@ async function signup({ env, url, body, ip }) {
   if (!isProof(body.proof)) return json(400, { error: "proof" });
   const r = await ask(directory(env), "signup", { name, proof: body.proof, ip });
   if (r.status !== 200) return json(r.status, r.data);
-  return signedIn(env, r.data, 201, true);
+  return signedIn(env, r.data, 201, true, false, normalCalled(body.called));
 }
 
 // Makes the account a sign up asked for, once the code from the email and the same password
@@ -513,7 +541,7 @@ async function confirm({ env, body, ip }) {
   if (typeof body.code !== "string" || !CODE_RE.test(body.code) || !isProof(body.proof)) return json(400, { error: "code" });
   const r = await ask(directory(env), "confirm", { email, code: body.code, proof: body.proof, ip });
   if (r.status !== 200) return json(r.status, r.data);
-  return signedIn(env, r.data, 201, true);
+  return signedIn(env, r.data, 201, true, false, normalCalled(body.called));
 }
 
 // Emails a code for a new password. The answer never says whether the address has an account,
@@ -560,7 +588,8 @@ async function google({ env, url, body, ip }) {
   const r = await ask(directory(env), "google", { sub: g.sub, email: g.email, nonce: g.nonce, exp: g.exp, ip });
   if (r.status !== 200) return json(r.status, r.data);
   const created = r.data.created === true;
-  return signedIn(env, r.data, created ? 201 : 200, created);
+  // A new account starts with the name Google has for the person.
+  return signedIn(env, r.data, created ? 201 : 200, created, false, created ? normalCalled(g.name) : "");
 }
 
 async function signout({ request, env, body }) {
@@ -578,7 +607,7 @@ async function link({ request, env, url, body, ip }) {
   const g = await verifyGoogle(env, body.credential, body.proof, url.origin);
   if (g.fail) return json(g.fail, { error: g.fail === 400 ? "credential" : "google" });
   const r = await ask(directory(env), "link", { uid: token.uid, sub: g.sub, email: g.email, nonce: g.nonce, exp: g.exp, ip });
-  return json(r.status, r.data);
+  return json(r.status, r.status === 200 && r.data.user ? { user: withCalled(r.data.user, fresh.data.called) } : r.data);
 }
 
 // Changes or adds the password, then signs out every other browser. Those see a plain sign
@@ -600,7 +629,17 @@ async function password({ request, env, body, ip }) {
   if (r.status !== 200) return json(r.status, r.data);
   const others = await ask(vault(env, token.uid), "end-others", {}, keyHeaders(token));
   if (others.status !== 200) return json(others.status, others.data);
-  return json(200, { user: r.data.user });
+  return json(200, { user: withCalled(r.data.user, check.data.called) });
+}
+
+// Sets the name the account shows. It lives in the account's own Vault, so every browser
+// learns it with its next read. An empty name takes it away.
+async function called({ request, env, body }) {
+  const token = bearer(request);
+  if (!token) return json(401, { error: "session" });
+  if (typeof body.called !== "string") return json(400, { error: "name" });
+  const r = await ask(vault(env, token.uid), "called", { called: normalCalled(body.called) }, keyHeaders(token));
+  return json(r.status, r.data);
 }
 
 // Each step is safe to run again, and the session stays valid until the last one, so a
@@ -645,6 +684,7 @@ function authRoute(name) {
   if (name === "signout") return signout;
   if (name === "link") return link;
   if (name === "password") return password;
+  if (name === "name") return called;
   if (name === "delete") return remove;
   return null;
 }
@@ -712,6 +752,13 @@ const WRITE_TASK = [
 const WRITE_FORM = "Write one entry on each line and nothing else, with no numbers, bullets, headings or notes. Use lowercase except for names. Use only letters, apostrophes, hyphens and spaces.";
 const WRITE_FORM_ZH = "Write the entries in Simplified Chinese. Most have two to four characters, and a few set phrases may be longer. Write one entry on each line and nothing else, with no numbers, bullets, headings or notes. After each entry put a space and then its pinyin without tone marks, one syllable for each character with spaces between them and v for \u00fc, like \u6211\u4eec wo men.";
 
+// Cuts words to at most max bytes of UTF-8, on a whole character. A cut in the middle of a
+// character decodes as one broken character at the end, which goes.
+function fitBytes(words, max) {
+  const bytes = utf8(words);
+  return bytes.length <= max ? words : new TextDecoder().decode(bytes.subarray(0, max)).replace(/\ufffd+$/, "");
+}
+
 // The entries in the model's answer, one a line, without list marks, the marks of bold or a
 // heading, repeats or anything too long to be a word or a short phrase.
 function fieldLines(words) {
@@ -740,19 +787,23 @@ function askWords(env, prompt, doc, zh) {
 }
 
 // The words of a Workers AI answer. Newer models answer like a chat completion and older ones
-// with a response string, and a model that thinks aloud puts that part inside think tags.
+// with a response string, and a model that thinks aloud puts that part inside think tags. An
+// answer that stopped at the token limit ends in the middle of a line, so that line goes.
 function aiText(out) {
   const first = out && Array.isArray(out.choices) ? out.choices[0] : null;
   const message = first && first.message;
-  const said = message && typeof message.content === "string" ? message.content : out && typeof out.response === "string" ? out.response : "";
-  return { said: said.replace(/<think>[\s\S]*?<\/think>/gi, "").trim(), refused: Boolean(message && typeof message.refusal === "string" && message.refusal) };
+  let said = message && typeof message.content === "string" ? message.content : out && typeof out.response === "string" ? out.response : "";
+  said = said.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+  if (first && first.finish_reason === "length") said = said.slice(0, said.lastIndexOf("\n") + 1);
+  return { said, refused: Boolean(message && typeof message.refusal === "string" && message.refusal) };
 }
 
 // Asks Workers AI. The allowance is counted across the whole Cloudflare account, and once a
 // day's is gone the call throws, which reads as "later", so the page uses the person's own
 // words. Thinking is off, since a list of words needs none and its tokens would count.
 async function askAI(env, task, said) {
-  // The file has no timers, so the time limit is an abort signal that the race listens to.
+  // The file has no timers, so the time limit is an abort signal. The binding takes it and
+  // stops the request, and the race is there for a runtime that doesn't.
   const limit = AbortSignal.timeout(25000);
   const late = new Promise((yes, no) => limit.addEventListener("abort", () => no(new DOMException("late", "TimeoutError")), { once: true }));
   let out;
@@ -763,11 +814,15 @@ async function askAI(env, task, said) {
         max_completion_tokens: WRITE_AI_TOKENS,
         temperature: 0.6,
         chat_template_kwargs: { enable_thinking: false },
-      }),
+      }, { signal: limit }),
       late,
     ]);
   } catch (err) {
-    console.error("api", "write", err && err.name);
+    // Workers AI starts an error's message with its code, and the code is what tells a day's
+    // allowance used up (3036) or no capacity (3040), which pass, from a model that was
+    // retired (5028) or needs a paid plan (5035), which mean WRITE_AI has to change.
+    const code = /^(\d{3,5})\b/.exec(String(err && err.message));
+    console.error("api", "write", code ? code[1] : err && err.name);
     return { fail: "later" };
   }
   const got = aiText(out);
@@ -807,7 +862,9 @@ async function askClaude(env, task, said) {
 }
 
 // POST /api/write/field {prompt, text, lang} with the session token gives {words}. The
-// Directory counts each list, so one account and the whole site stay within a day's budget.
+// Directory counts each list, so one account can't take most of a day's lists. Workers AI's
+// own allowance is counted in what each list costs to read and write, which is why the
+// document is also cut to WRITE_BYTES.
 async function write(request, env, url, name) {
   if (name !== "field" || !writeOn(env)) return json(404, { error: "route" });
   if (!env.DIRECTORY || !env.VAULT) return json(500, { error: "setup" });
@@ -819,9 +876,10 @@ async function write(request, env, url, name) {
   const got = await jsonBody(request, WRITE_BODY);
   if (got.fail) return got.fail;
   // Tag names in what was sent would only confuse where the material starts and ends.
-  const clip = (words, max) => (typeof words === "string" ? words.replace(/<\/?(?:piece|document)>/gi, " ").replace(/\s+/g, " ").trim().slice(0, max) : "");
+  // A cut never leaves half of a character that takes two code units.
+  const clip = (words, max) => (typeof words === "string" ? words.replace(/<\/?(?:piece|document)>/gi, " ").replace(/\s+/g, " ").trim().slice(0, max).replace(/[\ud800-\udbff]$/, "") : "");
   const prompt = clip(got.body.prompt, WRITE_PROMPT);
-  const doc = clip(got.body.text, WRITE_TEXT);
+  const doc = fitBytes(clip(got.body.text, WRITE_TEXT), WRITE_BYTES);
   if (!prompt && !doc) return json(400, { error: "body" });
   const check = await ask(vault(env, token.uid), "check", {}, keyHeaders(token));
   if (check.status !== 200) return json(check.status, check.data);
@@ -829,7 +887,10 @@ async function write(request, env, url, name) {
   if (turn.status !== 200) return json(turn.status, turn.data);
   const made = await askWords(env, prompt, doc, got.body.lang === "zh");
   if (made.fail) return json(made.fail === "refused" ? 422 : 503, { error: made.fail });
-  if (made.lines.length < 8) return json(503, { error: "later" });
+  if (made.lines.length < 8) {
+    console.error("api", "write", "short"); // an answer with too little in it to be a list
+    return json(503, { error: "later" });
+  }
   return json(200, { words: made.lines });
 }
 
@@ -873,7 +934,9 @@ export default {
 
 /* 11. Vault, one per account ----------------------------------------------- */
 
-// meta holds uid, created and, after a delete, deleted.
+// meta holds uid, created, reported (the size the Directory last heard), called (the name the
+// account shows, when it has one), face (the mark of its picture, when it has one) and, after
+// a delete, deleted.
 // sessions.hash is the base64url SHA-256 of the session secret, created and seen are ms, and
 // revoked is 0 or 1.
 // blobs is a rowid table on purpose, because SQLite advises against WITHOUT ROWID for big rows.
@@ -885,7 +948,7 @@ const VAULT_TABLES = [
   "CREATE TABLE IF NOT EXISTS blobs (name TEXT NOT NULL, part INTEGER NOT NULL, body BLOB NOT NULL, size INTEGER NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (name, part))",
 ];
 
-const VAULT_ROUTES = ["session-new", "check", "fresh", "end", "end-others", "delete"];
+const VAULT_ROUTES = ["session-new", "check", "fresh", "called", "end", "end-others", "delete"];
 
 // Joins stored parts into one Uint8Array. Bodies come back as ArrayBuffer in workerd, and
 // wrapping them works for a Uint8Array too.
@@ -979,7 +1042,7 @@ export class Vault {
     if (s.fail) return text(401, s.fail === "revoked" ? "Revoked" : "Signed out");
     if (method === "GET") return this.read(name, kind);
     if (method === "DELETE") {
-      if (kind !== "doc") return text(403, "Not allowed");
+      if (kind !== "doc" && kind !== "face") return text(403, "Not allowed");
       const after = this.total() - this.bytesOf(name);
       const res = this.write(s, name, kind, null, {});
       if (res.status === 200) await this.shrank(s.uid, after);
@@ -989,6 +1052,8 @@ export class Vault {
     if (!CAPS[kind]) return text(403, "Not allowed");
     const body = await request.arrayBuffer();
     if (body.byteLength > CAPS[kind]) return text(413, "Too large");
+    // A picture is a small image as a data URL, and nothing else is kept under its name.
+    if (kind === "face" && !FACE_RE.test(new TextDecoder().decode(body))) return text(400, "Bad picture");
     const plan = this.plan(name, kind, body.byteLength, Date.now(), true);
     if (plan.full) return text(507, "Full");
     const opts = { daily: true };
@@ -1032,7 +1097,9 @@ export class Vault {
 
   // One read that replaces 1 + N GETs per save. A JSON header, one newline, then the raw bytes
   // of the main copy and of each left copy in header order, newest written first. The bodies
-  // are copied as stored, with no decoding, which keeps CPU low.
+  // are copied as stored, with no decoding, which keeps CPU low. The header also carries the
+  // name the account shows and the mark of its picture, so a change made in one browser
+  // reaches the others for free. A browser fetches the picture only when the mark is new to it.
   frame() {
     const main = this.parts(MAIN);
     const rows = this.sql.exec("SELECT name, body, at FROM blobs WHERE name >= 'keyprint-pending-' AND name < 'keyprint-pending.' ORDER BY at DESC, name, part").toArray();
@@ -1043,7 +1110,7 @@ export class Vault {
       else if (slots.length < SLOTS_MAX) slots.push({ name: row.name, rows: [row] });
     }
     const bodies = slots.map((slot) => joinParts(slot.rows));
-    const head = utf8(JSON.stringify({ v: 1, main: main ? main.byteLength : -1, slots: slots.map((slot, i) => [slot.name.slice(SLOT.length), bodies[i].byteLength]) }));
+    const head = utf8(JSON.stringify({ v: 1, main: main ? main.byteLength : -1, slots: slots.map((slot, i) => [slot.name.slice(SLOT.length), bodies[i].byteLength]), called: this.meta("called"), face: this.meta("face") }));
     const all = [main || new Uint8Array(0), ...bodies];
     const out = new Uint8Array(head.byteLength + 1 + all.reduce((n, b) => n + b.byteLength, 0));
     out.set(head, 0);
@@ -1152,6 +1219,7 @@ export class Vault {
       if (this.tooMany(now)) return text(429, "Slow down");
       if (body === null) {
         this.sql.exec("DELETE FROM blobs WHERE name = ?", name);
+        if (kind === "face") this.sql.exec("DELETE FROM meta WHERE k = 'face'");
         return text(200, "Deleted");
       }
       const size = body.byteLength;
@@ -1168,6 +1236,7 @@ export class Vault {
       this.sql.exec("DELETE FROM blobs WHERE name = ? AND part >= ?", name, count);
       if (plan.daily) this.daily(now);
       if (opts.reported) this.setMeta("reported", String(opts.reported));
+      if (kind === "face") this.setMeta("face", faceMark(new Uint8Array(body)));
       return text(200, "Saved");
     });
   }
@@ -1187,8 +1256,21 @@ export class Vault {
     const s = await this.session(request);
     if (s.fail) return json(401, { error: s.fail });
     const now = Date.now();
-    if (route === "check") return json(200, { created: s.created });
-    if (route === "fresh") return now - s.created > FRESH ? json(403, { error: "recent" }) : json(200, { ok: true });
+    if (route === "check") return json(200, { created: s.created, called: this.meta("called") });
+    if (route === "fresh") return now - s.created > FRESH ? json(403, { error: "recent" }) : json(200, { ok: true, called: this.meta("called") });
+    if (route === "called") {
+      // The name the account shows. It's written like any other write, with the session
+      // checked again inside the transaction, and an empty name takes it away.
+      const name = normalCalled(body.called);
+      return this.ctx.storage.transactionSync(() => {
+        const again = this.live(s.hash, s.uid, false);
+        if (again.fail) return json(401, { error: again.fail });
+        if (this.tooMany(now)) return busy(600);
+        if (name) this.setMeta("called", name);
+        else this.sql.exec("DELETE FROM meta WHERE k = 'called'");
+        return json(200, { called: name });
+      });
+    }
     if (route === "end") {
       this.ctx.storage.transactionSync(() => {
         if (body.all === true) this.sql.exec("UPDATE sessions SET revoked = 1");
@@ -1206,6 +1288,7 @@ export class Vault {
     // still signed in learns Revoked and clears itself.
     this.ctx.storage.transactionSync(() => {
       this.sql.exec("DELETE FROM blobs");
+      this.sql.exec("DELETE FROM meta WHERE k IN ('called', 'face')");
       this.sql.exec("UPDATE sessions SET revoked = 1");
       this.sql.exec("INSERT INTO meta (k, v) VALUES ('deleted', ?) ON CONFLICT (k) DO UPDATE SET v = excluded.v", String(now));
     });
@@ -1228,6 +1311,9 @@ export class Vault {
       if (this.meta("deleted")) return false;
       this.sql.exec("INSERT OR IGNORE INTO meta (k, v) VALUES ('uid', ?)", uid);
       this.sql.exec("INSERT OR IGNORE INTO meta (k, v) VALUES ('created', ?)", String(now));
+      // The name given as the account is made. A later change goes through the called route.
+      const name = normalCalled(body.called);
+      if (name) this.sql.exec("INSERT OR IGNORE INTO meta (k, v) VALUES ('called', ?)", name);
       this.sql.exec("DELETE FROM sessions WHERE (revoked = 1 AND created < ?) OR (revoked = 0 AND (seen < ? OR created < ?))", now - LIFE, now - IDLE, now - LIFE);
       // A password reset ends every other session, as a plain sign out, like a password change.
       if (body.sole === true) this.sql.exec("DELETE FROM sessions WHERE revoked = 0");
@@ -1236,7 +1322,7 @@ export class Vault {
       return true;
     });
     this.ready = true;
-    return made ? json(200, { secret }) : json(409, { error: "deleted" });
+    return made ? json(200, { secret, called: this.meta("called") }) : json(409, { error: "deleted" });
   }
 
   // Removes what a deleted account left behind, the revoked session rows, once every browser

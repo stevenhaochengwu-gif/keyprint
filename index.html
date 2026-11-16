@@ -217,7 +217,7 @@ h2, h3, p { margin: 0; }
 .logo .m2 { stroke: var(--mark-2); }
 .logo .m3 { stroke: var(--mark-3); }
 .logo .m4 { stroke: var(--mark-4); }
-.tabs { display: flex; gap: 22px; }
+.tabs { display: flex; gap: 22px; margin-left: auto; }
 
 .tab {
   padding: 2px 0;
@@ -231,6 +231,43 @@ h2, h3, p { margin: 0; }
 
 .tab:hover { color: var(--ink); }
 .tab[aria-current="page"] { border-bottom-color: var(--ink); color: var(--ink); }
+
+/* Your account, as a small key cap at the end of the top bar. It shows your picture, or your
+   initials without one, and a dot when your account can't be reached. The bigger one sits in
+   the Account group. */
+.who {
+  position: relative;
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: var(--key);
+  color: var(--key-ink);
+  font-family: var(--font-ui);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+button.who { cursor: pointer; }
+button.who:hover { background: color-mix(in oklab, var(--ink) 14%, var(--key)); }
+.who img { display: block; width: 100%; height: 100%; border-radius: inherit; object-fit: cover; }
+.who.warn::after {
+  content: "";
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 9px;
+  height: 9px;
+  border: 2px solid var(--bg);
+  border-radius: 50%;
+  background: var(--miss);
+}
+.who.big { width: 44px; height: 44px; border-radius: 10px; font-size: 16px; }
 
 /* Small controls ----------------------------------------------------- */
 
@@ -1818,11 +1855,21 @@ label.row { cursor: pointer; }
   }
 }
 
+/* With the account's key cap in the bar too, the tabs sit closer on a phone, and on the
+   narrowest ones the logo steps aside, since it only leads where the Practice tab does. */
+@media (max-width: 480px) {
+  .topbar.signed { gap: 12px; }
+  .topbar.signed .tabs { gap: clamp(8px, 2.6vw, 14px); }
+}
+
 /* On the narrowest phones Step up's dots, the word count, the language switch and the zoom
    buttons leave the line that shows how far you are almost no room, so they sit closer. */
 @media (max-width: 359px) {
   .board-foot { gap: 10px; }
   .pips { margin-left: -4px; }
+  .topbar.signed .brand { display: none; }
+  .topbar.signed .tabs { margin-left: 0; }
+  .topbar.signed .tab { font-size: 13px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1844,7 +1891,7 @@ label.row { cursor: pointer; }
 </head>
 <body>
 <div class="shell">
-  <header class="topbar">
+  <header class="topbar" id="topbar">
     <button class="brand" type="button" data-goto="practice">
       <svg class="logo" viewBox="0 0 64 64" aria-hidden="true">
         <g fill="none" stroke-width="4.6" stroke-linecap="round">
@@ -1862,6 +1909,7 @@ label.row { cursor: pointer; }
       <button class="tab" type="button" data-view="analysis">Analysis</button>
       <button class="tab" type="button" data-view="settings">Settings</button>
     </nav>
+    <button class="who" type="button" id="who" hidden></button>
   </header>
 
   <main>
@@ -2244,6 +2292,13 @@ label.row { cursor: pointer; }
             </span>
             <input class="field" id="accountPass2" type="password" autocomplete="new-password" maxlength="200">
           </label>
+          <label class="row stack" for="accountCalled" id="accountCalledRow" hidden>
+            <span class="row-text">
+              <span class="row-label">Your name</span>
+              <span class="row-hint">Your account shows its initials, AL for Ada Lovelace. You can leave it out and add it later.</span>
+            </span>
+            <input class="field" id="accountCalled" type="text" autocomplete="name" autocapitalize="words" spellcheck="false" maxlength="40">
+          </label>
           <div class="row" id="accountButtons">
             <div class="tool">
               <button class="btn" type="button" id="accountSignIn">Sign in</button>
@@ -2262,16 +2317,43 @@ label.row { cursor: pointer; }
         </form>
         <div class="row" id="accountMerge" hidden>
           <div class="row-text">
-            <span class="row-label" id="accountMergeLabel">Progress in this browser</span>
+            <span class="row-label" id="accountMergeLabel">New account</span>
             <span class="row-hint" id="accountMergeHint"></span>
           </div>
           <div class="tool">
-            <button class="btn" type="button" id="accountKeep">Add it</button>
-            <button class="btn quiet" type="button" id="accountDrop">Leave it out</button>
+            <button class="btn" type="button" id="accountKeep">Create it</button>
             <button class="btn quiet" type="button" id="accountCancel">Cancel</button>
           </div>
         </div>
         <div id="accountPanel" hidden>
+          <div class="row" id="accountWhoRow">
+            <span class="who big" id="accountFace" aria-hidden="true"></span>
+            <div class="row-text">
+              <span class="row-label" id="accountWhoLabel">Your name</span>
+              <span class="row-hint" id="accountWhoHint"></span>
+            </div>
+            <div class="tool">
+              <button class="btn" type="button" id="accountWhoOpen">Add your name</button>
+              <button class="btn" type="button" id="accountFacePick">Add a picture</button>
+              <button class="btn quiet" type="button" id="accountFaceDrop" hidden>Remove picture</button>
+            </div>
+            <input id="accountFaceInput" type="file" accept="image/*" hidden>
+          </div>
+          <form id="accountWhoForm" novalidate hidden>
+            <label class="row stack" for="accountWhoName">
+              <span class="row-text">
+                <span class="row-label">Your name</span>
+                <span class="row-hint">Your account shows its initials, AL for Ada Lovelace. Up to 40 characters, and empty takes it away.</span>
+              </span>
+              <input class="field" id="accountWhoName" type="text" autocomplete="name" autocapitalize="words" spellcheck="false" maxlength="40">
+            </label>
+            <div class="row">
+              <div class="tool">
+                <button class="btn" type="button" id="accountWhoSave">Save name</button>
+                <button class="btn quiet" type="button" id="accountWhoCancel">Cancel</button>
+              </div>
+            </div>
+          </form>
           <div class="row">
             <div class="row-text">
               <span class="row-label">Signed in with</span>
@@ -3045,13 +3127,20 @@ const APP = {
   cloudTimeout: 20000, // ms a cloud request may wait for an answer to start, plus 1 s per 10,000 characters it uploads
   accountApi: "/api",  // the account service at this page's own address, see site-worker.js
   accountSync: "keyprint-sync", // cloud name that reads an account's main copy and every left copy in one request
-  accountDelay: 120000, // ms between saves to your account while you practice
+  accountDelay: 60000, // ms between saves to your account while you practice
   accountRetry: 600000, // ms, the longest wait between tries when your account can't be reached
   heldRetry: 86400000, // ms before a text that didn't fit in your account tries again
   passwordRounds: 600000, // PBKDF2 rounds your browser runs on a password before sending it. Never change it, or every password stops working
   passwordMin: 8,      // characters a new password needs at least
   freshSignIn: 900000, // ms after signing in when adding Google or a first password, or deleting the account, is allowed, FRESH in site-worker.js
   codeLife: 900000,    // ms a code sent by email works, CODE_LIFE in site-worker.js
+  calledMax: 40,       // characters in the name an account shows, CALLED_MAX in site-worker.js
+  accountFace: "keyprint-face", // cloud name of the picture an account shows, and where this browser keeps its copy
+  faceSize: 128,       // px on each side of that picture
+  faceMax: 60000,      // characters in it as a data URL, FACE_MAX in site-worker.js
+  faceFile: 30000000,  // bytes in a picture file you may pick, before it's cut down to size
+  accountPull: 120000, // ms at least between reads of your account when you come back to the page
+  accountAgain: 15000, // ms at least between those reads while your account can't be reached, so a save that failed goes through soon after you're back online
   googleScript: "https://accounts.google.com/gsi/client",
   site: "https://type.stevenwu.org", // where accounts and Sign in with Google work, named in notes
   letterOrder: "etaoinshrdlcumwfgypbvkjxqz", // adaptive tests unlock letters in this order
@@ -3499,11 +3588,16 @@ const Account = {
   deleteArmed: 0,
   clearArmed: 0,
   keepArmed: 0,
-  dropArmed: 0,
-  createStep: false,  // Create account asked for the password a second time
+  createStep: false,  // Create account asked for the password a second time, and for your name
   step: "",           // "confirm" while a new account waits for its emailed code, "reset" for a new password
   stepEmail: "",      // the address that step's code went to
   stepProof: "",      // the new account's password proof, kept in memory until its code comes back
+  stepCalled: "",     // the name typed for the new account, kept the same way
+  face: { user: "", mark: "", data: "" }, // the picture this browser holds, and whose it is
+  faceBusy: false,    // a picture is on its way up or down
+  calledAt: -1,       // performance.now() when the name was last set here, so an older read can't put the old one back
+  faceAt: -1,         // the same for the picture
+  pulledAt: 0,        // ms, when the account was last read, so coming back to the page doesn't read it again too soon
 };
 
 // Text ids a config lists as due or held, the same way every time one is read.
@@ -3538,6 +3632,7 @@ async function loadCloudConfig() {
         Account.held = new Set(textIds(cfg.held));
         Account.due = new Set(textIds(cfg.due).filter((id) => !Account.held.has(id)));
         Account.heldAt = Number(cfg.heldAt) || 0;
+        await loadFace();
       }
     } else if (cfg && typeof cfg.url === "string" && typeof cfg.key === "string") {
       Cloud.url = cfg.url;
@@ -3591,6 +3686,24 @@ function joinTextLists(raw, settled = []) {
   for (const id of Account.held) Account.due.delete(id);
   Account.heldAt = Math.max(Account.heldAt, Number(cfg.heldAt) || 0);
 }
+
+// Another tab of this browser may have changed the name the account shows. Its config has the
+// new one, which this tab takes, so its own next write of the config doesn't put the old one back.
+function joinCalled(raw) {
+  if (Cloud.kind !== "account" || !Cloud.user) return;
+  let cfg = null;
+  try {
+    cfg = raw ? JSON.parse(raw) : null;
+  } catch (err) {
+    // a config that doesn't read changes nothing
+  }
+  if (!cfg || cfg.kind !== "account" || !cfg.user || cfg.user.id !== Cloud.user.id) return;
+  const called = cleanCalled(cfg.user.called);
+  if (called === Cloud.user.called) return;
+  Cloud.user = Object.assign({}, Cloud.user, { called });
+  renderAccount();
+}
+
 const isDeviceId = (id) => typeof id === "string" && /^[a-z0-9]{8,24}$/.test(id);
 const newDeviceId = () => (Math.random().toString(36).slice(2, 10) + Date.now().toString(36)).replace(/[^a-z0-9]/g, "").slice(0, 24);
 
@@ -3817,12 +3930,38 @@ function mergeSaves(mine, theirs, keepMine) {
 let cloudTimer = 0;
 let cloudRun = null;  // the cloud save running now
 let cloudNext = null; // one more cloud save, asked for while that one runs
+let cloudPull = false; // the next cloud save was only asked to read, by coming back to the page
 
 // Changes reach the cloud within APP.cloudDelay, or APP.accountDelay for an account, and never
 // more often than that.
 function scheduleCloud() {
   if (!Cloud.on || !ready || cloudTimer) return;
   cloudTimer = setTimeout(() => pushCloud(), Cloud.kind === "account" ? APP.accountDelay : APP.cloudDelay);
+}
+
+// Coming back to the page, or back online, reads the account once, so progress another browser
+// saved shows here without a reload. Changes of this browser's that are waiting go up with it,
+// and with none waiting nothing is written. It reads no more often than APP.accountPull, or
+// APP.accountAgain while the account couldn't be reached, so a save that failed offline goes
+// through as soon as you're back. Only an account does this. Your own save Worker is read when
+// there's something to save, as before.
+// how is "back" (the page shows again or gets focus), "online" or "touch" (a key or a tap).
+function pullCloud(how = "back") {
+  if (!ready || Cloud.kind !== "account" || !Cloud.on || Account.switching || Account.leaving || cloudRun) return;
+  // A save that didn't fit would only fail the same way, so it waits for its own timer.
+  if (cloudDirty && Cloud.error === "full") return;
+  // A key or a tap never hurries a try after a failure, or typing through an outage would ask
+  // every few seconds where the waits between tries are meant to grow.
+  if (how === "touch" && Cloud.error) return;
+  const failed = Cloud.error === "reach";
+  // The wall clock, since a sleeping computer's page clock stands still and the morning after
+  // is when there's most to catch up on. A clock that was set back counts as time gone by.
+  const since = Date.now() - Account.pulledAt;
+  if (since >= 0 && since < (failed ? APP.accountAgain : APP.accountPull)) return;
+  Account.pulledAt = Date.now();
+  if (failed && how === "online") Cloud.retry = 60000; // the connection changed, so the waits between tries start over
+  if (!cloudDirty) cloudPull = true;
+  pushCloud();
 }
 
 // Cloud saves run one at a time, so two can't read the same copy and then both write it.
@@ -3891,6 +4030,8 @@ function foldLeft(base, left, keepMine) {
 async function sendCloud() {
   clearTimeout(cloudTimer);
   cloudTimer = 0;
+  const pull = cloudPull;
+  cloudPull = false;
   if (!Cloud.on) return false;
   // While progress moves into an account, the account gets nothing until it's merged.
   if (Account.switching && Cloud.kind === "account") return false;
@@ -3919,6 +4060,24 @@ async function sendCloud() {
       hydrate(next);
       afterMerge();
     }
+    // Coming back to the page only asks to read. With nothing of this browser's waiting to go
+    // up, what it read is kept here and nothing is written. Left copies it folded in stay in
+    // the account for the next save, from any browser, to fold into the main copy.
+    if (pull && !cloudDirty) {
+      if (!ready) return false;
+      if (!Account.switching && accountChange(cloudIdentity(cloudSeen), cloudIdentity(readConfigNow()))) {
+        leaveTab();
+        return false;
+      }
+      if (next !== base) Store.save(state);
+      if (theirs) Cloud.seen = Math.max(Cloud.seen, theirs.savedAt || 0);
+      Cloud.error = "";
+      Cloud.retry = 60000;
+      // The account answered, so texts that were waiting for it go up now too.
+      if (Account.due.size) uploadDue();
+      retryHeld();
+      return true;
+    }
     markDevice(state, Cloud.device, { seen: Date.now() });
     state.savedAt = Math.max(state.savedAt || 0, Date.now());
     await Cloud.call("PUT", APP.storageKey, JSON.stringify(state));
@@ -3945,7 +4104,12 @@ async function sendCloud() {
     // day isn't kept busy.
     const delay = Cloud.kind === "account" ? Cloud.retry : 60000;
     if (Cloud.kind === "account") Cloud.retry = Math.min(Cloud.retry * 2, APP.accountRetry);
-    cloudTimer = setTimeout(() => pushCloud(), delay); // key mode tries again in a minute, as always
+    // Key mode tries again in a minute, as always. A read that failed with nothing to send
+    // tries again as a read.
+    cloudTimer = setTimeout(() => {
+      if (pull && !cloudDirty) cloudPull = true;
+      pushCloud();
+    }, delay);
     return false;
   } finally {
     renderCloudStatus();
@@ -4060,7 +4224,113 @@ function cleanUser(u) {
   // login is what the password goes with, an email address or a username from before email.
   // A user saved before it was sent has none, and then the username stands in.
   const login = typeof u.login === "string" && (nameOk(u.login) || emailOk(u.login)) ? u.login : username;
-  return { id: u.id, name, username, email, login, google: Boolean(u.google), password: Boolean(u.password) };
+  return { id: u.id, name, username, email, login, google: Boolean(u.google), password: Boolean(u.password), called: cleanCalled(u.called) };
+}
+
+// The name an account shows, tidied the way site-worker.js tidies it (normalCalled). Any
+// script goes, with single spaces and nothing invisible, up to APP.calledMax characters.
+function cleanCalled(raw) {
+  if (typeof raw !== "string") return "";
+  const name = raw.normalize("NFKC").replace(/[\p{Cc}\p{Zl}\p{Zp}]/gu, " ").replace(/\p{Cf}/gu, "").replace(/\s+/g, " ").trim();
+  return [...name].slice(0, APP.calledMax).join("").trim();
+}
+
+// What the page calls an account, its name when it has one, else what it signs in with.
+const calledOf = (u) => (u ? u.called || u.name : "");
+
+// The first word of an account's name, for a greeting, or nothing without a name.
+const firstName = (u) => (u && u.called ? u.called.split(" ")[0] : "");
+
+// The letters on an account's key cap. A name gives the first letter of its first and last
+// words, SW for Steven Wu, or one letter for a name of one word. With no name, it's the first
+// letter of what the account signs in with.
+function initialsOf(u) {
+  if (!u) return "";
+  const lead = (w) => [...(w.replace(/^[^\p{L}\p{N}]+/u, "") || w)][0] || "";
+  const words = u.called.split(" ").filter(Boolean);
+  if (!words.length) return lead(u.login || u.email || u.name).toLocaleUpperCase();
+  return (words.length > 1 ? lead(words[0]) + lead(words[words.length - 1]) : lead(words[0])).toLocaleUpperCase();
+}
+
+// A short mark that changes when a picture does. The account's Vault works out the same one
+// (faceMark in site-worker.js), so a read of the account says whether this browser's copy of
+// the picture is still the one the account has.
+function faceMark(data) {
+  let h = 2166136261;
+  for (let i = 0; i < data.length; i++) h = Math.imul(h ^ data.charCodeAt(i), 16777619);
+  return `${(h >>> 0).toString(36)}.${data.length.toString(36)}`;
+}
+
+// A picture is a small image as a data URL, the only thing an account keeps under that name.
+const faceOk = (data) => typeof data === "string" && data.length <= APP.faceMax && /^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(data);
+
+// The picture this browser holds for the account it's signed in to, and its mark. A picture
+// kept for another account never shows.
+const faceHere = () => (Cloud.kind === "account" && Cloud.user && Account.face.user === Cloud.user.id ? Account.face.data : "");
+const faceMarkHere = () => (faceHere() ? Account.face.mark : "");
+
+// Reads the picture this browser kept, so the key cap shows it before the account is read.
+async function loadFace() {
+  try {
+    const raw = await Store.read(APP.accountFace);
+    const got = raw ? JSON.parse(raw) : null;
+    if (got && typeof got.user === "string" && faceOk(got.data)) Account.face = { user: got.user, mark: faceMark(got.data), data: got.data };
+  } catch (err) {
+    // a copy that doesn't read is fetched again with the next read of the account
+  }
+}
+
+// Takes a picture for the signed in account, or none, and keeps this browser's copy in step.
+function keepFace(data) {
+  if (Cloud.kind !== "account" || !Cloud.user) return;
+  const user = Cloud.user.id;
+  Account.face = data ? { user, mark: faceMark(data), data } : { user: "", mark: "", data: "" };
+  // A tab that missed a sign out elsewhere never puts a picture back into this browser.
+  if (!Account.leaving && (Account.switching || !accountChange(cloudIdentity(cloudSeen), cloudIdentity(readConfigNow())))) {
+    if (data) Store.write(APP.accountFace, JSON.stringify({ user, data }));
+    else Store.remove(APP.accountFace);
+  }
+  renderAccount();
+}
+
+// Fetches the account's picture, which only happens when a read of the account names a mark
+// this browser doesn't hold.
+async function fetchFace() {
+  if (Account.faceBusy || Cloud.kind !== "account" || !Cloud.on) return;
+  Account.faceBusy = true;
+  const key = Cloud.key;
+  const began = performance.now();
+  try {
+    const data = await Cloud.call("GET", APP.accountFace);
+    if (Cloud.key !== key || Account.leaving || began < Account.faceAt) return;
+    if (data === null) keepFace("");
+    else if (faceOk(data)) keepFace(data);
+  } catch (err) {
+    // the next read of the account tries again
+  } finally {
+    Account.faceBusy = false;
+  }
+}
+
+// Every read of an account brings the name it shows and the mark of its picture, so a change
+// made in another browser shows here with no request of its own. began is when the read
+// started. A name or picture set here after that is newer than what the read saw.
+function noteProfile(head, began) {
+  const u = Cloud.kind === "account" ? Cloud.user : null;
+  if (!u || !head || typeof head !== "object" || Account.leaving) return;
+  if (typeof head.called === "string" && began >= Account.calledAt) {
+    const called = cleanCalled(head.called);
+    if (called !== u.called) {
+      Cloud.user = Object.assign({}, u, { called });
+      // While progress moves into an account, the sign in itself writes the config.
+      if (!Account.switching) saveCloudConfig();
+      renderAccount();
+    }
+  }
+  if (typeof head.face === "string" && began >= Account.faceAt && head.face !== faceMarkHere()) {
+    if (head.face) fetchFace();
+    else keepFace("");
+  }
 }
 
 const isToken = (t, uid) => typeof t === "string" && /^kp1\.[a-z0-9]{20}\.[A-Za-z0-9_-]{43}$/.test(t) && t.split(".")[1] === uid;
@@ -4161,14 +4431,20 @@ async function settleCloud() {
 }
 
 // One request brings the account's main copy and every left copy. The reply is a short JSON
-// header with the length of each, then their bytes one after another.
+// header with the length of each, then their bytes one after another. The header also has the
+// name the account shows and the mark of its picture.
 async function readAccount() {
+  const began = performance.now();
+  const key = Cloud.key;
   const buf = await Cloud.call("GET", APP.accountSync, undefined, false, true);
   const all = new Uint8Array(buf || new ArrayBuffer(0));
   const cut = all.indexOf(10);
   if (cut < 0) throw new Error("reach");
   const text = new TextDecoder();
   const head = JSON.parse(text.decode(all.subarray(0, cut)));
+  // The same answer carries the name and picture the account shows.
+  if (Cloud.key === key) noteProfile(head, began);
+  Account.pulledAt = Date.now(); // coming back to the page needn't read again for a while
   let at = cut + 1;
   const take = (n) => text.decode(all.subarray(at, (at += n)));
   const theirs = head.main >= 0 ? JSON.parse(take(head.main)) : null;
@@ -4180,12 +4456,12 @@ async function readAccount() {
   return { theirs, left };
 }
 
-// Removes progress and texts from this browser. Settings go with the progress, and the
-// config with this browser's device id stays.
+// Removes progress, texts and the account's picture from this browser. Settings go with the
+// progress, and the config with this browser's device id stays.
 function wipeLocal() {
   try {
     const prefix = Store.docKey("");
-    const keys = [APP.storageKey];
+    const keys = [APP.storageKey, APP.accountFace]; // the picture belongs to whoever was signed in
     for (let i = 0; i < window.localStorage.length; i++) {
       const k = window.localStorage.key(i);
       if (k && k.startsWith(prefix)) keys.push(k);
@@ -5788,6 +6064,8 @@ const el = {
   keyNote: $("#keyNote"),
   capsWarn: $("#capsWarn"),
   toast: $("#toast"),
+  topbar: $("#topbar"),
+  who: $("#who"),
   progTitle: $("#progTitle"),
   progSub: $("#progSub"),
   progEmpty: $("#progEmpty"),
@@ -5894,6 +6172,8 @@ const el = {
   accountPass: $("#accountPass"),
   accountPass2Row: $("#accountPass2Row"),
   accountPass2: $("#accountPass2"),
+  accountCalledRow: $("#accountCalledRow"),
+  accountCalled: $("#accountCalled"),
   accountButtons: $("#accountButtons"),
   accountSignIn: $("#accountSignIn"),
   accountCreate: $("#accountCreate"),
@@ -5908,8 +6188,18 @@ const el = {
   accountMergeLabel: $("#accountMergeLabel"),
   accountKeep: $("#accountKeep"),
   accountCancel: $("#accountCancel"),
-  accountDrop: $("#accountDrop"),
   accountPanel: $("#accountPanel"),
+  accountFace: $("#accountFace"),
+  accountWhoLabel: $("#accountWhoLabel"),
+  accountWhoHint: $("#accountWhoHint"),
+  accountWhoOpen: $("#accountWhoOpen"),
+  accountFacePick: $("#accountFacePick"),
+  accountFaceDrop: $("#accountFaceDrop"),
+  accountFaceInput: $("#accountFaceInput"),
+  accountWhoForm: $("#accountWhoForm"),
+  accountWhoName: $("#accountWhoName"),
+  accountWhoSave: $("#accountWhoSave"),
+  accountWhoCancel: $("#accountWhoCancel"),
   accountMethods: $("#accountMethods"),
   accountNow: $("#accountNow"),
   accountOut: $("#accountOut"),
@@ -7440,7 +7730,9 @@ function fieldAsk(prompt, doc, zh) {
 // the word and its pinyin, one syllable for each character, the way ZH_WORDS has them.
 function cleanEntry(raw, zh) {
   if (zh) {
-    const parts = String(raw).normalize("NFKD").replace(/[̀-ͯ]/g, "").replace(/ü/g, "v").trim().split(/\s+/);
+    // Pinyin's u with two dots is typed as v. Splitting the letter from its marks leaves the
+    // dots right after the u, before any tone mark, so that's where it's found.
+    const parts = String(raw).normalize("NFKD").replace(/u(?=[\u0300-\u036f]*\u0308)/gi, "v").replace(/[\u0300-\u036f]/g, "").trim().split(/\s+/);
     const word = parts[0] || "";
     const py = parts.slice(1).map((p) => p.toLowerCase());
     if (!/^[㐀-鿿]{1,8}$/.test(word) || py.length !== [...word].length || !py.every((p) => /^[a-z]{1,6}$/.test(p))) return "";
@@ -7545,8 +7837,9 @@ async function startPiece(prompt, doc, title) {
     return;
   }
   const zh = zhOn();
-  const about = prompt.slice(0, APP.writePrompt);
-  const from = doc.slice(0, APP.writeDoc);
+  // A cut never leaves half of a character that takes two code units.
+  const about = prompt.slice(0, APP.writePrompt).replace(/[\ud800-\udbff]$/, "");
+  const from = doc.slice(0, APP.writeDoc).replace(/[\ud800-\udbff]$/, "");
   Write.busy = true;
   setWriteNote("Finding your words");
   renderWrite();
@@ -7585,6 +7878,23 @@ function setWriteNote(text, warn = false) {
 
 // What's in the box starts a piece. A few words say what you're about to write. Something
 // long is a text you're writing from, named by how it starts.
+// A text to write from, on one line for the model. English goes through the My text cleaner,
+// which keeps what the keyboard can type. A text with Chinese in it keeps its characters and
+// its own punctuation and only has its spaces tidied, since that cleaner would take every one
+// of them out. HAN is the test for a Chinese character, declared with the input methods.
+function writeDoc(raw) {
+  if (!HAN.test(raw)) return cleanDocument(raw).replace(/\s+/g, " ");
+  return String(raw).normalize("NFC").replace(/\s+/g, " ").trim();
+}
+
+// A piece written from a text is named by how the text starts. Chinese has no spaces between
+// words, so its first clause is cut by characters.
+function writeTitle(doc) {
+  if (!HAN.test(doc)) return titleFrom(doc).slice(0, 120);
+  const first = [...doc.split(/[\u3002\uff01\uff1f\uff1b!?;]/)[0].trim()];
+  return first.length <= 24 ? first.join("") : `${first.slice(0, 24).join("")}...`;
+}
+
 function onWriteStart() {
   const raw = el.writePrompt.value.trim();
   if (!raw) {
@@ -7593,8 +7903,8 @@ function onWriteStart() {
     return;
   }
   if (raw.length > APP.writeLong) {
-    const doc = cleanDocument(raw);
-    startPiece("", doc.replace(/\s+/g, " "), titleFrom(doc.replace(/\s+/g, " ")).slice(0, 120));
+    const doc = writeDoc(raw);
+    startPiece("", doc, writeTitle(doc));
   } else {
     const line = raw.replace(/\s+/g, " ");
     startPiece(line, "", `${line[0].toUpperCase()}${line.slice(1)}`.slice(0, 120));
@@ -7606,13 +7916,13 @@ async function onWriteFile(file) {
   try {
     setWriteNote(`Reading ${file.name}`);
     const { title, text } = await readDocFile(file, (words) => setWriteNote(words));
-    const doc = cleanDocument(text).replace(/\s+/g, " ");
+    const doc = writeDoc(text);
     if (!doc) {
       setWriteNote(`${file.name} has no text that can be read. If it's a scan, paste the text instead.`, true);
       return;
     }
     const about = el.writePrompt.value.trim().replace(/\s+/g, " ");
-    await startPiece(about.length > APP.writeLong ? "" : about, doc, (title || titleFrom(doc)).slice(0, 120));
+    await startPiece(about.length > APP.writeLong ? "" : about, doc, (title || writeTitle(doc)).slice(0, 120));
   } catch (err) {
     setWriteNote(readError(err, file.name), true);
   }
@@ -7956,7 +8266,7 @@ function renderWriteHint() {
   const made = Boolean(Account.conf && Account.conf.write);
   let hint = "Warm up on the words of a piece you're about to write, then keep typing in your own words. Pick Write under Text to type to start one.";
   if (source === "claude") hint += " Claude makes a word list for each piece.";
-  else if (source === "site" && made) hint += " Each piece gets a word list made for it.";
+  else if (source === "site" && made) hint += " Each piece gets a word list made for it. To make one, what you put in the box is sent to this site and on to a language model.";
   else if (accountPlace() === "ok" && made) hint += " Sign in under Account and each piece gets a word list made for it. Without one, the warm-up uses the words of your own prompt or text.";
   else hint += " Here the warm-up uses the words of your own prompt or text.";
   el.writeHint.textContent = hint;
@@ -11344,6 +11654,15 @@ function localProgress() {
 
 const count = (n, one, many) => `${n.toLocaleString("en-US")} ${n === 1 ? one : many}`;
 
+// The progress localProgress found, in words, like "12 tests and 1 text".
+function progressText(here) {
+  const parts = [];
+  if (here.tests) parts.push(count(here.tests, "test", "tests"));
+  if (here.texts) parts.push(count(here.texts, "text", "texts"));
+  if (here.pieces) parts.push(count(here.pieces, "piece of writing", "pieces of writing"));
+  return parts.length > 2 ? `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}` : parts.join(" and ");
+}
+
 function methodsText(u) {
   // An account made with an email address signs in with it and a password.
   if (u.login.includes("@")) {
@@ -11363,9 +11682,10 @@ function waitText(seconds) {
   return count(Math.ceil(s / 60), "minute", "minutes");
 }
 
-// An error or a step hint takes the place of the account note until the next action.
-function setAccountNote(text, warn = false) {
-  Account.message = { text, warn };
+// An error or a step hint takes the place of the account note until the next action. A note
+// that's only news, set with once, also goes when you leave Settings.
+function setAccountNote(text, warn = false, once = false) {
+  Account.message = { text, warn, once };
   el.accountNote.textContent = text;
   el.accountNote.classList.toggle("warn", warn);
   el.accountNote.hidden = false;
@@ -11377,6 +11697,8 @@ const signedIn = () => Cloud.kind === "account" && Cloud.on;
 function endCreateStep() {
   el.accountPass2Row.hidden = true;
   el.accountPass2.value = "";
+  el.accountCalledRow.hidden = true;
+  el.accountCalled.value = "";
   el.accountPass.autocomplete = "current-password";
   Account.createStep = false;
 }
@@ -11407,17 +11729,20 @@ async function onAccountSubmit(creating) {
   } else if (!nameOk(name)) return stop(mail ? NOT_EMAIL : USERNAME_RULE);
   const problem = passwordProblem(name, password, creating);
   if (problem) return stop(problem);
-  // A new password is typed twice, so a typo can't lock you out.
+  // A new password is typed twice, so a typo can't lock you out. The same step asks for your
+  // name, which the account shows as its initials.
   if (creating && !Account.createStep) {
     Account.createStep = true;
     el.accountPass2Row.hidden = false;
+    el.accountCalledRow.hidden = false;
     el.accountPass.autocomplete = "new-password";
-    setAccountNote("Type your password again, then click Create account.");
+    setAccountNote("Type your password again and add your name, then click Create account.");
     renderAccount();
     el.accountPass2.focus();
     return;
   }
   if (creating && el.accountPass2.value !== password) return stop("The two passwords don't match.");
+  const called = creating ? cleanCalled(el.accountCalled.value) : "";
   Account.busy = true;
   setAccountNote(!creating ? "Signing in" : mail ? "Sending your code" : "Creating your account");
   renderAccount();
@@ -11425,7 +11750,10 @@ async function onAccountSubmit(creating) {
   let proof = "";
   try {
     proof = await passwordProof(name, password);
-    res = await authCall(creating ? "signup" : "signin", byEmail ? { email: name, proof } : { username: name, proof });
+    const body = byEmail ? { email: name, proof } : { username: name, proof };
+    // With email the account is made when its code comes back, and the name goes with that.
+    if (creating && !mail && called) body.called = called;
+    res = await authCall(creating ? "signup" : "signin", body);
   } catch (err) {
     res = { status: 0, data: { error: "reach" } };
   } finally {
@@ -11438,7 +11766,7 @@ async function onAccountSubmit(creating) {
     return;
   }
   if (creating && res.status === 202) {
-    beginStep("confirm", name, proof, `We sent a 6 digit code to ${name}. Type it here to finish. It can take a minute, and it may be in your spam folder.`);
+    beginStep("confirm", name, proof, `We sent a 6 digit code to ${name}. Type it here to finish. It can take a minute, and it may be in your spam folder.`, called);
     return;
   }
   if (!creating && res.status === 403 && res.data.error === "confirm") {
@@ -11450,11 +11778,12 @@ async function onAccountSubmit(creating) {
 }
 
 // A step waits for the code from an email. Confirm finishes a new account, and reset sets a
-// new password. The new account's proof stays in memory only, so a reload starts over, and
-// signing in with the same password then asks for the code again.
-function beginStep(kind, email, proof, text) {
+// new password. The new account's proof and name stay in memory only, so a reload starts over,
+// and signing in with the same password then asks for the code again (the name can be added
+// once the account is made).
+function beginStep(kind, email, proof, text, called = "") {
   endCreateStep();
-  Object.assign(Account, { step: kind, stepEmail: email, stepProof: proof });
+  Object.assign(Account, { step: kind, stepEmail: email, stepProof: proof, stepCalled: called });
   for (const f of [el.accountCode, el.accountPass, el.accountPass2]) f.value = "";
   setAccountNote(text);
   renderAccount();
@@ -11462,7 +11791,7 @@ function beginStep(kind, email, proof, text) {
 }
 
 function endStep() {
-  Object.assign(Account, { step: "", stepEmail: "", stepProof: "" });
+  Object.assign(Account, { step: "", stepEmail: "", stepProof: "", stepCalled: "" });
   for (const f of [el.accountCode, el.accountPass, el.accountPass2]) f.value = "";
 }
 
@@ -11496,7 +11825,9 @@ async function onStepOk() {
   let res;
   try {
     const proof = kind === "reset" ? await passwordProof(email, password) : Account.stepProof;
-    res = await authCall(kind === "reset" ? "reset" : "confirm", { email, code, proof });
+    const body = { email, code, proof };
+    if (kind !== "reset" && Account.stepCalled) body.called = Account.stepCalled;
+    res = await authCall(kind === "reset" ? "reset" : "confirm", body);
   } catch (err) {
     res = { status: 0, data: { error: "reach" } };
   } finally {
@@ -11571,8 +11902,10 @@ async function onForgot() {
   renderAccount();
 }
 
-// Progress already in this browser is only added to an account when you say it's yours, and
-// never to someone else's account than the one it came from.
+// Progress in this browser that belongs to no account joins the account you sign in to, with
+// no question. Progress that belongs to another account is never added to this one, so that
+// still asks before it's removed, and so does a Google account that's new to Keyprint, before
+// an account is made for it.
 // via is "password" or "google".
 async function askAboutProgress(result, via = "password") {
   if (Account.leaving) return;
@@ -11585,10 +11918,11 @@ async function askAboutProgress(result, via = "password") {
   const signin = { token: result.token, user, created: result.created === true, via };
   const owner = Cloud.kind === "account" && Cloud.user ? Cloud.user.id : "";
   if (owner === user.id) return adoptAccount(signin, true); // the session had ended, and it's the same person
-  const here = localProgress();
-  // A Google account new to Keyprint asks first too, so someone who already has an account
-  // with a username doesn't end up in a second, empty one without knowing.
-  if (!here.any && !(signin.created && via === "google")) return adoptAccount(signin, !owner);
+  // A Google account new to Keyprint asks first, so someone who already has an account with
+  // a password doesn't end up in a second, empty one without knowing.
+  const fresh = signin.created && via === "google";
+  if (!owner && !fresh) return adoptAccount(signin, true);
+  if (owner && !fresh && !localProgress().any) return adoptAccount(signin, false);
   Account.message = null;
   Account.pending = signin;
   disarmMerge();
@@ -11604,8 +11938,8 @@ function pendingOwner() {
   return localProgress().any ? mergeOwner() : null;
 }
 
-// Signing in as someone else and leaving progress out both clear this browser, so they take a
-// second click.
+// Signing in as someone else clears their progress from this browser, so it takes a second
+// click.
 function onAccountKeep() {
   if (!Account.pending || Account.busy || Account.leaving) return;
   if (pendingOwner() && !Account.keepArmed) {
@@ -11613,19 +11947,6 @@ function onAccountKeep() {
     return;
   }
   adoptAccount(Account.pending, !mergeOwner());
-}
-
-function onAccountDrop() {
-  if (!Account.pending || Account.busy || Account.leaving) return;
-  if (pendingOwner()) {
-    cancelPending();
-    return;
-  }
-  if (!Account.dropArmed) {
-    armAccount("dropArmed", el.accountDrop, "Click again to clear it", "Leave it out", "again");
-    return;
-  }
-  adoptAccount(Account.pending, false);
 }
 
 // The sign in isn't used, so its session is signed out again, as far as that goes. An account
@@ -11643,12 +11964,10 @@ function cancelPending() {
 }
 
 function disarmMerge() {
-  for (const [slot, btn] of [["keepArmed", el.accountKeep], ["dropArmed", el.accountDrop]]) {
-    clearTimeout(Account[slot]);
-    Account[slot] = 0;
-    btn.classList.remove("armed");
-    btn.dataset.armed = "";
-  }
+  clearTimeout(Account.keepArmed);
+  Account.keepArmed = 0;
+  el.accountKeep.classList.remove("armed");
+  el.accountKeep.dataset.armed = "";
 }
 
 // Texts that only your own save Worker has come along when your progress moves into an
@@ -11683,11 +12002,12 @@ async function adoptAccount(result, keep) {
   Account.busy = true;
   Account.switching = true;
   disarmMerge();
-  // Your own save Worker gets a last save first either way, so it has everything this browser
-  // has before anything here changes. Adding it moves it, texts included, into the account.
-  const keyPush = Cloud.kind === "key" && Cloud.on;
-  const moving = keep && keyPush;
+  // keep is false only when the progress here belongs to another account, which is cleared.
+  // Your own save Worker gets a last save first, so it has everything this browser has before
+  // anything here changes. Then its progress, texts included, moves into the account.
+  const moving = keep && Cloud.kind === "key" && Cloud.on;
   const sameOwner = Boolean(Cloud.kind === "account" && Cloud.user && Cloud.user.id === result.user.id);
+  let brought = null; // what was in this browser before the sign in, to say afterwards that it came along
   // Another tab of this browser may sign in or out meanwhile. Its change wins, and this one
   // stops without writing anything. cloudSeen still holds the config from before this sign in,
   // so any write by another tab shows up as a change.
@@ -11698,10 +12018,10 @@ async function adoptAccount(result, keep) {
     authCall("signout", { all: false }, result.token, 5000); // the new session isn't used
     leaveTab();
   };
-  setAccountNote(moving ? "Bringing your Cloud save progress along" : keyPush ? "Saving your progress first" : result.created ? "Creating your account" : "Signing in");
+  setAccountNote(moving ? "Bringing your Cloud save progress along" : result.created ? "Creating your account" : "Signing in");
   renderAccount();
   try {
-    if (keyPush) {
+    if (moving) {
       // A last read, merge and write to your own save Worker, which folds its left copies in.
       if (saveTimer || localDirty) {
         clearTimeout(saveTimer);
@@ -11711,12 +12031,14 @@ async function adoptAccount(result, keep) {
       cloudDirty = true;
       if (!(await pushCloud())) throw new Error("move");
       try {
-        if (moving) await fetchCloudDocs();
-        else await uploadDocs(); // texts here reach your save Worker before this browser is cleared
+        await fetchCloudDocs();
       } catch (err) {
         throw new Error("move");
       }
     }
+    // Counted after the last save to your own save Worker, which can bring in tests from your
+    // other devices, so the note afterwards counts what really moved.
+    if (keep && !sameOwner) brought = localProgress();
     if (lost()) return giveUp();
     await settleCloud();
     if (lost()) return giveUp();
@@ -11760,7 +12082,7 @@ async function adoptAccount(result, keep) {
     start = foldLeft(start, got.left, true);
     hydrate(start);
     // Whoever signs in has used Keyprint here, so the welcome for someone new doesn't open
-    // again for an account with no tests yet, after Leave it out or a sign out, say.
+    // again for an account with no tests yet, after a sign out and a new account, say.
     if (!state.welcomed) state.welcomed = Date.now();
     Cloud.seen = got.theirs ? got.theirs.savedAt || 0 : 0;
     const listed = new Set((got.theirs && Array.isArray(got.theirs.docs) ? got.theirs.docs : []).map((d) => d && d.id));
@@ -11782,11 +12104,21 @@ async function adoptAccount(result, keep) {
     loadCloudDays();
     endCreateStep();
     Account.message = null;
-    showToast(result.created ? "Account created" : "Signed in");
+    // Progress that was here before the sign in joined the account with no question, so the
+    // note says so once.
+    if (brought && brought.any) {
+      setAccountNote(moving
+        ? `Your Cloud save progress, ${progressText(brought)}, is in your account now. Your save Worker keeps its copy.`
+        : `The progress that was in this browser, ${progressText(brought)}, is in your account now.`, false, true);
+    }
+    const first = firstName(Cloud.user);
+    if (result.created) showToast(first ? `Welcome, ${first}` : "Account created");
+    else showToast(first ? `Welcome back, ${first}` : "Signed in");
   } catch (err) {
     const move = err && err.message === "move";
-    let copy = "Couldn't reach your account. Check your connection and try again.";
-    if (move) copy = moving ? "Couldn't reach your Cloud save to bring its newest progress along. Try again in a moment." : "Couldn't reach your Cloud save to save your newest progress there first. Try again in a moment.";
+    const copy = move
+      ? "Couldn't reach your Cloud save to bring its newest progress along. Try again in a moment."
+      : "Couldn't reach your account. Check your connection and try again.";
     setAccountNote(copy, true);
   } finally {
     Account.busy = false;
@@ -12276,36 +12608,41 @@ function renderAccount() {
   let show = "";
   let note = "";
   let warn = false;
+  let sending = false; // texts are still going up
   if (place !== "ok") {
     note = place === "claude" ? `Accounts work at ${site}. Here, Claude keeps your progress.` : `Accounts work at ${site}. Here, your progress stays in this browser.`;
   } else if (Account.message && Account.busy) {
     note = Account.message.text; // the step in progress
   } else if (Account.pending) {
     show = "merge";
+    // Only two things still ask. Progress here that belongs to another account, which signing
+    // in removes, and a Google account that's new to Keyprint, before an account is made.
     const p = Account.pending;
     const owner = pendingOwner();
     const here = localProgress();
-    const progress = here.any;
-    const parts = [];
-    if (here.tests) parts.push(count(here.tests, "test", "tests"));
-    if (here.texts) parts.push(count(here.texts, "text", "texts"));
-    if (here.pieces) parts.push(count(here.pieces, "piece of writing", "pieces of writing"));
-    const what = parts.length > 2 ? `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}` : parts.join(" and ");
     const hint = [];
     const own = mailMode() ? "your email" : "a username";
     if (p.created && p.via === "google") hint.push(`This Google account${p.user.email ? `, ${p.user.email},` : ""} is new to Keyprint, so this makes a new account for it. Already have one with ${own}? Click Cancel, sign in with ${mailMode() ? "your email" : "your username"}, then add Google.`);
     else if (p.created) hint.push(`Your account ${p.user.name} is ready.`);
-    if (owner) hint.push(`This browser still has progress from ${owner.name} that may not be in their account. Signing in as someone else removes it from this browser.`);
-    else if (progress && Cloud.kind === "key" && Cloud.on) hint.push(`This browser has your Cloud save progress, ${what}. Add it to move it into ${p.created ? "this account" : `the account ${p.user.name}`}. Your save Worker keeps its copy either way.`);
-    else if (progress) hint.push(`This browser already has progress, ${what}. Add it to ${p.created ? "your account" : `the account ${p.user.name}`} if it's yours, or leave it out and it's cleared from this browser.`);
-    el.accountMergeLabel.textContent = progress ? "Progress in this browser" : "New account";
+    if (owner) hint.push(`This browser still has progress from ${calledOf(owner)} that may not be in their account. Signing in as someone else removes it from this browser.`);
+    else if (here.any && Cloud.kind === "key" && Cloud.on) hint.push(`Your Cloud save progress, ${progressText(here)}, moves into it, and your save Worker keeps its copy.`);
+    else if (here.any) hint.push(`The progress in this browser, ${progressText(here)}, joins it.`);
+    el.accountMergeLabel.textContent = owner ? "Progress in this browser" : "New account";
     el.accountMergeHint.textContent = hint.join(" ");
-    el.accountKeep.textContent = Account.keepArmed ? "Click again to remove it" : owner ? "Remove it and sign in" : progress ? "Add it" : "Create it";
-    el.accountDrop.textContent = owner ? "Cancel" : Account.dropArmed ? "Click again to clear it" : "Leave it out";
-    el.accountDrop.hidden = !owner && !progress;
-    el.accountCancel.hidden = Boolean(owner);
+    el.accountKeep.textContent = Account.keepArmed ? "Click again to remove it" : owner ? "Remove it and sign in" : "Create it";
   } else if (signedIn()) {
     show = "panel";
+    const face = faceHere();
+    fillWho(el.accountFace, user);
+    el.accountWhoLabel.textContent = user.called || "Your name";
+    el.accountWhoHint.textContent = face
+      ? "Your picture shows at the top of the page, in place of your initials."
+      : user.called
+        ? `Your account shows as ${initialsOf(user)} at the top of the page. A picture can take their place.`
+        : "Add your name and your account shows your initials. A picture can take their place.";
+    el.accountWhoOpen.textContent = user.called ? "Change name" : "Add your name";
+    el.accountFacePick.textContent = face ? "Change picture" : "Add a picture";
+    el.accountFaceDrop.hidden = !face;
     el.accountMethods.textContent = methodsText(user);
     el.accountOutHint.textContent = "Saves your progress to your account, then clears it from this browser so the next person starts fresh."
       + (user.google ? " Keyprint can't sign you out of Google, so on a shared computer sign out of Google too." : "");
@@ -12338,11 +12675,12 @@ function renderAccount() {
       note = problems[Cloud.error];
       warn = true;
     } else if (Account.due.size) {
-      note = `Signed in as ${user.name}. Saving your texts to your account.`;
+      note = `Signed in as ${calledOf(user)}. Saving your texts to your account.`;
+      sending = true;
     } else if (Cloud.lastOk) {
-      note = `Signed in as ${user.name}. Last saved to your account ${timeAgo(Cloud.lastOk)}.`;
+      note = `Signed in as ${calledOf(user)}. Last saved to your account ${timeAgo(Cloud.lastOk)}.`;
     } else {
-      note = `Signed in as ${user.name}.`;
+      note = `Signed in as ${calledOf(user)}.`;
     }
   } else if (!conf) {
     note = Account.confFailed ? "Couldn't reach Keyprint to check for accounts. Try again in a moment." : "Checking";
@@ -12377,6 +12715,7 @@ function renderAccount() {
     el.accountPassHint.textContent = mail ? "At least 8 characters." : "At least 8 characters. Nobody can reset it for you, so keep it in a password manager.";
     el.accountPass.autocomplete = step === "reset" || Account.createStep ? "new-password" : "current-password";
     el.accountPass2Row.hidden = !(step === "reset" || Account.createStep);
+    el.accountCalledRow.hidden = Boolean(step) || !Account.createStep;
     el.accountButtons.hidden = Boolean(step);
     el.accountForgot.hidden = !mail;
     el.accountStepButtons.hidden = !step;
@@ -12392,7 +12731,10 @@ function renderAccount() {
       note = Account.note || "Sign in to keep your progress on every device. Without an account it stays in this browser.";
     }
   }
-  if (Account.message && place === "ok") {
+  // A message takes the note's place, except that news shown once (what a sign in brought
+  // along) never covers a warning, such as an account that can't be reached or a sign in that
+  // ran out, and waits while texts are still going up, since it says they're in the account.
+  if (Account.message && place === "ok" && !(Account.message.once && (warn || sending))) {
     note = Account.message.text;
     warn = Account.message.warn;
   }
@@ -12406,8 +12748,203 @@ function renderAccount() {
     if (Account.gis === 0) loadGoogle();
     else drawGoogle();
   }
+  renderWho();
   renderSavedNote();
   renderWriteHint();
+}
+
+// Draws an account's key cap, its picture when it has one, else its initials.
+function fillWho(box, u) {
+  const data = faceHere();
+  const shown = data ? `picture ${Account.face.mark}` : `letters ${initialsOf(u)}`;
+  if (box.dataset.shown === shown) return;
+  box.dataset.shown = shown;
+  if (!data) {
+    box.replaceChildren(initialsOf(u));
+    return;
+  }
+  const img = node("img");
+  img.alt = "";
+  img.src = data;
+  box.replaceChildren(img);
+}
+
+// The account's key cap at the end of the top bar. It shows whenever this browser's progress
+// belongs to an account, with a dot when the account can't be reached or its sign in ran out,
+// and leads to the Account group.
+function renderWho() {
+  if (!el || !el.who) return;
+  const u = Cloud.kind === "account" && accountPlace() === "ok" ? Cloud.user : null;
+  el.who.hidden = !u;
+  el.topbar.classList.toggle("signed", Boolean(u));
+  if (!u) return;
+  fillWho(el.who, u);
+  const who = calledOf(u);
+  const ended = !Cloud.on;
+  const trouble = ended || Cloud.error === "reach" || Cloud.error === "setup";
+  let tip = `Signed in as ${who}.`;
+  if (ended) tip = `Your sign in ran out. Sign in again as ${u.name} to keep saving.`;
+  else if (trouble) tip = `Signed in as ${who}. Your account can't be reached right now, and it will keep trying.`;
+  else if (Cloud.lastOk) tip = `Signed in as ${who}. Last saved to your account ${timeAgo(Cloud.lastOk)}.`;
+  el.who.classList.toggle("warn", trouble);
+  el.who.title = tip;
+  el.who.setAttribute("aria-label", `Your account. ${tip}`);
+}
+
+// Changing the name an account shows. An empty name takes it away.
+function openWhoForm() {
+  if (!signedIn()) return;
+  el.accountWhoName.value = Cloud.user.called;
+  el.accountWhoForm.hidden = false;
+  el.accountWhoName.focus();
+  el.accountWhoName.select();
+}
+
+function closeWhoForm() {
+  el.accountWhoForm.hidden = true;
+  el.accountWhoName.value = "";
+}
+
+async function onWhoSave() {
+  if (Account.busy || !signedIn()) return;
+  Account.message = null;
+  const user = Cloud.user;
+  const called = cleanCalled(el.accountWhoName.value);
+  if (called === user.called) {
+    closeWhoForm();
+    renderAccount();
+    return;
+  }
+  Account.busy = true;
+  setAccountNote("Saving your name");
+  renderAccount();
+  let res;
+  try {
+    res = await authCall("name", { called }, Cloud.key);
+  } finally {
+    Account.busy = false;
+  }
+  if (res.status === 200 && typeof res.data.called === "string") {
+    if (signedIn() && Cloud.user.id === user.id) {
+      Account.calledAt = performance.now();
+      Cloud.user = Object.assign({}, Cloud.user, { called: cleanCalled(res.data.called) });
+      saveCloudConfig();
+    }
+    closeWhoForm();
+    Account.message = null;
+    renderAccount();
+    showToast(called ? "Name saved" : "Name removed");
+    return;
+  }
+  setAccountNote(authProblem(res, true), true);
+  renderAccount();
+}
+
+// Cuts the middle square out of a picture and makes it small, so it's quick to keep, send
+// and show. The copy kept is a JPEG, which also leaves out whatever else the file carried.
+function makeFace(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    const done = (settle, value) => {
+      URL.revokeObjectURL(url);
+      settle(value);
+    };
+    img.onerror = () => done(reject, new Error("read"));
+    img.onload = () => {
+      const side = Math.min(img.naturalWidth, img.naturalHeight);
+      if (!side) return done(reject, new Error("read"));
+      const size = APP.faceSize;
+      const canvas = node("canvas");
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext("2d");
+      // A see through picture gets a plain white ground.
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, size, size);
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(img, (img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2, side, side, 0, 0, size, size);
+      for (const quality of [0.86, 0.7, 0.5]) {
+        const data = canvas.toDataURL("image/jpeg", quality);
+        if (faceOk(data)) return done(resolve, data);
+      }
+      return done(reject, new Error("read"));
+    };
+    img.src = url;
+  });
+}
+
+// A picture you pick goes to your account, and shows in place of your initials from then on.
+async function onFacePicked() {
+  const file = el.accountFaceInput.files && el.accountFaceInput.files[0];
+  el.accountFaceInput.value = "";
+  if (!file || Account.busy || Account.faceBusy || !signedIn()) return;
+  Account.message = null;
+  const stop = (text) => {
+    setAccountNote(text, true);
+    renderAccount();
+  };
+  if (file.size > APP.faceFile) return stop(`That picture is too big a file. Try one under ${Math.round(APP.faceFile / 1000000)} MB.`);
+  let data = "";
+  try {
+    data = await makeFace(file);
+  } catch (err) {
+    return stop("This browser can't read that file as a picture. Try a JPEG or a PNG.");
+  }
+  if (!signedIn()) return;
+  const key = Cloud.key;
+  Account.faceBusy = true;
+  setAccountNote("Saving your picture");
+  renderAccount();
+  let failed = null;
+  try {
+    await Cloud.call("PUT", APP.accountFace, data);
+  } catch (err) {
+    failed = err;
+  } finally {
+    Account.faceBusy = false;
+  }
+  if (Cloud.key !== key || Account.leaving) return;
+  Account.message = null;
+  if (failed) return faceFailed(failed, "save");
+  Account.faceAt = performance.now();
+  keepFace(data);
+  showToast("Picture saved");
+}
+
+async function onFaceDrop() {
+  if (Account.busy || Account.faceBusy || !signedIn() || !faceHere()) return;
+  Account.message = null;
+  const key = Cloud.key;
+  Account.faceBusy = true;
+  let failed = null;
+  try {
+    await Cloud.call("DELETE", APP.accountFace);
+  } catch (err) {
+    failed = err;
+  } finally {
+    Account.faceBusy = false;
+  }
+  if (Cloud.key !== key || Account.leaving) return;
+  if (failed) return faceFailed(failed, "remove");
+  Account.faceAt = performance.now();
+  keepFace("");
+  showToast("Picture removed");
+}
+
+// A picture that couldn't be saved or removed. A sign in that ran out is handled like any
+// other save that finds it gone.
+function faceFailed(err, doing) {
+  const problem = cloudProblem(err);
+  if (problem === "key" || problem === "revoked") {
+    cloudFailed(err);
+    renderAccount();
+    return;
+  }
+  setAccountNote(problem === "full"
+    ? "Your account has no room for a picture. Remove a text in My text to make room."
+    : `Couldn't reach your account to ${doing} your picture. Try again in a moment.`, true);
+  renderAccount();
 }
 
 function renderSavedNote() {
@@ -12430,7 +12967,7 @@ function renderSavedNote() {
 }
 
 function bindAccount() {
-  for (const form of [el.accountForm, el.accountPwForm]) form.addEventListener("submit", (e) => e.preventDefault());
+  for (const form of [el.accountForm, el.accountPwForm, el.accountWhoForm]) form.addEventListener("submit", (e) => e.preventDefault());
   el.accountSignIn.addEventListener("click", () => onAccountSubmit(false));
   el.accountCreate.addEventListener("click", () => onAccountSubmit(true));
   const onEnter = (input, run) => input.addEventListener("keydown", (e) => {
@@ -12441,6 +12978,8 @@ function bindAccount() {
   onEnter(el.accountName, () => onAccountSubmit(!el.accountPass2Row.hidden));
   onEnter(el.accountPass, () => (Account.step ? onStepOk() : onAccountSubmit(!el.accountPass2Row.hidden)));
   onEnter(el.accountPass2, () => (Account.step ? onStepOk() : onAccountSubmit(true)));
+  onEnter(el.accountCalled, () => onAccountSubmit(true));
+  onEnter(el.accountWhoName, onWhoSave);
   onEnter(el.accountCode, onStepOk);
   onEnter(el.accountPwNew2, onPasswordSave);
   el.accountForgot.addEventListener("click", onForgot);
@@ -12449,7 +12988,6 @@ function bindAccount() {
   el.accountStepCancel.addEventListener("click", cancelStep);
   el.accountClear.addEventListener("click", onAccountClear);
   el.accountKeep.addEventListener("click", onAccountKeep);
-  el.accountDrop.addEventListener("click", onAccountDrop);
   el.accountCancel.addEventListener("click", cancelPending);
   el.accountNow.addEventListener("click", onCloudNow);
   el.accountOut.addEventListener("click", () => onAccountOut(false));
@@ -12458,6 +12996,19 @@ function bindAccount() {
   el.accountPwSave.addEventListener("click", onPasswordSave);
   el.accountPwCancel.addEventListener("click", closePasswordForm);
   el.accountDelete.addEventListener("click", onAccountDelete);
+  el.accountWhoOpen.addEventListener("click", openWhoForm);
+  el.accountWhoSave.addEventListener("click", onWhoSave);
+  el.accountWhoCancel.addEventListener("click", closeWhoForm);
+  el.accountFacePick.addEventListener("click", () => el.accountFaceInput.click());
+  el.accountFaceInput.addEventListener("change", onFacePicked);
+  el.accountFaceDrop.addEventListener("click", onFaceDrop);
+  // The key cap in the top bar leads to the Account group, and its note about the last save
+  // is brought up to date as the pointer reaches it.
+  el.who.addEventListener("click", () => {
+    showView("settings");
+    el.accountGroup.scrollIntoView({ block: "start" });
+  });
+  el.who.addEventListener("pointerenter", renderWho);
 }
 
 /* 12. Events --------------------------------------------------------------- */
@@ -12465,6 +13016,8 @@ function bindAccount() {
 function showView(name) {
   const section = document.getElementById(`view-${name}`);
   if (!section) return;
+  // News in the account note has been read once you leave Settings.
+  if (name !== "settings" && Account.message && Account.message.once) Account.message = null;
   view = name;
   for (const v of $$(".view")) v.hidden = v !== section;
   for (const t of $$(".tab")) {
@@ -12774,13 +13327,40 @@ function bindEvents() {
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "hidden") flushSaves();
   });
+  // Coming back to the page, or back online, is when progress from another browser is most
+  // likely waiting, and when a save that failed should try again.
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") pullCloud();
+  });
+  window.addEventListener("focus", () => pullCloud());
+  window.addEventListener("online", () => pullCloud("online"));
+  // A page left open and in front gets none of those when you sit down at it again, so the
+  // first key or tap after a while counts as coming back too. pullCloud only compares a few
+  // values unless a read is due, so this costs a keystroke nothing.
+  document.addEventListener("keydown", () => pullCloud("touch"), true);
+  document.addEventListener("pointerdown", () => pullCloud("touch"), true);
   // Another tab of this browser saved. Its progress is folded into this tab, so this tab's
   // next save can't write over it. If it signed in or out instead, this tab's progress may be
   // someone else's, so this tab reloads without saving.
   window.addEventListener("storage", (e) => {
     if (e.key === APP.cloudConfig) {
       if (accountChange(cloudIdentity(cloudSeen), cloudIdentity(e.newValue))) leaveTab();
-      else joinTextLists(e.newValue); // texts another tab is putting up, or found no room for
+      else {
+        joinTextLists(e.newValue); // texts another tab is putting up, or found no room for
+        joinCalled(e.newValue);    // and the name it may have changed
+      }
+      return;
+    }
+    if (e.key === APP.accountFace) {
+      // Another tab changed the account's picture, or a sign out took it away.
+      Account.face = { user: "", mark: "", data: "" };
+      try {
+        const got = e.newValue ? JSON.parse(e.newValue) : null;
+        if (got && typeof got.user === "string" && faceOk(got.data)) Account.face = { user: got.user, mark: faceMark(got.data), data: got.data };
+      } catch (err) {
+        // a copy that doesn't read counts as no picture
+      }
+      renderAccount();
       return;
     }
     if (e.key === APP.storageKey && !e.newValue && Cloud.kind === "account") {
@@ -12805,7 +13385,9 @@ function bindEvents() {
   bindAccount();
   // A page kept in the back forward cache may come back after a sign in or out elsewhere.
   window.addEventListener("pageshow", (e) => {
-    if (e.persisted && accountChange(cloudIdentity(cloudSeen), cloudIdentity(readConfigNow()))) leaveTab();
+    if (!e.persisted) return;
+    if (accountChange(cloudIdentity(cloudSeen), cloudIdentity(readConfigNow()))) leaveTab();
+    else pullCloud();
   });
   setInterval(() => {
     if (view === "settings") renderCloudStatus();
