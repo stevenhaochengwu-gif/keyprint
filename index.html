@@ -12148,19 +12148,33 @@ async function askAboutProgress(result, via = "password") {
   const signin = { token: result.token, user, created: result.created === true, via };
   const owner = Cloud.kind === "account" && Cloud.user ? Cloud.user.id : "";
   if (owner === user.id) return adoptAccount(signin, true); // the session had ended, and it's the same person
-  // A Google account new to Keyprint asks first, so someone who already has an account with
-  // a password doesn't end up in a second, empty one without knowing.
-  const fresh = signin.created && via === "google";
-  if (!owner && !fresh) return adoptAccount(signin, true);
-  if (owner && !fresh && !localProgress().any) return adoptAccount(signin, false);
+  if (!owner) return adoptAccount(signin, true);
+  if (!localProgress().any) return adoptAccount(signin, false);
   Account.message = null;
   Account.pending = signin;
   disarmMerge();
   renderAccount();
 }
 
+// A Google account that's new to Keyprint asks before it gets an account, so someone who
+// already has one with a password doesn't end up in a second, empty one without knowing.
+// Nothing exists yet. Create it sends the same credential and proof again, which are kept
+// here in memory and nowhere else, and Cancel only forgets them. The account used to be made
+// first and deleted on Cancel, which could delete one that another device had signed in to
+// while the question was still showing.
+function askToCreate(credential, proof, email) {
+  Account.message = null;
+  Account.pending = { fresh: true, via: "google", credential, proof, email: typeof email === "string" ? email.slice(0, 254) : "" };
+  disarmMerge();
+  renderAccount();
+}
+
+// Whose progress is here when it isn't the account being signed in to. An account that
+// doesn't exist yet can't be the one.
 function mergeOwner() {
-  return Cloud.kind === "account" && Cloud.user && Account.pending && Cloud.user.id !== Account.pending.user.id ? Cloud.user : null;
+  const p = Account.pending;
+  if (!p || Cloud.kind !== "account" || !Cloud.user) return null;
+  return p.fresh || Cloud.user.id !== p.user.id ? Cloud.user : null;
 }
 
 // Another account's progress is only asked about while there's some here.
@@ -12176,17 +12190,50 @@ function onAccountKeep() {
     armAccount("keepArmed", el.accountKeep, "Click again to remove it", "Remove it and sign in", "again");
     return;
   }
+  if (Account.pending.fresh) {
+    createPending();
+    return;
+  }
   adoptAccount(Account.pending, !mergeOwner());
 }
 
-// The sign in isn't used, so its session is signed out again, as far as that goes. An account
-// Google made just now is deleted instead, so that Google account can still be added to one you
-// already have.
+// Create it on the New account question. The account is made now, with the credential and
+// proof the question kept, and from there it's a sign in like any other.
+async function createPending() {
+  const p = Account.pending;
+  disarmMerge();
+  Account.busy = true;
+  setAccountNote("Creating your account");
+  renderAccount();
+  let out;
+  try {
+    out = await authCall("google", { credential: p.credential, proof: p.proof, create: true });
+  } finally {
+    Account.busy = false;
+  }
+  if (Account.leaving) return;
+  const user = cleanUser(out.data && out.data.user);
+  if ((out.status === 200 || out.status === 201) && user && isToken(out.data.token, user.id)) {
+    // The progress here stays unless it belongs to another account. Someone may have made this
+    // very account elsewhere meanwhile, and then this is a plain sign in to it.
+    const owner = Cloud.kind === "account" && Cloud.user ? Cloud.user.id : "";
+    Account.message = null;
+    await adoptAccount({ token: out.data.token, user, created: out.data.created === true, via: "google" }, !owner || owner === user.id);
+    return;
+  }
+  // Google's credential lasts an hour, so a question left open longer needs Google again.
+  Account.pending = null;
+  setAccountNote(authProblem(out), true);
+  renderAccount();
+}
+
+// The sign in isn't used, so its session is signed out again, as far as that goes. A Google
+// account that's new to Keyprint has no account and no session yet, so there's nothing to
+// undo, and that Google account can still be added to an account you already have.
 function cancelPending() {
   const p = Account.pending;
   if (!p || Account.busy || Account.leaving) return;
-  if (p.created && p.via === "google") authCall("delete", { confirm: "delete" }, p.token, 5000);
-  else authCall("signout", { all: false }, p.token, 5000);
+  if (!p.fresh) authCall("signout", { all: false }, p.token, 5000);
   Account.pending = null;
   Account.message = null;
   // A new account that was just made exists either way, so the form goes back to signing in.
@@ -12798,7 +12845,10 @@ async function onGoogleCredential(res) {
   renderAccount();
   let out;
   try {
-    out = await authCall(linking ? "link" : "google", { credential, proof }, linking ? Cloud.key : "");
+    // A sign in asks before anything is made (create false), so a Google account that's new to
+    // Keyprint only gets its account once you've said yes to the question.
+    const body = linking ? { credential, proof } : { credential, proof, create: false };
+    out = await authCall(linking ? "link" : "google", body, linking ? Cloud.key : "");
   } finally {
     Account.busy = false;
   }
@@ -12815,6 +12865,10 @@ async function onGoogleCredential(res) {
     return;
   }
   if (Account.leaving) return;
+  if (!linking && out.status === 200 && out.data && out.data.new === true) {
+    askToCreate(credential, proof, out.data.email);
+    return;
+  }
   if (!linking && (out.status === 200 || out.status === 201)) {
     await askAboutProgress(out.data, "google");
     return;
@@ -12879,13 +12933,13 @@ function renderAccount() {
   } else if (Account.pending) {
     show = "merge";
     // Only two things still ask. Progress here that belongs to another account, which signing
-    // in removes, and a Google account that's new to Keyprint, before an account is made.
+    // in removes, and a Google account that's new to Keyprint, which has no account yet (fresh).
     const p = Account.pending;
     const owner = pendingOwner();
     const here = localProgress();
     const hint = [];
     const own = mailMode() ? "your email" : "a username";
-    if (p.created && p.via === "google") hint.push(`This Google account${p.user.email ? `, ${p.user.email},` : ""} is new to Keyprint, so this makes a new account for it. Already have one with ${own}? Click Cancel, sign in with ${mailMode() ? "your email" : "your username"}, then add Google.`);
+    if (p.fresh) hint.push(`This Google account${p.email ? `, ${p.email},` : ""} is new to Keyprint, so this makes a new account for it. Already have one with ${own}? Click Cancel, sign in with ${mailMode() ? "your email" : "your username"}, then add Google.`);
     else if (p.created) hint.push(`Your account ${p.user.name} is ready.`);
     if (owner) hint.push(`This browser still has progress from ${calledOf(owner)} that may not be in their account. Signing in as someone else removes it from this browser.`);
     else if (here.any && Cloud.kind === "key" && Cloud.on) hint.push(`Your Cloud save progress, ${progressText(here)}, moves into it, and your save Worker keeps its copy.`);

@@ -588,8 +588,14 @@ async function signin({ env, body, ip }) {
 async function google({ env, url, body, ip }) {
   const g = await verifyGoogle(env, body.credential, body.proof, url.origin);
   if (g.fail) return json(g.fail, { error: g.fail === 400 ? "credential" : "google" });
-  const r = await ask(directory(env), "google", { sub: g.sub, email: g.email, nonce: g.nonce, exp: g.exp, ip });
+  // With create false the page is asking first. A Google account that's new to Keyprint then
+  // gets no account yet, only an answer marked new with the email Google vouches for, and its
+  // nonce stays unused, so the same credential and proof sent again with create true make the
+  // account once the person has said yes. Nothing is made that Cancel would have to take back.
+  // A page from before this sends no create and gets its account at once, as it always did.
+  const r = await ask(directory(env), "google", { sub: g.sub, email: g.email, nonce: g.nonce, exp: g.exp, ip, peek: body.create === false });
   if (r.status !== 200) return json(r.status, r.data);
+  if (r.data.fresh === true) return json(200, { new: true, email: g.email });
   const created = r.data.created === true;
   // A new account starts with the name Google has for the person.
   return signedIn(env, r.data, created ? 201 : 200, created, false, created ? normalCalled(g.name) : "");
@@ -1798,8 +1804,9 @@ export class Directory {
   }
 
   // Counts a Google attempt and takes its nonce, so each credential works only once. Gives
-  // null to go on, or an answer.
-  spend(h, nonce, exp, now) {
+  // null to go on, or an answer. With take false the nonce is checked and left for later, which
+  // is how a question about a new account leaves the credential good for the answer.
+  spend(h, nonce, exp, now, take = true) {
     this.prune(now);
     const wait = this.count(`i:${h}`, 120, 10 * MINUTE, now);
     if (wait) return busy(wait);
@@ -1808,12 +1815,13 @@ export class Directory {
       console.error("api", "google", "used");
       return json(401, { error: "google" });
     }
-    this.sql.exec("INSERT INTO used (k, until) VALUES (?, ?)", k, exp * 1000 + MINUTE);
+    if (take) this.sql.exec("INSERT INTO used (k, until) VALUES (?, ?)", k, exp * 1000 + MINUTE);
     return null;
   }
 
   // Signs in with Google, or makes a new account for a Google account it hasn't seen. Accounts
-  // are never matched or linked by email.
+  // are never matched or linked by email. With peek, a Google account it hasn't seen gets an
+  // answer marked fresh and nothing is made or taken, so the page can ask first.
   async google(body) {
     const sub = String(body.sub || "");
     const email = typeof body.email === "string" ? body.email : "";
@@ -1824,13 +1832,15 @@ export class Directory {
     const place = await this.ipHash(body.ip, 3);
     const now = Date.now();
     return this.ctx.storage.transactionSync(() => {
-      const first = this.spend(h, nonce, exp, now);
-      if (first) return first;
       const login = this.login(`g:${sub}`);
+      const peek = body.peek === true && !login;
+      const first = this.spend(h, nonce, exp, now, !peek);
+      if (first) return first;
       if (login) {
         if (email) this.sql.exec("UPDATE users SET email = ? WHERE id = ? AND email <> ?", email, login.user, email);
         return json(200, { uid: login.user, user: this.user(login.user), created: false });
       }
+      if (peek) return json(200, { fresh: true });
       const no = this.canMake(place, now);
       if (no) return no;
       const uid = this.freshUid();
