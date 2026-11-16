@@ -135,11 +135,14 @@ function faceMark(bytes) {
 
 // What someone is called, the name their account shows. It isn't a way in and needn't be theirs
 // alone, so any script goes. Line breaks and invisible characters come out, a run of spaces
-// becomes one, and it stops at CALLED_MAX characters. Empty means no name.
+// becomes one, and it stops at CALLED_MAX characters. The two joiners stay, since some scripts
+// spell names with them and so do emoji made of parts. A name with nothing to see in it, like
+// one made of blank fillers, counts as no name, and so does an empty one.
 function normalCalled(raw) {
   if (typeof raw !== "string") return "";
-  const name = raw.normalize("NFKC").replace(/[\p{Cc}\p{Zl}\p{Zp}]/gu, " ").replace(/\p{Cf}/gu, "").replace(/\s+/g, " ").trim();
-  return [...name].slice(0, CALLED_MAX).join("").trim();
+  const name = raw.normalize("NFKC").replace(/[\p{Cc}\p{Zl}\p{Zp}]/gu, " ").replace(/(?![\u200c\u200d])\p{Cf}/gu, "").replace(/\s+/g, " ").trim();
+  const cut = [...name].slice(0, CALLED_MAX).join("").trim();
+  return /[^\p{Default_Ignorable_Code_Point}\p{M}\u2800\s]/u.test(cut) ? cut : "";
 }
 
 // Six digits for an emailed code. Bytes of 250 or more are drawn again, so every digit is
@@ -1053,7 +1056,10 @@ export class Vault {
     const body = await request.arrayBuffer();
     if (body.byteLength > CAPS[kind]) return text(413, "Too large");
     // A picture is a small image as a data URL, and nothing else is kept under its name.
-    if (kind === "face" && !FACE_RE.test(new TextDecoder().decode(body))) return text(400, "Bad picture");
+    // The decoder keeps a byte order mark, so one in front is refused like anything else that
+    // isn't part of a data URL. Dropped, it would be kept with the picture and the picture's
+    // mark would never match the one the page works out.
+    if (kind === "face" && !FACE_RE.test(new TextDecoder("utf-8", { ignoreBOM: true }).decode(body))) return text(400, "Bad picture");
     const plan = this.plan(name, kind, body.byteLength, Date.now(), true);
     if (plan.full) return text(507, "Full");
     const opts = { daily: true };
