@@ -140,7 +140,9 @@ function faceMark(bytes) {
 // one made of blank fillers, counts as no name, and so does an empty one.
 function normalCalled(raw) {
   if (typeof raw !== "string") return "";
-  const name = raw.normalize("NFKC").replace(/[\p{Cc}\p{Zl}\p{Zp}]/gu, " ").replace(/(?![\u200c\u200d])\p{Cf}/gu, "").replace(/\s+/g, " ").trim();
+  // Taking an invisible character out can leave a letter next to a mark it joins with, so the
+  // name is put in its usual form once more afterwards. Tidying it again then changes nothing.
+  const name = raw.normalize("NFKC").replace(/[\p{Cc}\p{Zl}\p{Zp}]/gu, " ").replace(/(?![\u200c\u200d])[\p{Cf}\p{Cs}]/gu, "").normalize("NFKC").replace(/\s+/g, " ").trim();
   const cut = [...name].slice(0, CALLED_MAX).join("").trim();
   return /[^\p{Default_Ignorable_Code_Point}\p{M}\u2800\s]/u.test(cut) ? cut : "";
 }
@@ -1840,7 +1842,13 @@ export class Directory {
         if (email) this.sql.exec("UPDATE users SET email = ? WHERE id = ? AND email <> ?", email, login.user, email);
         return json(200, { uid: login.user, user: this.user(login.user), created: false });
       }
-      if (peek) return json(200, { fresh: true });
+      if (peek) {
+        // With no room for a new account there's nothing to ask about. The sign up limits for
+        // one address only count when an account is made.
+        if (this.signupsToday(now) >= SIGNUPS_PER_DAY) return json(429, { error: "closed" });
+        if (this.siteBytes() >= SITE_BYTES) return json(429, { error: "full" });
+        return json(200, { fresh: true });
+      }
       const no = this.canMake(place, now);
       if (no) return no;
       const uid = this.freshUid();

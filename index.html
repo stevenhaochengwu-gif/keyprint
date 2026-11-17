@@ -252,6 +252,7 @@ h2, h3, p { margin: 0; }
   font-weight: 600;
   letter-spacing: 0.02em;
   line-height: 1;
+  white-space: nowrap;
 }
 button.who { cursor: pointer; }
 button.who:hover { background: color-mix(in oklab, var(--ink) 14%, var(--key)); }
@@ -1982,8 +1983,9 @@ label.row { cursor: pointer; }
           </div>
         </div>
         <div class="board-empty" id="boardEmpty" hidden>
-          <p>Add a PDF, a text file or some pasted text to type it out here.</p>
-          <div class="board-actions">
+          <p id="boardAsk">Add a PDF, a text file or some pasted text to type it out here.</p>
+          <p id="boardWait" hidden>Getting your text</p>
+          <div class="board-actions" id="boardActions">
             <button class="btn" type="button" data-doc-action="file">Add a PDF or text file</button>
             <button class="btn quiet" type="button" data-doc-action="paste">Paste text</button>
           </div>
@@ -3160,6 +3162,8 @@ const APP = {
   weakStick: 0.15,     // weakness head start for the letters named last time, so near ties don't swap
   weakKeep: 0.1,       // weakness a letter named last time stays named down to, where a new one needs 0.2
   weakShare: 0.33,     // share of the words in Step up and Words tests that hold a weak letter
+  weakMarkKeys: 60,    // newest times a mark or digit was typed that it's ranked from, however many tests back
+  weakMarkPrior: 100,  // keys at its kind's own pace mixed into a mark's speed, since it's typed far less than a letter
   weakMarkUp: 2.5,     // times as often a weak mark or digit comes up in those tests
   weakMarkWords: 8,    // words in a test before it's made to hold a weak mark or digit at least once
   maxWords: 1000,      // longest test allowed
@@ -3523,7 +3527,7 @@ const Cloud = {
   key: "",      // the save key, or the account's session token
   user: null,   // the account this browser's progress belongs to, kept after a session ends
   retry: 60000, // ms before the next try when the account can't be reached, doubling each time
-  seen: 0,      // savedAt of the cloud copy the last time this browser read or wrote it
+  mark: "",     // the cloud's main copy as this browser last read or wrote it (see copyMark)
   lastOk: 0,    // when the last save to the cloud worked
   putAt: -1e9,  // performance.now() of that save, for spacing writes without trusting the clock
   device: "",   // this browser's id, which names the copy it leaves in the cloud
@@ -3599,7 +3603,9 @@ const Account = {
   stepProof: "",      // the new account's password proof, kept in memory until its code comes back
   stepCalled: "",     // the name typed for the new account, kept the same way
   face: { user: "", mark: "", data: "" }, // the picture this browser holds, and whose it is
-  faceBusy: false,    // a picture is on its way up or down
+  faceBusy: false,    // a picture is on its way up, or a removal on its way
+  faceFetch: false,   // another device's picture is on its way down
+  faceTry: null,      // a picture sent or removed whose answer didn't come, as {mark, data}
   calledAt: -1,       // performance.now() when the name was last set here, so an older read can't put the old one back
   faceAt: -1,         // the same for the picture
   pulledAt: 0,        // ms, when the account was last read, so coming back to the page doesn't read it again too soon
@@ -3706,6 +3712,9 @@ function joinCalled(raw) {
   const called = cleanCalled(cfg.user.called);
   if (called === Cloud.user.called) return;
   Cloud.user = Object.assign({}, Cloud.user, { called });
+  // A read this tab began before the other tab's change mustn't put the old name back, so the
+  // change counts as made here too.
+  Account.calledAt = performance.now();
   renderAccount();
 }
 
@@ -3797,6 +3806,11 @@ function textMark(text) {
   return (h >>> 0).toString(36);
 }
 
+// A short mark of the exact text of the cloud's main copy. A save keeps the mark of the copy
+// it wrote or read, and merges the main copy whenever the one it reads next has another mark,
+// which means some other browser has written since. Nobody's clock comes into it.
+const copyMark = (text) => `${textMark(text)}.${text.length.toString(36)}`;
+
 // What you write must never get lost, so a merge keeps both sides of every piece. When one
 // copy has all the other's edits, it's simply the newer one. When each was edited without
 // seeing the other (two devices offline, say), the one edited last keeps the piece's place
@@ -3866,11 +3880,14 @@ function mergeSaves(mine, theirs, keepMine) {
     const resetAt = Math.max(a.resetAt || 0, b.resetAt || 0);
     const tests = new Map();
     for (const e of [...(a.history || []), ...(b.history || [])]) {
-      if (!e || !(e.ts >= resetAt)) continue;
+      // A test counts from when it was typed, or from when it joined this record when that
+      // was later (at, see adoptAccount), so a reset made before it joined doesn't take it.
+      if (!e || !(Math.max(e.ts, e.at || 0) >= resetAt)) continue;
       const id = `${e.ts}|${e.wpm}`;
       const had = tests.get(id);
       // A copy that left out a test's keystrokes, like a left copy, never takes them away.
-      if (!had || typeof e.tx === "string" || typeof had.tx !== "string") tests.set(id, e);
+      if (!had || typeof e.tx === "string" || typeof had.tx !== "string") tests.set(id, had && had.at > (e.at || 0) ? { ...e, at: had.at } : e);
+      else if (e.at > (had.at || 0)) tests.set(id, { ...had, at: e.at });
     }
     let keys;
     let unlocked;
@@ -3958,6 +3975,9 @@ function pullCloud(how = "back") {
   // A key or a tap never hurries a try after a failure, or typing through an outage would ask
   // every few seconds where the waits between tries are meant to grow.
   if (how === "touch" && Cloud.error) return;
+  // A hidden tab has nothing to show, so being back online only sends what's waiting there.
+  // Coming back to the tab reads as usual.
+  if (how === "online" && document.visibilityState === "hidden" && !cloudDirty) return;
   const failed = Cloud.error === "reach";
   // The wall clock, since a sleeping computer's page clock stands still and the morning after
   // is when there's most to catch up on. A clock that was set back counts as time gone by.
@@ -4014,7 +4034,7 @@ async function readCloud(known) {
     const extra = await Promise.all(more.map((id) => Cloud.call("GET", slotName(id))));
     more.forEach((id, i) => left.push([id, extra[i]]));
   }
-  return { theirs, left: left.filter(([, raw]) => raw).map(([id, raw]) => [id, JSON.parse(raw)]) };
+  return { theirs, left: left.filter(([, raw]) => raw).map(([id, raw]) => [id, JSON.parse(raw)]), mark: theirs ? copyMark(got[0]) : "" };
 }
 
 // Folds in each left copy that is newer than the last one merged from that browser, and
@@ -4056,10 +4076,13 @@ async function sendCloud() {
     if (!sameCloud()) return false;
     // Another browser may have saved since this one last looked, and browsers that were
     // hidden or closed may have left their copies, so fold all of that in first.
-    const { theirs, left } = await readCloud(state);
+    const { theirs, left, mark } = await readCloud(state);
     if (!sameCloud()) return false;
     const base = snapshot();
-    let next = theirs && (theirs.savedAt || 0) > Cloud.seen ? mergeSaves(base, theirs, true) : base;
+    // The main copy is merged unless it's the very copy this browser last wrote or read.
+    // Comparing savedAt times told that once, and a browser whose clock ran ahead then never
+    // took in what the others had saved, and wrote its own copy over theirs.
+    let next = theirs && mark !== Cloud.mark ? mergeSaves(base, theirs, true) : base;
     next = foldLeft(next, left, true);
     if (next !== base) {
       hydrate(next);
@@ -4075,7 +4098,7 @@ async function sendCloud() {
         return false;
       }
       if (next !== base) Store.save(state);
-      if (theirs) Cloud.seen = Math.max(Cloud.seen, theirs.savedAt || 0);
+      if (theirs) Cloud.mark = mark;
       Cloud.error = "";
       Cloud.retry = 60000;
       // The account answered, so texts that were waiting for it go up now too.
@@ -4085,7 +4108,8 @@ async function sendCloud() {
     }
     markDevice(state, Cloud.device, { seen: Date.now() });
     state.savedAt = Math.max(state.savedAt || 0, Date.now());
-    await Cloud.call("PUT", APP.storageKey, JSON.stringify(state));
+    const sent = JSON.stringify(state);
+    await Cloud.call("PUT", APP.storageKey, sent);
     // A disconnect or sign out during the write wins, so nothing here is put back.
     if (!sameCloud() || !ready) return false;
     if (!Account.switching && accountChange(cloudIdentity(cloudSeen), cloudIdentity(readConfigNow()))) {
@@ -4094,7 +4118,7 @@ async function sendCloud() {
     }
     Cloud.putAt = performance.now();
     Store.save(state);
-    Cloud.seen = state.savedAt;
+    Cloud.mark = copyMark(sent);
     Cloud.lastOk = Date.now();
     Cloud.error = "";
     Cloud.retry = 60000;
@@ -4110,9 +4134,17 @@ async function sendCloud() {
     const delay = Cloud.kind === "account" ? Cloud.retry : 60000;
     if (Cloud.kind === "account") Cloud.retry = Math.min(Cloud.retry * 2, APP.accountRetry);
     // Key mode tries again in a minute, as always. A read that failed with nothing to send
-    // tries again as a read.
+    // tries again as a read. A change made while this try was still waiting for its answer
+    // set a timer of its own, which goes, or it would fire first and the waits would never grow.
+    clearTimeout(cloudTimer);
     cloudTimer = setTimeout(() => {
-      if (pull && !cloudDirty) cloudPull = true;
+      cloudTimer = 0;
+      // A read with nothing to send waits while nobody sees the page. Coming back to it reads
+      // again (pullCloud), and a change made meanwhile is saved as usual.
+      if (pull && !cloudDirty) {
+        if (document.visibilityState === "hidden") return;
+        cloudPull = true;
+      }
       pushCloud();
     }, delay);
     return false;
@@ -4184,6 +4216,7 @@ async function sendDoc(method, id, text) {
     // held, so signing out warns that this browser has the only copy.
     const account = Cloud.kind === "account" && method === "PUT";
     const problem = cloudProblem(err);
+    if (method === "GET") textMissed = true;
     if (account && problem === "full") holdText(id);
     else if (account && problem !== "revoked") Account.due.add(id);
     cloudFailed(err);
@@ -4237,7 +4270,9 @@ function cleanUser(u) {
 // spelled with, up to APP.calledMax characters. A name with nothing to see in it is no name.
 function cleanCalled(raw) {
   if (typeof raw !== "string") return "";
-  const name = raw.normalize("NFKC").replace(/[\p{Cc}\p{Zl}\p{Zp}]/gu, " ").replace(/(?![\u200c\u200d])\p{Cf}/gu, "").replace(/\s+/g, " ").trim();
+  // Taking an invisible character out can leave a letter next to a mark it joins with, so the
+  // name is put in its usual form once more afterwards. Tidying it again then changes nothing.
+  const name = raw.normalize("NFKC").replace(/[\p{Cc}\p{Zl}\p{Zp}]/gu, " ").replace(/(?![\u200c\u200d])[\p{Cf}\p{Cs}]/gu, "").normalize("NFKC").replace(/\s+/g, " ").trim();
   const cut = [...name].slice(0, APP.calledMax).join("").trim();
   return /[^\p{Default_Ignorable_Code_Point}\p{M}\u2800\s]/u.test(cut) ? cut : "";
 }
@@ -4253,10 +4288,29 @@ const firstName = (u) => (u && u.called ? u.called.split(" ")[0] : "");
 // letter of what the account signs in with.
 function initialsOf(u) {
   if (!u) return "";
-  const lead = (w) => [...(w.replace(/^[^\p{L}\p{N}]+/u, "") || w)][0] || "";
+  // A word's first letter or digit that shows, or whatever it starts with when it has none,
+  // in capitals. One capital can be two letters (SS), and then the first is enough.
+  const lead = (w) => firstGlyph(firstGlyph(w.replace(/^(?:(?![\p{L}\p{N}])[\s\S]|\p{Default_Ignorable_Code_Point})+/u, "") || w).toLocaleUpperCase());
   const words = u.called.split(" ").filter(Boolean);
-  if (!words.length) return lead(u.login || u.email || u.name).toLocaleUpperCase();
-  return (words.length > 1 ? lead(words[0]) + lead(words[words.length - 1]) : lead(words[0])).toLocaleUpperCase();
+  if (!words.length) return lead(u.login || u.email || u.name);
+  const first = lead(words[0]);
+  if (words.length < 2) return first;
+  // Two letters fit on the key cap and an emoji is about as wide as two, so a name that starts
+  // or ends with one shows only its first.
+  const last = lead(words[words.length - 1]);
+  const letter = (g) => /^[\p{L}\p{N}]/u.test(g);
+  return letter(first) && letter(last) ? first + last : first;
+}
+
+// The first character of a text as a reader sees it, so a flag, an emoji made of parts or a
+// letter with its marks stays whole. A browser with no segmenter gives the first code point.
+const glyphs = typeof Intl !== "undefined" && Intl.Segmenter ? new Intl.Segmenter(undefined, { granularity: "grapheme" }) : null;
+function firstGlyph(text) {
+  if (!text) return "";
+  if (glyphs) {
+    for (const part of glyphs.segment(text)) return part.segment;
+  }
+  return [...text][0] || "";
 }
 
 // A short mark that changes when a picture does. The account's Vault works out the same one
@@ -4303,8 +4357,8 @@ function keepFace(data) {
 // Fetches the account's picture, which only happens when a read of the account names a mark
 // this browser doesn't hold.
 async function fetchFace() {
-  if (Account.faceBusy || Cloud.kind !== "account" || !Cloud.on) return;
-  Account.faceBusy = true;
+  if (Account.faceFetch || Account.faceBusy || Cloud.kind !== "account" || !Cloud.on) return;
+  Account.faceFetch = true;
   const key = Cloud.key;
   const began = performance.now();
   try {
@@ -4315,7 +4369,7 @@ async function fetchFace() {
   } catch (err) {
     // the next read of the account tries again
   } finally {
-    Account.faceBusy = false;
+    Account.faceFetch = false;
   }
 }
 
@@ -4335,7 +4389,15 @@ function noteProfile(head, began) {
     }
   }
   if (typeof head.face === "string" && began >= Account.faceAt && head.face !== faceMarkHere()) {
-    if (head.face) fetchFace();
+    const tried = Account.faceTry;
+    if (tried && tried.mark === head.face) {
+      // A picture sent, or a removal, whose answer was lost did reach the account.
+      Account.faceTry = null;
+      Account.faceAt = performance.now();
+      keepFace(tried.data);
+      if (Account.message && Account.message.face) Account.message = null;
+      renderAccount();
+    } else if (head.face) fetchFace();
     else keepFace("");
   }
 }
@@ -4414,7 +4476,7 @@ function sessionEnded() {
   cloudTimer = 0;
   Cloud.key = "";
   Cloud.error = "";
-  Cloud.seen = 0;
+  Cloud.mark = "";
   Cloud.lastOk = 0;
   if (accountChange(cloudIdentity(cloudSeen), cloudIdentity(readConfigNow()))) {
     leaveTab(); // another tab already signed in again
@@ -4449,18 +4511,27 @@ async function readAccount() {
   if (cut < 0) throw new Error("reach");
   const text = new TextDecoder();
   const head = JSON.parse(text.decode(all.subarray(0, cut)));
-  // The same answer carries the name and picture the account shows.
+  // Anything but the frame the account service sends is a failed read, never an empty account,
+  // which the next save would write over the main copy.
+  if (!head || head.v !== 1 || !Number.isInteger(head.main) || head.main < -1 || !Array.isArray(head.slots)) throw new Error("reach");
+  let at = cut + 1;
+  const take = (n) => {
+    if (!Number.isInteger(n) || n < 0 || at + n > all.length) throw new Error("reach");
+    return text.decode(all.subarray(at, (at += n)));
+  };
+  const main = head.main >= 0 ? take(head.main) : "";
+  const theirs = head.main >= 0 ? JSON.parse(main) : null;
+  const left = [];
+  for (const slot of head.slots) {
+    if (!Array.isArray(slot)) throw new Error("reach");
+    const raw = take(slot[1]);
+    if (isDeviceId(slot[0])) left.push([slot[0], JSON.parse(raw)]);
+  }
+  // The same answer carries the name and picture the account shows, which are taken once the
+  // whole of it has read well.
   if (Cloud.key === key) noteProfile(head, began);
   Account.pulledAt = Date.now(); // coming back to the page needn't read again for a while
-  let at = cut + 1;
-  const take = (n) => text.decode(all.subarray(at, (at += n)));
-  const theirs = head.main >= 0 ? JSON.parse(take(head.main)) : null;
-  const left = [];
-  for (const [id, n] of Array.isArray(head.slots) ? head.slots : []) {
-    const raw = take(n);
-    if (isDeviceId(id)) left.push([id, JSON.parse(raw)]);
-  }
-  return { theirs, left };
+  return { theirs, left, mark: theirs ? copyMark(main) : "" };
 }
 
 // Removes progress, texts and the account's picture from this browser. Settings go with the
@@ -5075,6 +5146,16 @@ async function openDoc(id) {
   return true;
 }
 
+// Opens the text the state says is open, at a start, a sign in or a restore. A text that's
+// gone is no longer the open one. One that couldn't be fetched just now stays the open one,
+// with nothing to type until it can be, so a passing failure doesn't cost an account its place.
+let textMissed = false; // a text's words couldn't be fetched, where a text that's gone is told plainly
+async function reopenDoc() {
+  if (!state.docId) return;
+  textMissed = false;
+  if (!(await openDoc(state.docId)) && !textMissed) state.docId = "";
+}
+
 async function deleteDoc(id) {
   state.docs = state.docs.filter((d) => d.id !== id);
   state.removed = [...(state.removed || []), id].slice(-200);
@@ -5142,6 +5223,7 @@ const POSSESSIVE = new Set(
 );
 
 const pickFrom = (list) => list[Math.floor(Math.random() * list.length)];
+const hasOwn = (table, key) => Object.prototype.hasOwnProperty.call(table, key);
 const capitalize = (word) => word.replace(/[a-z]/, (c) => c.toUpperCase());
 
 // Adds the chosen punctuation and capitals. A hyphen, a slash and the other marks that join
@@ -5156,8 +5238,13 @@ function decorate(words, s, adaptive, boost = null) {
   const up = (m) => (boost && [...m].some((ch) => boost.has(ch)) ? APP.weakMarkUp : 1);
   let out = words.slice();
   // One plain word, which can be joined to another or swapped for a stand in. A pair, a phrase
-  // and a number aren't.
+  // and a number aren't. The second half of a pair has no apostrophe either.
   const single = (w) => /^[a-z']+$/i.test(w);
+  const plain = (w) => /^[a-z]+$/i.test(w);
+  // A pair takes two words, so a short test has fewer places for one than it has words. Each
+  // place's chance is raised to match, so a mark that joins words comes up as often for each
+  // word in a test of four as in one of forty.
+  const span = words.length > 1 ? words.length / (words.length - 1) : 1;
   const join = (i, mark) => {
     out[i] = `${out[i]}${mark}${out[i + 1]}`;
     out.splice(i + 1, 1);
@@ -5186,43 +5273,47 @@ function decorate(words, s, adaptive, boost = null) {
     out = out.map((w) => {
       const r = Math.random();
       if (adaptive) return r < 0.2 && canS && w.length >= 3 && !w.endsWith("s") ? `${w}'s` : w;
-      if (CONTRACTIONS[w] && r < 0.2 * more) return pickFrom(CONTRACTIONS[w]);
+      // A word from a piece's own list can be anything, constructor included, which a plain
+      // lookup would find on every object.
+      if (hasOwn(CONTRACTIONS, w) && r < 0.2 * more) return pickFrom(CONTRACTIONS[w]);
       if (POSSESSIVE.has(w) && !w.endsWith("s") && r < 0.2 * more) return `${w}'s`;
-      // Lists with few contractions, like literary words, still get some apostrophes.
-      return r < 0.05 * more ? pickFrom(ALL_CONTRACTIONS) : w;
+      // Lists with few contractions, like literary words, still get some apostrophes. Only a
+      // plain word gives way to one, so a phrase or a pair from a piece's list stays whole and
+      // the test keeps its number of words.
+      return single(w) && r < 0.05 * more ? pickFrom(ALL_CONTRACTIONS) : w;
     });
   }
 
   for (let i = 0; i < out.length - 1; i++) {
-    if (!single(out[i]) || !single(out[i + 1])) continue;
-    if (has("-") && Math.random() < 0.04 * up("-")) join(i, "-");
-    else if (has("/") && Math.random() < 0.03 * up("/")) join(i, "/");
+    if (!single(out[i]) || !plain(out[i + 1])) continue;
+    if (has("-") && Math.random() < 0.04 * up("-") * span) join(i, "-");
+    else if (has("/") && Math.random() < 0.03 * up("/") * span) join(i, "/");
   }
 
   // Symbols show up the way they do in real writing. Some join two words, some stand in for
   // a word (a number, a price, a sum, an ampersand), and some mark one (a tag or a mention).
-  const joins = bands([[has("_") && "_", 0.03, up("_")], [has("|") && "|", 0.045, up("|")], [has("\\") && "\\", 0.06, up("\\")]]);
+  const joins = bands([[has("_") && "_", 0.03, up("_") * span], [has("|") && "|", 0.045, up("|") * span], [has("\\") && "\\", 0.06, up("\\") * span]]);
   for (let i = 0; i < out.length - 1; i++) {
-    if (!single(out[i]) || !single(out[i + 1])) continue; // already a pair, or a phrase
+    if (!single(out[i]) || !plain(out[i + 1])) continue; // already a pair, or a phrase
     const mark = roll(joins);
     if (mark) join(i, mark);
   }
-  // A weak digit takes the place of one of a number's own digits, most of the time.
+  // A weak digit shows up in more of the numbers. Half of them are drawn again, a few times at
+  // most, until one holds it, so every number stays in its own range and reads as it always
+  // did. Putting the digit into a number bent it instead (706%, 7^7, 50+50=100).
   const weakDigits = boost ? [..."1234567890"].filter((d) => boost.has(d)) : [];
+  const draw = (max) => String(1 + Math.floor(Math.random() * max));
   const num = (max) => {
-    const n = String(1 + Math.floor(Math.random() * max));
-    if (!weakDigits.length || Math.random() >= 0.7) return n;
-    const at = Math.floor(Math.random() * n.length);
-    const made = n.slice(0, at) + pickFrom(weakDigits) + n.slice(at + 1);
-    return made[0] === "0" ? `${1 + Math.floor(Math.random() * 9)}${made}` : made;
+    let n = draw(max);
+    if (!weakDigits.length || Math.random() >= 0.5) return n;
+    for (let tries = 0; tries < 6 && !weakDigits.some((d) => n.includes(d)); tries++) n = draw(max);
+    return n;
   };
-  // Each stand in comes with how many times as often it shows up. One written with digits
-  // shows up more while a digit is weak.
-  const digits = weakDigits.length ? APP.weakMarkUp : 1;
+  // Each stand in comes with how many times as often it shows up.
   const tokens = [];
-  if (has("1")) tokens.push([() => num(Math.random() < 0.7 ? 99 : 2026), digits]);
-  if (has("%")) tokens.push([() => `${num(100)}%`, Math.max(up("%"), digits)]);
-  if (has("$")) tokens.push([() => `$${num(Math.random() < 0.7 ? 99 : 999)}`, Math.max(up("$"), digits)]);
+  if (has("1")) tokens.push([() => num(Math.random() < 0.7 ? 99 : 2026), 1]);
+  if (has("%")) tokens.push([() => `${num(100)}%`, up("%")]);
+  if (has("$")) tokens.push([() => `$${num(Math.random() < 0.7 ? 99 : 999)}`, up("$")]);
   if (has("+") && has("=")) {
     tokens.push([() => {
       const a = Number(num(9));
@@ -5512,7 +5603,9 @@ function weakest(rows, s, before = [], keep = () => true, most = 3) {
     const behind = r.speed > 0 && usual > 0 ? ((usual - r.speed) / usual) * 2.5 : 0;
     const under = r.speed > 0 && !mark ? (1 - r.speed / s.targetWpm) * 0.8 : 0;
     const slow = Math.max(behind, under);
-    const missed = (r.miss - 0.03) / 0.09;
+    // A letter is often missed from 3% up. A mark brings its own score, worked out against
+    // the marks like it (see rankWeakMarks).
+    const missed = r.missed !== undefined ? r.missed : (r.miss - 0.03) / 0.09;
     const score = Math.max(slow, missed);
     let why = missed >= slow ? "missed" : "slow";
     const old = was.get(r.ch);
@@ -5521,7 +5614,7 @@ function weakest(rows, s, before = [], keep = () => true, most = 3) {
     // that's no slower than usual any more isn't called slow, nor one that's rarely missed missed.
     if ((why === "slow" ? slow : missed) <= 0) why = why === "slow" ? "missed" : "slow";
     const own = r.own || r;
-    return { ch: r.ch, weakness: clamp(score, 0, 1), why, score, speed: own.speed, miss: own.miss, usual, under: under > behind, mark };
+    return { ch: r.ch, weakness: clamp(score, 0, 1), why, score, speed: own.speed, miss: own.miss, usual, under: under > behind, mark, digit: Boolean(r.digit) };
   });
   const head = (w) => w.weakness + (was.has(w.ch) ? APP.weakStick : 0);
   const weaker = (x, y) => y.score - x.score || (x.ch < y.ch ? -1 : 1);
@@ -5624,11 +5717,10 @@ function markStats(p) {
 }
 
 // The marks and digits Step up and Words tests practice extra, up to two, shaped like the
-// weak letters and ranked the same way from the newest tests that kept their keys. A mark is
-// only held up against marks like it, the ones typed with Shift against each other and the
-// rest (the digits among them) against each other, so needing Shift doesn't make it weak, and
-// it's never held up against your target speed, which is a letter's. Only marks your tests
-// can hold now are named.
+// weak letters. A mark is only held up against marks like it, the digits against each other,
+// the marks typed with Shift against each other and the rest against each other, so being a
+// digit or needing Shift doesn't make it weak, and it's never held up against your target
+// speed, which is a letter's. Only marks your tests can hold now are named.
 let weakMarkCache = null; // { p, key, layout, list }
 function weakMarks(p, s) {
   const h = p.history;
@@ -5639,25 +5731,40 @@ function weakMarks(p, s) {
   return weakMarkCache.list;
 }
 
+// The chance of k misses or more in n keys when each is missed with chance p.
+function missChance(k, n, p) {
+  let term = (1 - p) ** n; // the chance of none
+  let fewer = 0;
+  for (let i = 0; i < k; i++) {
+    fewer += term;
+    term *= ((n - i) / (i + 1)) * (p / (1 - p));
+  }
+  return Math.max(0, 1 - fewer);
+}
+
 function rankWeakMarks(p, s, before = []) {
   const on = new Set(marksOn(s));
   if (!on.size) return [];
-  // The newest APP.weakTests tests, and for a mark typed fewer than APP.weakMin times in
-  // them, older tests too until it has that many.
+  // The newest APP.weakMarkKeys times each mark was typed, however many tests back that goes.
+  // A mark comes up once or twice a test at most, so a window of tests, as the letters have,
+  // would leave a rare one with too little to go by.
   const tests = markStats(p).tests;
   const sums = {};
-  for (let i = tests.length - 1, back = 0; i >= 0; i--, back++) {
+  for (let i = tests.length - 1; i >= 0; i--) {
     for (const ch in tests[i]) {
       if (!on.has(ch)) continue;
       const sum = sums[ch] || (sums[ch] = { rows: [], typed: 0 });
-      if (back >= APP.weakTests && sum.typed >= APP.weakMin) continue;
+      if (sum.typed >= APP.weakMarkKeys) continue;
       sum.rows.push(tests[i][ch]);
       sum.typed += tests[i][ch][2];
     }
   }
+  // Three kinds, each held up against its own. Digits sit a row away and are slower than a
+  // comma for everyone, and a mark typed with Shift is slower than one typed without.
+  const kindOf = (ch) => (ch >= "0" && ch <= "9" ? "digit" : UNSHIFT[ch] ? "shift" : "plain");
   const rows = [];
-  for (const shifted of [false, true]) {
-    const group = Object.entries(sums).filter(([ch, sum]) => Boolean(UNSHIFT[ch]) === shifted && sum.typed >= APP.weakMin);
+  for (const kind of ["digit", "plain", "shift"]) {
+    const group = Object.entries(sums).filter(([ch, sum]) => kindOf(ch) === kind && sum.typed >= APP.weakMin);
     const all = { ms: 0, timed: 0, typed: 0, missed: 0 };
     for (const [, sum] of group) {
       for (const d of sum.rows) {
@@ -5667,9 +5774,17 @@ function rankWeakMarks(p, s, before = []) {
         all.missed += d[3];
       }
     }
-    const pace = all.timed ? all.ms / all.timed : 0;
-    const rate = all.typed ? all.missed / all.typed : 0;
-    const prior = APP.weakPrior;
+    // The usual pace of the kind is the middle one of its marks' own paces once three are
+    // timed, so one slow mark doesn't drag along what it's held up against, and all their keys
+    // pooled before that. With so few keys to go by, many keys at that pace are mixed into a
+    // mark's speed, and it takes more than one slow moment to stand out from them.
+    const paces = group.map(([, sum]) => {
+      const ms = sum.rows.reduce((total, d) => total + d[0] * d[1], 0);
+      const timed = sum.rows.reduce((total, d) => total + d[1], 0);
+      return timed >= APP.weakMin / 2 ? ms / timed : 0;
+    }).filter(Boolean).sort((x, y) => x - y);
+    const pace = paces.length >= 3 ? paces[Math.floor(paces.length / 2)] : all.timed ? all.ms / all.timed : 0;
+    const prior = APP.weakMarkPrior;
     const ranked = group.map(([ch, sum]) => {
       const t = { ms: 0, raw: 0, timed: 0, missed: 0 };
       for (const d of sum.rows) {
@@ -5679,18 +5794,26 @@ function rankWeakMarks(p, s, before = []) {
         t.missed += d[3];
       }
       const timed = pace > 0 && t.timed >= APP.weakMin / 2;
+      // Misses count against the rest of its kind, by how unlikely that many would be if the
+      // mark were missed no more often than they are. Under 1 chance in 50 names it and under
+      // 1 in 7 keeps it named, which is 0.2 and 0.1 on the scale weakest ranks by. So a typist
+      // who misses every mark alike has none that stands out, a slip never names a mark, and
+      // one typed 8 times is judged as carefully as one typed 60.
+      const others = all.typed - sum.typed;
+      const usual = others >= 30 ? Math.max(0.01, (all.missed - t.missed) / others) : 0;
+      const chance = usual && t.missed >= 2 ? missChance(t.missed, sum.typed, usual) : 1;
       return {
         ch,
         speed: timed ? 12000 / ((t.ms + prior * pace) / (t.timed + prior)) : 0,
-        miss: (t.missed + prior * rate) / (sum.typed + prior),
+        missed: chance > 0 ? Math.min(1, -Math.log10(chance) / 8.5) : 1,
         own: { speed: timed ? 12000 / (t.raw / t.timed) : 0, miss: t.missed / sum.typed },
       };
     });
-    // With fewer than three marks of a kind timed there's nothing fair to hold one up
+    // With fewer than three marks of a kind timed there's nothing fair to hold one's speed up
     // against, so only its mistakes count.
     const speeds = ranked.filter((r) => r.speed > 0).map((r) => r.speed).sort((x, y) => x - y);
     const peer = speeds.length >= 3 ? speeds[Math.floor(speeds.length / 2)] : 0;
-    for (const r of ranked) rows.push({ ...r, peer });
+    for (const r of ranked) rows.push({ ...r, peer, digit: kind === "digit" });
   }
   return weakest(rows, s, before, () => true, 2);
 }
@@ -5862,7 +5985,7 @@ function newLesson(attempt = 1) {
       return;
     }
     if (doc.at >= data.passages.length) doc.at = 0;
-    startLesson(data.passages[doc.at]);
+    startLesson(data.passages[doc.at], 1, null, null, { id: doc.id, at: doc.at });
   } else {
     const text = s.mode === "adaptive" ? adaptiveText(profile(), s) : wordsText(s.mode === "step" ? { ...s, lessonWords: stepWords() } : s);
     startLesson(text, attempt);
@@ -5880,7 +6003,7 @@ function skipAhead() {
     return;
   }
   const doc = state.settings.mode === "custom" && !zhOn() ? activeDoc() : null;
-  if (doc && doc.passages) {
+  if (doc && doc.passages && onPlace(lesson, doc)) {
     doc.at = (doc.at + 1) % doc.passages;
     scheduleSave();
   }
@@ -5888,19 +6011,30 @@ function skipAhead() {
   checkGoals();
 }
 
+// Whether the passage on screen is the one the open text is at. It isn't when another device
+// typed more of the text and a merge moved its place along while this passage stayed up.
+const onPlace = (L, doc) => !L || !L.passage || (L.passage.id === doc.id && L.passage.at === doc.at);
+
 // Where the words of a test end, as a 1 at the place of each character that ends one. A space
 // ends a word, and so does a mark that joins two words with no space between them, like the
 // hyphen in sea-green or the slash in and/or, so each of the two counts as a word. The mark
 // has to sit between two letters. Between digits, as in 3+4=7, 24/7 or 1,000, it joins nothing,
-// and a period or an apostrophe never splits a word, so e.g. and don't are one each.
-const WORD_JOINS = /(?<=[a-z])[-/_|\\+=^,;:]+(?=[a-z])/gi;
+// and a period or an apostrophe never splits a word, so e.g. and don't are one each. A hyphen
+// also joins a word and a number, so 24-hour is two words and 10-year-old three. The other
+// marks don't, which keeps x=12 one word, as the test that holds it counts it.
+const WORD_JOINS = /(?<=[a-z])[-/_|\\+=^,;:]+(?=[a-z])|(?<=[a-z])-+(?=\d)|(?<=\d)-+(?=[a-z])/gi;
 function wordEnds(text) {
   const ends = new Uint8Array(text.length);
   for (let i = 0; i < text.length; i++) if (text[i] === " ") ends[i] = 1;
   for (const m of text.matchAll(WORD_JOINS)) ends[m.index + m[0].length - 1] = 1;
   return ends;
 }
-const countWords = (text) => (text ? wordEnds(text).reduce((n, end) => n + end, 1) : 0);
+// The words in a text, counted the same way wherever a count shows. A test's text has single
+// spaces, and a piece you wrote can have any white space in it.
+function countWords(text) {
+  const tokens = text.trim() ? text.trim().split(/\s+/).length : 0;
+  return tokens ? tokens + (text.match(WORD_JOINS) || []).length : 0;
+}
 
 // A drill is a Practice these test from the Analysis tab. It counts as a Words test, so it
 // never grows or shrinks Step up (and shows no mistake dots), moves My text along or unlocks
@@ -5908,7 +6042,7 @@ const countWords = (text) => (text ? wordEnds(text).reduce((n, end) => n + end, 
 // a usual test, like a setting.
 // A Chinese test comes with zh, the pinyin and word ends from zhText. It counts as Step up
 // or Words, so it never moves My text along or unlocks a letter either.
-function startLesson(text, attempt = 1, drill = null, zh = null) {
+function startLesson(text, attempt = 1, drill = null, zh = null, passage = null) {
   if (lesson && !lesson.done) keepPartial(lesson);
   if (!drill) dropDrillBack();
   const wordAt = new Uint32Array(text.length + 1);
@@ -5924,6 +6058,7 @@ function startLesson(text, attempt = 1, drill = null, zh = null) {
   lesson = {
     text,
     attempt,
+    passage, // which passage of which text this is, in My text, as {id, at}
     wordAt,
     words: zh ? zh.ends.length : wordAt[text.length] + 1,
     pos: 0,
@@ -5964,7 +6099,7 @@ function startLesson(text, attempt = 1, drill = null, zh = null) {
 }
 
 function restartLesson() {
-  if (lesson) startLesson(lesson.text, lesson.attempt, lesson.drill, lesson.zh);
+  if (lesson) startLesson(lesson.text, lesson.attempt, lesson.drill, lesson.zh, lesson.passage);
   checkGoals();
 }
 
@@ -6173,7 +6308,10 @@ function finishLesson() {
   let finishedDoc = null;
   if (L.mode === "custom") {
     const doc = activeDoc();
-    if (doc && doc.passages) {
+    // The text moves on from the passage that was typed. Another device may have typed more of
+    // it meanwhile, which a merge brings in as a later place, and then a passage that's behind
+    // that place doesn't move it again, or the one after it would never be typed.
+    if (doc && doc.passages && onPlace(L, doc)) {
       doc.at += 1;
       if (doc.at >= doc.passages) {
         doc.at = 0;
@@ -6267,6 +6405,9 @@ const el = {
   veil: $("#veil"),
   sink: $("#sink"),
   boardEmpty: $("#boardEmpty"),
+  boardAsk: $("#boardAsk"),
+  boardWait: $("#boardWait"),
+  boardActions: $("#boardActions"),
   boardFoot: $("#boardFoot"),
   zoomIn: $("#zoomIn"),
   zoomOut: $("#zoomOut"),
@@ -6640,7 +6781,7 @@ function weakTitle(w) {
   const more = w.mark ? "so it comes up more often." : "so words with it come up more often.";
   if (w.why === "missed") return `${w.ch} is missed ${Math.round(w.miss * 100)}% of the time lately, ${more}`;
   let than = w.under ? `under your ${speed(state.settings.targetWpm)} target` : `next to your usual ${speed(w.usual)}`;
-  if (w.mark) than = `next to ${speed(w.usual)} for marks like it`;
+  if (w.mark) than = `next to ${speed(w.usual)} for ${w.digit ? "your other digits" : "marks like it"}`;
   return `${w.ch} averages ${speed(w.speed)} lately, ${than}, ${more}`;
 }
 
@@ -7538,6 +7679,14 @@ function clearLesson() {
   renderWrite();
 }
 
+// While a sign in waits for the account's open text, the empty board says so and offers
+// nothing to add.
+function boardWaits(on) {
+  el.boardAsk.hidden = on;
+  el.boardActions.hidden = on;
+  el.boardWait.hidden = !on;
+}
+
 // Typing goes to the hidden input that takes every key of a test. In Write it goes to your
 // piece while you're writing it, and to the box that asks what you're about to write.
 function focusSink() {
@@ -8331,7 +8480,7 @@ function updateDraftCount() {
   const piece = activeWrite();
   if (!piece) return;
   const text = el.draft.value;
-  const n = piece.zh ? (text.match(/[㐀-鿿]/g) || []).length : (text.trim() ? text.trim().split(/\s+/).length : 0);
+  const n = piece.zh ? (text.match(/[㐀-鿿]/g) || []).length : countWords(text);
   const unit = piece.zh ? (n === 1 ? "character" : "characters") : n === 1 ? "word" : "words";
   el.wordCount.textContent = `${n.toLocaleString("en-US")} ${unit}`;
 }
@@ -8509,7 +8658,7 @@ function renderWriteList() {
     const current = writeOn() && piece.id === state.writeId;
     const row = node("li", current ? "doc current" : "doc");
     const info = node("div", "doc-info");
-    const n = piece.zh ? (piece.text.match(/[㐀-鿿]/g) || []).length : (piece.text.trim() ? piece.text.trim().split(/\s+/).length : 0);
+    const n = piece.zh ? (piece.text.match(/[㐀-鿿]/g) || []).length : countWords(piece.text);
     let meta = piece.zh ? `${n.toLocaleString("en-US")} ${n === 1 ? "character" : "characters"}` : `${n.toLocaleString("en-US")} ${n === 1 ? "word" : "words"}`;
     meta += piece.edited ? `, last written ${fmtDate(piece.edited)}` : `, started ${fmtDate(piece.added)}`;
     info.append(node("span", "doc-title", piece.title), node("span", "doc-meta", meta));
@@ -8700,7 +8849,9 @@ function welcomeSteps() {
   const weakOn = s.weakBoost && !zh && (s.mode === "step" || s.mode === "words");
   const weakNow = weakOn && weakLetters(profile(), s).length + weakMarks(profile(), s).length > 0;
   let weak = "";
-  if (weakOn) weak = `${weakNow ? "Your" : "After a few tests, your"} weakest keys are outlined above the text, and they turn up more often.`;
+  // Text only hides the rows of keys above the text, so then it only says they come up more.
+  if (weakOn && s.zoom === "text") weak = `${weakNow ? "Your" : "After a few tests, your"} weakest keys turn up more often.`;
+  else if (weakOn) weak = `${weakNow ? "Your" : "After a few tests, your"} weakest keys are outlined above the text, and they turn up more often.`;
 
   let goals = "Daily goals are off now, and you can set them under Daily goal in Settings.";
   if (s.dailyGoal && s.cleanGoal) goals = `The rings fill toward today's goals, ${fmtGoal(s.dailyGoal)} of typing and ${fmtGoal(s.cleanGoal)} of clean typing (in tests with no mistakes). Reaching either one completes the day.`;
@@ -11299,7 +11450,7 @@ function setSetting(key, value) {
     }
     if (fx.includes("build")) buildKeyboard();
     if (fx.includes("lesson")) newLesson();
-    if (fx.includes("restart") && lesson) startLesson(lesson.text, 1, lesson.drill, lesson.zh);
+    if (fx.includes("restart") && lesson) startLesson(lesson.text, 1, lesson.drill, lesson.zh, lesson.passage);
     if (fx.includes("keyboard")) refreshKeyboard();
     if (fx.includes("practice")) renderPractice();
     if (fx.includes("live")) updateLive();
@@ -11490,7 +11641,7 @@ async function restoreBackup(data) {
   }
   // Texts from the backup come with their words. Ones that came without them are dropped.
   state.docs = state.docs.filter((d) => here.has(d.id) || docCache.has(d.id));
-  if (state.docId && !(await openDoc(state.docId))) state.docId = "";
+  await reopenDoc();
   await Store.save(state);
   if (Cloud.on) {
     try {
@@ -11536,6 +11687,20 @@ function afterMerge() {
   renderPractice();
   syncSettingsUI();
   if (lesson) renderPips(lesson); // a merge can change the step or the settings
+  // Another device may have removed the piece being written here. Write then goes back to its
+  // box, as removing it here does, ready to type in.
+  if (writeOn() && !lesson && Write.phase === "draft" && !activeWrite()) {
+    Object.assign(Write, { id: "", phase: "" });
+    newLesson();
+    if (view === "practice") focusSink();
+  }
+  // Another device may have typed more of the open text. A passage nobody has started here
+  // gives way to the one the text is at now. One that's under way is finished first, and the
+  // text then goes on from its new place.
+  if (lesson && lesson.passage && !lesson.strokes && !lesson.done) {
+    const doc = activeDoc();
+    if (!doc || !onPlace(lesson, doc)) newLesson();
+  }
   renderWrite();
   syncDraft(); // a piece may have come back longer from another device
   if (view === "progress") renderProgress();
@@ -11627,8 +11792,8 @@ async function onCloudConnect() {
     const theirs = remote ? JSON.parse(remote) : null;
     if (theirs) {
       hydrate(mergeSaves(snapshot(), theirs, true));
-      Cloud.seen = theirs.savedAt || 0;
-      if (state.docId && !(await openDoc(state.docId))) state.docId = "";
+      Cloud.mark = copyMark(remote);
+      await reopenDoc();
       afterMerge();
       newLesson();
     }
@@ -11665,7 +11830,7 @@ async function onCloudOff() {
   Cloud.kind = "";
   Cloud.error = "";
   Cloud.lastOk = 0;
-  Cloud.seen = 0;
+  Cloud.mark = "";
   cloudSeen = "";
   await Store.remove(APP.cloudConfig);
   el.cloudKey.value = "";
@@ -11703,7 +11868,7 @@ async function onCloudRestore() {
     const raw = await Cloud.call("GET", `backup-${day}`);
     if (!raw) throw new Error("reach");
     restoreFrom(JSON.parse(raw));
-    if (state.docId && !(await openDoc(state.docId))) state.docId = "";
+    await reopenDoc();
     Store.save(state);
     cloudDirty = true;
     await pushCloud();
@@ -12221,9 +12386,12 @@ async function createPending() {
     await adoptAccount({ token: out.data.token, user, created: out.data.created === true, via: "google" }, !owner || owner === user.id);
     return;
   }
-  // Google's credential lasts an hour, so a question left open longer needs Google again.
-  Account.pending = null;
-  setAccountNote(authProblem(out), true);
+  // A passing failure keeps the question, since nothing was made and the credential is still
+  // good. Anything else needs Google again, as when its credential's hour has run out.
+  const error = typeof out.data.error === "string" ? out.data.error : "";
+  const passing = !out.status || (out.status >= 500 && error !== "setup") || error === "busy";
+  if (!passing) Account.pending = null;
+  setAccountNote(passing && error !== "busy" ? "Couldn't reach Keyprint. Check your connection and try again." : authProblem(out), true);
   renderAccount();
 }
 
@@ -12323,8 +12491,8 @@ async function adoptAccount(result, keep) {
     await settleCloud();
     if (lost()) return giveUp();
     // Taken after the move, so a failed read puts back exactly what the last save left.
-    before = { kind: Cloud.kind, url: Cloud.url, key: Cloud.key, user: Cloud.user, seen: Cloud.seen, lastOk: Cloud.lastOk, putAt: Cloud.putAt, error: Cloud.error };
-    Object.assign(Cloud, { kind: "account", url: accountBase(), key: result.token, user: result.user, seen: 0, lastOk: 0, putAt: -1e9, error: "", retry: 60000 });
+    before = { kind: Cloud.kind, url: Cloud.url, key: Cloud.key, user: Cloud.user, mark: Cloud.mark, lastOk: Cloud.lastOk, putAt: Cloud.putAt, error: Cloud.error };
+    Object.assign(Cloud, { kind: "account", url: accountBase(), key: result.token, user: result.user, mark: "", lastOk: 0, putAt: -1e9, error: "", retry: 60000 });
     leftCopy = false;
     if (!isDeviceId(Cloud.device)) Cloud.device = newDeviceId();
     let got;
@@ -12352,32 +12520,23 @@ async function adoptAccount(result, keep) {
     if (keep && !sameOwner) {
       const theirs = got.theirs && got.theirs.profiles ? got.theirs.profiles : {};
       // A Reset progress made here before this browser had anything to do with the account
-      // isn't a reset of the account, and neither is a restore made here. So a guest's progress
-      // takes the account's resets, and its tests and letters join the account's.
-      if (!moving) {
-        for (const [id, p] of Object.entries(here.profiles || {})) if (p) p.resetAt = theirs[id] ? theirs[id].resetAt || 0 : 0;
-        here.restoredAt = 0;
-      }
+      // isn't a reset of the account, and neither is a restore made here, whether the progress
+      // is a guest's or comes from key Cloud save. So it takes the account's resets, and its
+      // tests and letters join the account's. Progress from key Cloud save used to keep its
+      // own, and a reset there that was later than the account's tests then took those tests,
+      // the account's letter stats and its unlocked letters away on every device.
+      for (const [id, p] of Object.entries(here.profiles || {})) if (p) p.resetAt = theirs[id] ? theirs[id].resetAt || 0 : 0;
+      here.restoredAt = 0;
       // The account may have been reset after some of the tests here were typed. They were
-      // never part of what that reset cleared, and a merge would still drop them as older than
-      // it. So where that's the case this sign in counts as a restore, which is the one thing a
-      // reset gives way to (see undoResets), with the reset moved back only as far as the
-      // oldest test here. Tests from before that, on a device that never heard of the reset,
-      // still stay out.
-      let older = false;
+      // never part of what that reset cleared, and a merge drops a test older than a reset. So
+      // each of them is marked with when it joins (at), which the merge counts in place of
+      // when it was typed. The account's reset itself stays as it is, so nothing it cleared
+      // comes back from a device that hasn't heard of it yet.
+      const joined = Date.now();
       for (const [id, p] of Object.entries(here.profiles || {})) {
         const reset = p && theirs[id] ? theirs[id].resetAt || 0 : 0;
-        const first = p ? (p.history || []).reduce((t, e) => (e && e.ts < t ? e.ts : t), Infinity) : Infinity;
-        if (first >= reset) continue;
-        older = true;
-        if (!moving) p.resetAt = first;
-      }
-      if (older) {
-        // A layout only the account has keeps its own reset through this.
-        for (const [id, t] of Object.entries(theirs)) {
-          if (t && !here.profiles[id]) here.profiles[id] = { ...newProfile(), resetAt: t.resetAt || 0 };
-        }
-        here.restoredAt = Math.max(Date.now(), ((got.theirs && got.theirs.restoredAt) || 0) + 1, (here.restoredAt || 0) + 1);
+        if (!reset) continue;
+        for (const e of p.history || []) if (e && e.ts < reset && !(e.at >= reset)) e.at = Math.max(joined, reset + 1);
       }
     }
     // The account's settings and open text win when it has a copy, and every test is kept.
@@ -12389,10 +12548,13 @@ async function adoptAccount(result, keep) {
     // words typed into a piece in that gap went into the wrong piece, or nowhere.
     afterMerge();
     newLesson();
+    // My text has nothing to type while its text is still on the way from the account. The
+    // board says so, where it would otherwise ask for a text as if the account had none.
+    boardWaits(passagesOn(state.settings) && !lesson && Boolean(state.docId));
     // Whoever signs in has used Keyprint here, so the welcome for someone new doesn't open
     // again for an account with no tests yet, after a sign out and a new account, say.
     if (!state.welcomed) state.welcomed = Date.now();
-    Cloud.seen = got.theirs ? got.theirs.savedAt || 0 : 0;
+    Cloud.mark = got.mark || "";
     const listed = new Set((got.theirs && Array.isArray(got.theirs.docs) ? got.theirs.docs : []).map((d) => d && d.id));
     for (const d of state.docs) if (!listed.has(d.id) && !Account.held.has(d.id)) Account.due.add(d.id);
     if (lost()) return giveUp();
@@ -12404,7 +12566,8 @@ async function adoptAccount(result, keep) {
     if (Account.leaving) return;
     // The account's open text may not be in this browser yet. My text has nothing to type
     // until it is, so its test starts once the text has come, or without it if it can't be had.
-    if (state.docId && !(await openDoc(state.docId))) state.docId = "";
+    await reopenDoc();
+    boardWaits(false);
     afterMerge();
     if (state.settings.mode === "custom" && !lesson) newLesson();
     cloudDirty = true;
@@ -12434,6 +12597,7 @@ async function adoptAccount(result, keep) {
     Account.busy = false;
     Account.switching = false;
     Account.pending = null;
+    boardWaits(false);
     disarmMerge();
     if (!Account.leaving) renderAccount();
   }
@@ -12836,6 +13000,9 @@ function drawGoogle() {
 
 async function onGoogleCredential(res) {
   if (Account.busy || Account.leaving) return;
+  // A question that's still open is answered first, as Cancel would, so a sign in that was
+  // waiting on it isn't left behind.
+  if (Account.pending) cancelPending();
   const proof = Account.proof;
   const credential = String((res && res.credential) || "");
   const linking = signedIn();
@@ -13169,23 +13336,29 @@ function makeFace(file) {
     };
     img.onerror = () => done(reject, new Error("read"));
     img.onload = () => {
-      const side = Math.min(img.naturalWidth, img.naturalHeight);
-      if (!side) return done(reject, new Error("read"));
-      const size = APP.faceSize;
-      const canvas = node("canvas");
-      canvas.width = size;
-      canvas.height = size;
-      const ctx = canvas.getContext("2d");
-      // A see through picture gets a plain white ground.
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(0, 0, size, size);
-      ctx.imageSmoothingQuality = "high";
-      ctx.drawImage(img, (img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2, side, side, 0, 0, size, size);
-      for (const quality of [0.86, 0.7, 0.5]) {
-        const data = canvas.toDataURL("image/jpeg", quality);
-        if (faceOk(data)) return done(resolve, data);
+      // A picture the browser won't let a page read back, like an SVG drawing that holds a web
+      // page (a foreignObject), throws at toDataURL. It's a file that can't be used, said so.
+      try {
+        const side = Math.min(img.naturalWidth, img.naturalHeight);
+        if (!side) return done(reject, new Error("read"));
+        const size = APP.faceSize;
+        const canvas = node("canvas");
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext("2d");
+        // A see through picture gets a plain white ground.
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, size, size);
+        ctx.imageSmoothingQuality = "high";
+        ctx.drawImage(img, (img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2, side, side, 0, 0, size, size);
+        for (const quality of [0.86, 0.7, 0.5]) {
+          const data = canvas.toDataURL("image/jpeg", quality);
+          if (faceOk(data)) return done(resolve, data);
+        }
+        return done(reject, new Error("read"));
+      } catch (err) {
+        return done(reject, new Error("read"));
       }
-      return done(reject, new Error("read"));
     };
     img.src = url;
   });
@@ -13211,6 +13384,7 @@ async function onFacePicked() {
   if (!signedIn()) return;
   const key = Cloud.key;
   Account.faceBusy = true;
+  Account.faceTry = { mark: faceMark(data), data };
   setAccountNote("Saving your picture");
   renderAccount();
   let failed = null;
@@ -13224,6 +13398,7 @@ async function onFacePicked() {
   if (Cloud.key !== key || Account.leaving) return;
   Account.message = null;
   if (failed) return faceFailed(failed, "save");
+  Account.faceTry = null;
   Account.faceAt = performance.now();
   keepFace(data);
   showToast("Picture saved");
@@ -13234,6 +13409,7 @@ async function onFaceDrop() {
   Account.message = null;
   const key = Cloud.key;
   Account.faceBusy = true;
+  Account.faceTry = { mark: "", data: "" };
   let failed = null;
   try {
     await Cloud.call("DELETE", APP.accountFace);
@@ -13244,6 +13420,7 @@ async function onFaceDrop() {
   }
   if (Cloud.key !== key || Account.leaving) return;
   if (failed) return faceFailed(failed, "remove");
+  Account.faceTry = null;
   Account.faceAt = performance.now();
   keepFace("");
   showToast("Picture removed");
@@ -13261,6 +13438,8 @@ function faceFailed(err, doing) {
   setAccountNote(problem === "full"
     ? "Your account has no room for a picture. Remove a text in My text to make room."
     : `Couldn't reach your account to ${doing} your picture. Try again in a moment.`, true);
+  // A read that shows the picture did change takes this warning away (see noteProfile).
+  if (Account.message) Account.message.face = true;
   renderAccount();
 }
 
@@ -13670,8 +13849,10 @@ function bindEvents() {
       return;
     }
     if (e.key === APP.accountFace) {
-      // Another tab changed the account's picture, or a sign out took it away.
+      // Another tab changed the account's picture, or a sign out took it away. A read this tab
+      // began before then mustn't put the old one back, so the change counts as made here too.
       Account.face = { user: "", mark: "", data: "" };
+      Account.faceAt = performance.now();
       try {
         const got = e.newValue ? JSON.parse(e.newValue) : null;
         if (got && typeof got.user === "string" && faceOk(got.data)) Account.face = { user: got.user, mark: faceMark(got.data), data: got.data };
@@ -13775,11 +13956,11 @@ async function init() {
   if (Cloud.on) {
     // Fold in the cloud copy, so a cleared browser or another computer loses nothing.
     try {
-      const { theirs, left } = await readCloud(local);
+      const { theirs, left, mark } = await readCloud(local);
       listed = deviceIds(theirs).includes(Cloud.device);
       if (theirs) {
         start = mergeSaves(local, theirs, false);
-        Cloud.seen = theirs.savedAt || 0;
+        Cloud.mark = mark;
       }
       // Browsers that were hidden or closed may have left copies newer than the main one.
       start = foldLeft(start, left, false);
@@ -13812,7 +13993,7 @@ async function init() {
     await addDoc("", legacyText);
     legacyText = "";
   }
-  if (state.docId && !(await openDoc(state.docId))) state.docId = "";
+  await reopenDoc();
   renderSavedNote();
   buildKeyboard();
   renderPractice();
