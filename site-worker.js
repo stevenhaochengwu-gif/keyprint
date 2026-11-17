@@ -135,11 +135,16 @@ function faceMark(bytes) {
 
 // What someone is called, the name their account shows. It isn't a way in and needn't be theirs
 // alone, so any script goes. Line breaks and invisible characters come out, a run of spaces
-// becomes one, and it stops at CALLED_MAX characters. Empty means no name.
+// becomes one, and it stops at CALLED_MAX characters. The two joiners stay, since some scripts
+// spell names with them and so do emoji made of parts. A name with nothing to see in it, like
+// one made of blank fillers, counts as no name, and so does an empty one.
 function normalCalled(raw) {
   if (typeof raw !== "string") return "";
-  const name = raw.normalize("NFKC").replace(/[\p{Cc}\p{Zl}\p{Zp}]/gu, " ").replace(/\p{Cf}/gu, "").replace(/\s+/g, " ").trim();
-  return [...name].slice(0, CALLED_MAX).join("").trim();
+  // Taking an invisible character out can leave a letter next to a mark it joins with, so the
+  // name is put in its usual form once more afterwards. Tidying it again then changes nothing.
+  const name = raw.normalize("NFKC").replace(/[\p{Cc}\p{Zl}\p{Zp}]/gu, " ").replace(/(?![\u200c\u200d])[\p{Cf}\p{Cs}]/gu, "").normalize("NFKC").replace(/\s+/g, " ").trim();
+  const cut = [...name].slice(0, CALLED_MAX).join("").trim();
+  return /[^\p{Default_Ignorable_Code_Point}\p{M}\u2800\s]/u.test(cut) ? cut : "";
 }
 
 // Six digits for an emailed code. Bytes of 250 or more are drawn again, so every digit is
@@ -585,8 +590,14 @@ async function signin({ env, body, ip }) {
 async function google({ env, url, body, ip }) {
   const g = await verifyGoogle(env, body.credential, body.proof, url.origin);
   if (g.fail) return json(g.fail, { error: g.fail === 400 ? "credential" : "google" });
-  const r = await ask(directory(env), "google", { sub: g.sub, email: g.email, nonce: g.nonce, exp: g.exp, ip });
+  // With create false the page is asking first. A Google account that's new to Keyprint then
+  // gets no account yet, only an answer marked new with the email Google vouches for, and its
+  // nonce stays unused, so the same credential and proof sent again with create true make the
+  // account once the person has said yes. Nothing is made that Cancel would have to take back.
+  // A page from before this sends no create and gets its account at once, as it always did.
+  const r = await ask(directory(env), "google", { sub: g.sub, email: g.email, nonce: g.nonce, exp: g.exp, ip, peek: body.create === false });
   if (r.status !== 200) return json(r.status, r.data);
+  if (r.data.fresh === true) return json(200, { new: true, email: g.email });
   const created = r.data.created === true;
   // A new account starts with the name Google has for the person.
   return signedIn(env, r.data, created ? 201 : 200, created, false, created ? normalCalled(g.name) : "");
@@ -1053,7 +1064,10 @@ export class Vault {
     const body = await request.arrayBuffer();
     if (body.byteLength > CAPS[kind]) return text(413, "Too large");
     // A picture is a small image as a data URL, and nothing else is kept under its name.
-    if (kind === "face" && !FACE_RE.test(new TextDecoder().decode(body))) return text(400, "Bad picture");
+    // The decoder keeps a byte order mark, so one in front is refused like anything else that
+    // isn't part of a data URL. Dropped, it would be kept with the picture and the picture's
+    // mark would never match the one the page works out.
+    if (kind === "face" && !FACE_RE.test(new TextDecoder("utf-8", { ignoreBOM: true }).decode(body))) return text(400, "Bad picture");
     const plan = this.plan(name, kind, body.byteLength, Date.now(), true);
     if (plan.full) return text(507, "Full");
     const opts = { daily: true };
@@ -1792,8 +1806,9 @@ export class Directory {
   }
 
   // Counts a Google attempt and takes its nonce, so each credential works only once. Gives
-  // null to go on, or an answer.
-  spend(h, nonce, exp, now) {
+  // null to go on, or an answer. With take false the nonce is checked and left for later, which
+  // is how a question about a new account leaves the credential good for the answer.
+  spend(h, nonce, exp, now, take = true) {
     this.prune(now);
     const wait = this.count(`i:${h}`, 120, 10 * MINUTE, now);
     if (wait) return busy(wait);
@@ -1802,12 +1817,13 @@ export class Directory {
       console.error("api", "google", "used");
       return json(401, { error: "google" });
     }
-    this.sql.exec("INSERT INTO used (k, until) VALUES (?, ?)", k, exp * 1000 + MINUTE);
+    if (take) this.sql.exec("INSERT INTO used (k, until) VALUES (?, ?)", k, exp * 1000 + MINUTE);
     return null;
   }
 
   // Signs in with Google, or makes a new account for a Google account it hasn't seen. Accounts
-  // are never matched or linked by email.
+  // are never matched or linked by email. With peek, a Google account it hasn't seen gets an
+  // answer marked fresh and nothing is made or taken, so the page can ask first.
   async google(body) {
     const sub = String(body.sub || "");
     const email = typeof body.email === "string" ? body.email : "";
@@ -1818,12 +1834,20 @@ export class Directory {
     const place = await this.ipHash(body.ip, 3);
     const now = Date.now();
     return this.ctx.storage.transactionSync(() => {
-      const first = this.spend(h, nonce, exp, now);
-      if (first) return first;
       const login = this.login(`g:${sub}`);
+      const peek = body.peek === true && !login;
+      const first = this.spend(h, nonce, exp, now, !peek);
+      if (first) return first;
       if (login) {
         if (email) this.sql.exec("UPDATE users SET email = ? WHERE id = ? AND email <> ?", email, login.user, email);
         return json(200, { uid: login.user, user: this.user(login.user), created: false });
+      }
+      if (peek) {
+        // With no room for a new account there's nothing to ask about. The sign up limits for
+        // one address only count when an account is made.
+        if (this.signupsToday(now) >= SIGNUPS_PER_DAY) return json(429, { error: "closed" });
+        if (this.siteBytes() >= SITE_BYTES) return json(429, { error: "full" });
+        return json(200, { fresh: true });
       }
       const no = this.canMake(place, now);
       if (no) return no;
