@@ -8013,7 +8013,9 @@ function boomDraw(c, S, t) {
     if (sx < -half || sx > S.W + half || sy < -half || sy > S.H + half) continue;
     // It fades in as it's thrown, out at the end of its time, and away as it reaches you.
     const alpha = Math.min(1, a / 0.05) * clamp((p.life - a) / 0.5, 0, 1) * clamp((S.F * 0.955 - z) / (S.F * 0.13), 0, 1);
-    live.push({ p, x, y, z, a, k, alpha });
+    // Its outline (see drawKeycap) has narrowed to nothing by the time it starts to fade.
+    const edge = clamp((a - 0.05) / 0.08, 0, 1) * clamp((p.life - a - 0.5) / 0.25, 0, 1) * clamp((S.F * 0.825 - z) / (S.F * 0.1), 0, 1);
+    live.push({ p, x, y, z, a, k, alpha, edge });
   }
   live.sort((m, n) => m.z - n.z);
   // A cap's shadow stays on the page. The higher the cap, the further off, wider and fainter
@@ -8325,9 +8327,11 @@ function drawKeycap(ctx, S, m) {
     S.sy[i] = at[1];
   }
   ctx.globalAlpha = m.alpha;
-  // A wide outline in the side's own color rounds its corners. It thins as the cap fades, or it
-  // would show through the side as a darker band.
-  ctx.lineWidth = Math.max(0.5, p.s * 0.11 * m.k * m.alpha * m.alpha);
+  // A wide outline in the side's own color rounds its corners. On a cap you can see through,
+  // outline and side would add up to a darker band along every edge, so a cap has no outline
+  // while it fades, and the outline narrows to nothing just before (m.edge), so it never jumps.
+  const outline = m.alpha < 1 ? 0 : p.s * 0.11 * m.k * m.edge;
+  ctx.lineWidth = Math.max(0.5, outline);
   let side = 0; // 1 when the top shows and -1 when the underside does
   for (let f = 0; f < 6; f++) {
     const mid = CAP_FACES[f][1];
@@ -8353,7 +8357,7 @@ function drawKeycap(ctx, S, m) {
     ctx.fillStyle = color;
     ctx.strokeStyle = color;
     ctx.fill();
-    ctx.stroke();
+    if (outline > 0.4) ctx.stroke();
   }
   if (!side) return;
   // What's on that side is drawn flat and laid onto it, as the side lies on the screen.
