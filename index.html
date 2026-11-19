@@ -1523,8 +1523,6 @@ label.row { cursor: pointer; }
 .flourish::after { content: ""; position: absolute; inset: 0; border: 1.5px solid var(--good); border-radius: inherit; opacity: 0; }
 .flourish.show { animation: flourish 2.6s ease both; }
 .flourish.show::after { animation: flourish-ring 1.1s cubic-bezier(0.2, 0.7, 0.3, 1) 0.1s both; }
-.flourish.clean { background: var(--bg); } /* sits on the traced line like a label, which passes behind it */
-.flourish.clean.show { animation-duration: 3.6s; }
 .flourish.down { color: var(--ink-2); } /* a word taken away is news, not a celebration, so no ring */
 .flourish.down.show::after { animation: none; }
 .sequence.shine .seq-key { animation: seq-shine 0.6s ease calc(var(--i, 0) * 16ms) both; }
@@ -1538,21 +1536,6 @@ label.row { cursor: pointer; }
 
 @keyframes flourish-ring { 0% { opacity: 0.8; transform: scale(1); } 100% { opacity: 0; transform: scale(1.5, 1.9); } }
 @keyframes seq-shine { 40% { transform: translateY(-3px); filter: brightness(1.25); } }
-
-/* The clean typing goal ----------------------------------------------- */
-
-/* Reaching the clean typing goal draws one fine line all the way around the text, like a
-   single careful stroke, then lets it glow once and fade. */
-.trace { position: absolute; top: 0; left: 0; overflow: visible; pointer-events: none; }
-.trace rect { fill: none; stroke: var(--good); stroke-width: 1.5; stroke-linecap: round; opacity: 0; }
-.trace.play rect { animation: trace 3.4s cubic-bezier(0.45, 0, 0.2, 1) both; }
-
-@keyframes trace {
-  0% { opacity: 1; stroke-dasharray: 0 100; }
-  55% { opacity: 1; stroke-dasharray: 100 0; filter: none; }
-  70% { opacity: 1; stroke-dasharray: 100 0; filter: drop-shadow(0 0 5px var(--good)); }
-  100% { opacity: 0; stroke-dasharray: 100 0; }
-}
 
 /* Goal celebration ---------------------------------------------------- */
 
@@ -1686,6 +1669,107 @@ label.row { cursor: pointer; }
 @keyframes cheer-core { from { opacity: 0; transform: scaleX(0); } }
 @keyframes cheer-ring { 0% { opacity: 0.9; transform: scale(0.92); } 100% { opacity: 0; transform: scale(3.6); } }
 @keyframes cheer-ch { from { opacity: 0; transform: translateY(0.18em); } }
+
+/* The clean typing goal ----------------------------------------------- */
+
+/* Reaching the clean typing goal is the hardest thing a day asks, so it gets the biggest
+   moment the page has, and one that seems to leave the screen. A line races around the text
+   like a fuse and the page goes off. Key caps fly out toward you with their shadows left on
+   the page, the mark stamps down, the message is struck in a letter at a time, and fireworks
+   follow. Two canvases draw nearly all of it, one behind the message and one in front (see
+   playBoom), and these rules set the stage. Their delays restate a few moments of BOOM. */
+.cheer.boom { transition-duration: 0.14s; }
+.cheer.boom.leaving { transition-duration: var(--leave, 0.5s); }
+.cheer.boom .cheer-wave { display: none; }
+.cheer-front { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+/* The veil is thin at first, so the blast happens over the page itself, and it stays thinner
+   toward the edges, where caps and confetti fly over what still shows. Nothing is blurred,
+   since the page behind moves when it's kicked. */
+.cheer.boom::before {
+  background: radial-gradient(ellipse at 50% 48%, color-mix(in oklab, var(--bg) 95%, transparent) 0%, color-mix(in oklab, var(--bg) 90%, transparent) 38%, color-mix(in oklab, var(--bg) 58%, transparent) 100%);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  opacity: 0;
+}
+
+.cheer.boom.play::before { animation: boom-veil 2.3s ease both; }
+.cheer.boom.calm::before { opacity: 1; }
+
+/* A soft ground under the message, so sparks that pass behind it never drown it. */
+.cheer.boom .cheer-card { isolation: isolate; }
+.cheer.boom .cheer-card::before {
+  content: "";
+  position: absolute;
+  inset: -26% -30%;
+  z-index: -1;
+  background: radial-gradient(closest-side, color-mix(in oklab, var(--bg) 84%, transparent), transparent);
+}
+
+.cheer.boom .cheer-title {
+  font-size: clamp(32px, 6.6vw, 66px);
+  font-weight: 700;
+  text-shadow: 0 0.03em 0 color-mix(in oklab, var(--good) 78%, var(--bg)), 0 0.06em 0 color-mix(in oklab, var(--good) 56%, var(--bg)), 0 0.16em 0.3em rgba(0, 0, 0, 0.26);
+}
+
+.cheer.boom .cheer-caret { display: none; }
+.cheer.boom .cheer-detail { padding: 3px 12px; border-radius: 14px; background: color-mix(in oklab, var(--bg) 82%, transparent); color: var(--ink); }
+.cheer.boom .cheer-ch.on { animation: boom-ch 0.44s cubic-bezier(0.2, 0.8, 0.3, 1) both; }
+.cheer.boom.play .cheer-print { animation: boom-stamp 0.66s cubic-bezier(0.2, 0.8, 0.3, 1) 0.6s both; }
+.cheer.boom.play .cheer-mark path { animation: cheer-ridge 0.6s cubic-bezier(0.3, 0.7, 0.2, 1) 0.66s both; }
+.cheer.boom.play .cheer-mark path:nth-child(2) { animation-delay: 0.74s; }
+.cheer.boom.play .cheer-mark path:nth-child(3) { animation-delay: 0.82s; }
+.cheer.boom.play .cheer-mark path:nth-child(4) { animation: cheer-core 0.5s cubic-bezier(0.3, 1.3, 0.5, 1) 1s both; }
+.cheer.boom.play .cheer-ring { animation: boom-ring 1.5s cubic-bezier(0.1, 0.6, 0.3, 1) 0.68s both; }
+.cheer.boom.play .cheer-ring:nth-child(2) { animation-delay: 0.78s; }
+.cheer.boom.play .cheer-ring:nth-child(3) { animation-delay: 0.88s; }
+.cheer.boom.play .cheer-ring:nth-child(4) { animation-delay: 0.98s; }
+
+@keyframes boom-veil {
+  0% { opacity: 0; }
+  19% { opacity: 0.42; }
+  25% { opacity: 0.42; }
+  100% { opacity: 1; }
+}
+
+/* The mark and each letter come from in front of the page, big and out of focus, and land. */
+@keyframes boom-stamp {
+  0% { opacity: 0; transform: scale(2.8); filter: blur(6px); }
+  55% { opacity: 1; transform: scale(0.93); filter: blur(0); }
+  78% { transform: scale(1.05); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes boom-ch {
+  0% { opacity: 0; transform: scale(3.6); filter: blur(5px); }
+  58% { opacity: 1; transform: scale(0.93); filter: blur(0); }
+  80% { transform: scale(1.05); }
+  100% { opacity: 1; transform: none; }
+}
+
+@keyframes boom-ring { 0% { opacity: 0.95; transform: scale(0.9); } 100% { opacity: 0; transform: scale(5.2); } }
+
+/* The page takes the blast. It sinks back a touch and springs out again (see kickPage). It
+   never grows past its own size or moves down, so it can't make the window scroll or bring
+   out a scroll bar for a moment. */
+.kick { animation: boom-kick 0.62s cubic-bezier(0.2, 0.7, 0.3, 1) both; }
+.kick.soft { animation-name: boom-kick-soft; animation-duration: 0.5s; }
+
+@keyframes boom-kick {
+  0% { transform: none; }
+  9% { transform: scale(0.962) translate(0, -1px); }
+  26% { transform: scale(0.998) translate(-2px, -3px); }
+  44% { transform: scale(0.987) translate(2px, -1px); }
+  64% { transform: scale(0.998) translate(0, -1px); }
+  100% { transform: none; }
+}
+
+@keyframes boom-kick-soft {
+  0% { transform: none; }
+  14% { transform: scale(0.985) translate(0, -1px); }
+  42% { transform: scale(0.998); }
+  100% { transform: none; }
+}
 
 .sr-only {
   position: absolute;
@@ -1930,7 +2014,6 @@ label.row { cursor: pointer; }
   .caret { transition: none !important; }
   .goal.charging .ring, .board.charging::before { animation: none !important; }
   .flourish.show { animation: none !important; opacity: 1; }
-  .trace.play rect { animation: none !important; opacity: 1; }
   .welcome, .welcome * { animation: none !important; }
 }
 </style>
@@ -3316,6 +3399,8 @@ const APP = {
   writeShow: 14,       // words the strip under your piece holds at most
   cheerHold: 2000,     // ms at the start of a goal celebration when keys wait, so it can't vanish unseen
   chargeFrom: 0.75,    // share of the daily typing goal where the build up toward it begins
+  boomHold: 3000,      // ms keys wait at the start of the clean typing goal's celebration, which has more to show
+  boomPixels: 4000000, // pixels each of its two canvases draws at most, so a big screen stays smooth
   version: 8,
 };
 
@@ -7136,16 +7221,17 @@ function cheerDetail(ids, wasDone) {
   return wasDone ? line : `${line} Your day is complete.`;
 }
 
-// Each goal has its own celebration. The clean typing goal gets a quiet, precise one, and
-// the daily typing goal, alone or with the other, gets the full release.
+// Each goal has its own celebration, and the harder one gets the bigger. Clean typing, alone
+// or together with the daily typing goal, sets off the boom (see playBoom), and the daily
+// typing goal alone gets the slow release.
 function celebrate(ids, wasDone) {
   renderGoal();
   for (const id of ids) popGoal(id === "total" ? el.goalTotal : el.goalClean);
   const detail = cheerDetail(ids, wasDone);
-  if (!ids.includes("total")) {
-    el.announce.textContent = `Clean typing goal done. ${detail}`;
-    sound("clean");
-    flourishClean();
+  if (ids.includes("clean")) {
+    const title = pickBoom();
+    el.announce.textContent = `${title} ${detail}`;
+    playBoom(title, detail);
     return;
   }
   const title = pickCheer();
@@ -7176,61 +7262,19 @@ function noteStepDown(missed, words) {
   showFlourish(`${missed.toLocaleString("en-US")} ${missed === 1 ? "mistake" : "mistakes"}, now ${wordsOf(words)}`, "down");
 }
 
-// kind is "" for a perfect test, "clean" for the clean typing goal or "down" for a step down.
+// kind is "" for a perfect test or "down" for a step down.
 function showFlourish(text, kind = "") {
   const f = el.flourish;
   clearTimeout(flourishTimer);
-  f.style.top = "";
-  f.style.right = "";
   f.textContent = text;
-  f.classList.remove("show", "clean", "down");
+  f.classList.remove("show", "down");
   void f.offsetWidth;
   if (kind) f.classList.add(kind);
   f.classList.add("show");
   flourishTimer = setTimeout(() => {
-    f.classList.remove("show", "clean", "down");
+    f.classList.remove("show", "down");
     el.sequence.classList.remove("shine");
-  }, kind === "clean" ? 3700 : 2700);
-}
-
-let trace = null; // the line drawn around the text, built the first time it's needed
-let traceTimer = 0;
-
-// One fine line draws itself all the way around the text, glows once and fades.
-function flourishClean() {
-  showFlourish(`${fmtGoal(state.settings.cleanGoal)} of clean typing`, "clean");
-  if (!trace) {
-    trace = document.createElementNS(SVG_NS, "svg");
-    trace.setAttribute("class", "trace");
-    trace.setAttribute("aria-hidden", "true");
-    const rect = document.createElementNS(SVG_NS, "rect");
-    rect.setAttribute("pathLength", "100");
-    trace.appendChild(rect);
-    el.board.appendChild(trace);
-  }
-  const box = el.textWindow.getBoundingClientRect();
-  const board = el.board.getBoundingClientRect();
-  if (!box.width || !box.height) return;
-  const pad = clamp(Math.min(box.left, window.innerWidth - box.right) - 2, 2, 14); // stays on screen on a phone
-  const w = box.width + pad * 2;
-  const h = box.height + pad * 2;
-  trace.setAttribute("width", w.toFixed(1));
-  trace.setAttribute("height", h.toFixed(1));
-  trace.style.transform = `translate(${(box.left - board.left - pad).toFixed(1)}px, ${(box.top - board.top - pad).toFixed(1)}px)`;
-  const rect = trace.firstChild;
-  rect.setAttribute("x", "0.75");
-  rect.setAttribute("y", "0.75");
-  rect.setAttribute("width", (w - 1.5).toFixed(1));
-  rect.setAttribute("height", (h - 1.5).toFixed(1));
-  rect.setAttribute("rx", "12");
-  const top = box.top - board.top - pad;
-  el.flourish.style.top = `${(top - el.flourish.offsetHeight / 2).toFixed(1)}px`;
-  el.flourish.style.right = `${(board.right - box.right - pad + 28).toFixed(1)}px`;
-  trace.classList.remove("play");
-  void trace.getBoundingClientRect();
-  trace.classList.add("play");
-  clearTimeout(traceTimer);
-  traceTimer = setTimeout(() => trace.classList.remove("play"), 3600);
+  }, 2700);
 }
 
 function popGoal(box) {
@@ -7259,20 +7303,24 @@ function cheerParts() {
   const title = node("p", "cheer-title");
   const detail = node("p", "cheer-detail");
   card.append(print, title, detail);
-  root.append(...waves, canvas, card);
+  // The second canvas lies over the message, for what the clean typing goal brings out in
+  // front of it.
+  const front = node("canvas", "cheer-front");
+  root.append(...waves, canvas, card, front);
   document.body.appendChild(root);
-  cheer = { root, canvas, print, title, detail, caret: null, chars: [], timers: [], raf: 0 };
+  cheer = { root, canvas, front, print, title, detail, caret: null, chars: [], timers: [], raf: 0, scene: null, lifted: [] };
   return cheer;
 }
 
-// The page goes quiet and a wave of warm light spreads out, the mark settles with ripples
-// in the four finger colors, keycaps drift up and away, and the message writes itself out
-// slowly with the same underline as your text. Keys wait for a moment first, then the next
-// key clears it all and types.
-function playCheer(title, detail) {
-  const c = cheerParts();
-  clearCheer(c);
-  const calm = Boolean(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+// The keys the clean typing goal's celebration took off the keyboard are back on it.
+function landKeys(c) {
+  for (const key of c.lifted) key.style.visibility = "";
+  c.lifted = [];
+}
+
+// The message as words of letters, so each letter can arrive by itself and a line never
+// breaks inside a word.
+function cheerTitle(c, title) {
   const words = [];
   const chars = [];
   let word = null;
@@ -7288,10 +7336,22 @@ function playCheer(title, detail) {
   }
   c.caret = node("span", "cheer-caret");
   c.title.replaceChildren(...words, c.caret);
-  c.detail.textContent = detail;
   c.chars = chars;
+  return chars;
+}
+
+// The page goes quiet and a wave of warm light spreads out, the mark settles with ripples
+// in the four finger colors, keycaps drift up and away, and the message writes itself out
+// slowly with the same underline as your text. Keys wait for a moment first, then the next
+// key clears it all and types.
+function playCheer(title, detail) {
+  const c = cheerParts();
+  clearCheer(c);
+  const calm = Boolean(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  const chars = cheerTitle(c, title);
+  c.detail.textContent = detail;
   const root = c.root;
-  root.classList.remove("show", "play", "typed", "leaving");
+  root.classList.remove("show", "play", "typed", "leaving", "boom", "calm");
   root.hidden = false;
   void root.offsetWidth;
   root.classList.add("show");
@@ -7339,14 +7399,24 @@ function clearCheer(c) {
   c.timers = [];
   cancelAnimationFrame(c.raf);
   c.raf = 0;
-  const ctx = c.canvas.getContext("2d");
-  if (ctx) ctx.clearRect(0, 0, c.canvas.width, c.canvas.height);
+  c.scene = null;
+  for (const canvas of [c.canvas, c.front]) {
+    const ctx = canvas.getContext("2d");
+    if (!ctx) continue;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }
+  hushBoom();
+  endKick();
+  landKeys(c);
 }
 
 function endCheer(fast = false) {
   const c = cheer;
   if (!c || !cheerOn) return;
   cheerOn = false;
+  if (fast) hushBoom(); // sent away, so its sounds stop with it
+  landKeys(c); // while the veil still covers them, so they don't pop back in
   for (const id of c.timers) clearTimeout(id);
   c.timers = [];
   c.root.style.setProperty("--leave", fast ? "0.2s" : "1.5s");
@@ -7354,7 +7424,7 @@ function endCheer(fast = false) {
   c.timers.push(setTimeout(() => {
     clearCheer(c);
     c.root.hidden = true;
-    c.root.classList.remove("show", "play", "typed", "leaving");
+    c.root.classList.remove("show", "play", "typed", "leaving", "boom", "calm");
   }, fast ? 220 : 1550));
 }
 
@@ -7461,6 +7531,954 @@ function drawCap(ctx, p, font, alpha) {
     ctx.fillText(p.ch, 0, -s * 0.06);
   }
   ctx.restore();
+}
+
+/* The clean typing goal ---------------------------------------------------- */
+
+// Reaching the clean typing goal is the hardest thing a day asks, so it sets off the biggest
+// celebration there is, and one that seems to leave the screen. A line races around the text
+// like a fuse, and then the page goes off. Key caps fly out toward you with their shadows
+// left behind on the page, the mark stamps down, the message is struck in a letter at a time,
+// fireworks go up one after another, and a finale ends in a golden rain.
+// All of it is drawn on two canvases, one behind the message and one in front of it, as a
+// scene with depth. z runs from the page toward you, and the nearer a thing is, the bigger it
+// draws and the further it sits from the middle of the view, which is the middle of the text. A scene is made once (boomScene)
+// and every frame is worked out from the time alone (boomDraw), each piece from where it
+// began, how it was thrown and how long ago. So a slow frame never bends the motion, and any
+// moment can be drawn by itself, which is how the still for reduced motion is made.
+
+// The moments of it, in ms from the start. The styles for the mark and the veil restate a
+// few of them.
+const BOOM = {
+  fuse: 500,    // the line has run all the way around the text
+  blast: 520,
+  title: 1450,  // the first letter is struck in, once the caps that come right at you have passed
+  shells: [2450, 2900, 3350, 3800, 4250, 4700, 5150, 5600, 6050, 6500, 6900],
+  finale: 7700,
+  end: 11400,   // the fade starts
+  still: 2300,  // the moment that stands still with reduced motion
+  calm: 6500,   // how long that stays
+};
+
+// Ten ways to say there wasn't a single mistake. The same one never shows twice in a row.
+const BOOMS = [
+  "Flawless!",
+  "Not one mistake!",
+  "Spotless typing!",
+  "Clean sweep!",
+  "Every key right!",
+  "Pure precision!",
+  "Zero mistakes!",
+  "Perfectly typed!",
+  "Nothing but clean!",
+  "Untouchable!",
+];
+
+let lastBoom = -1;
+
+function pickBoom() {
+  let i = Math.floor(Math.random() * BOOMS.length);
+  if (i === lastBoom) i = (i + 1 + Math.floor(Math.random() * (BOOMS.length - 1))) % BOOMS.length;
+  lastBoom = i;
+  return BOOMS[i];
+}
+
+// Random numbers from a seed, so the same scene can be made twice.
+function seeded(seed) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// Any CSS color as red, green and blue, read back from a canvas so every way of writing one
+// works. One that lets what's under it show through is read as it looks on that ground.
+let toneCanvas = null;
+
+function rgbOf(color, ground = "") {
+  if (!toneCanvas) {
+    toneCanvas = node("canvas");
+    toneCanvas.width = 1;
+    toneCanvas.height = 1;
+  }
+  const ctx = toneCanvas.getContext("2d", { willReadFrequently: true });
+  if (!ctx) return [136, 136, 136];
+  ctx.clearRect(0, 0, 1, 1);
+  if (ground) {
+    ctx.fillStyle = ground;
+    ctx.fillRect(0, 0, 1, 1);
+  }
+  ctx.fillStyle = "#888";
+  ctx.fillStyle = color;
+  ctx.fillRect(0, 0, 1, 1);
+  const d = ctx.getImageData(0, 0, 1, 1).data;
+  return [d[0], d[1], d[2]];
+}
+
+const rgbText = (c, a = 1) => (a >= 1 ? `rgb(${c[0]}, ${c[1]}, ${c[2]})` : `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${Math.max(0, a).toFixed(3)})`);
+const blend = (a, b, t) => [0, 1, 2].map((i) => Math.round(a[i] + (b[i] - a[i]) * t));
+// A color darker than itself below 1 and lighter above it.
+const shaded = (c, by) => rgbText(by <= 1 ? blend([0, 0, 0], c, by) : blend(c, [255, 255, 255], Math.min(1, by - 1)));
+
+// A point on a box with rounded corners, s px along its edge from the left end of its top,
+// going clockwise, which is the way capPath draws it.
+function alongBox(b, r, s) {
+  const w = b.w - 2 * r;
+  const h = b.h - 2 * r;
+  const arc = (Math.PI / 2) * r;
+  const total = 2 * (w + h) + 4 * arc;
+  let d = ((s % total) + total) % total;
+  const corner = (x, y, from) => {
+    const a = from + (arc ? d / arc : 0) * (Math.PI / 2);
+    return { x: x + Math.cos(a) * r, y: y + Math.sin(a) * r };
+  };
+  if (d < w) return { x: b.x + r + d, y: b.y };
+  d -= w;
+  if (d < arc) return corner(b.x + b.w - r, b.y + r, -Math.PI / 2);
+  d -= arc;
+  if (d < h) return { x: b.x + b.w, y: b.y + r + d };
+  d -= h;
+  if (d < arc) return corner(b.x + b.w - r, b.y + b.h - r, 0);
+  d -= arc;
+  if (d < w) return { x: b.x + b.w - r - d, y: b.y + b.h };
+  d -= w;
+  if (d < arc) return corner(b.x + r, b.y + b.h - r, Math.PI / 2);
+  d -= arc;
+  if (d < h) return { x: b.x, y: b.y + b.h - r - d };
+  d -= h;
+  return corner(b.x + r, b.y + r, Math.PI);
+}
+
+// Everything the celebration will show, made once. Positions are in px with z toward you,
+// speeds in px a second, and times in seconds from the start. A seed makes the same scene
+// again. A still one, for reduced motion, leaves the keyboard's keys where they are.
+function boomScene(c, seed, still = false) {
+  const rnd = seeded(seed === undefined ? Math.floor(Math.random() * 4294967296) : seed);
+  const span = (a, b) => a + (b - a) * rnd();
+  const W = window.innerWidth;
+  const H = window.innerHeight;
+  const U = Math.min(W, H);
+  const F = Math.max(W, H) * 1.25; // how far away you are, which sets how strongly depth shows
+  const css = getComputedStyle(document.documentElement);
+  const tone = (name) => rgbOf(css.getPropertyValue(name).trim() || "#888");
+  const marks = [1, 2, 3, 4, 5].map((n) => tone(`--mark-${n}`));
+  const good = tone("--good");
+  const bg = tone("--bg");
+  const dark = bg[0] * 0.3 + bg[1] * 0.59 + bg[2] * 0.11 < 120;
+  const white = [255, 250, 238];
+  // On a dark page the sparks glow, so they're lighter than the caps. On a light one a glow
+  // would wash out, so they keep their full color.
+  const glow = marks.map((m) => (dark ? blend(m, white, 0.3) : m));
+  const hot = dark ? white : blend(marks[3], white, 0.2);
+  const gold = dark ? blend(marks[3], white, 0.35) : marks[3];
+  const small = W < 600 || H < 500; // a phone gets fewer pieces
+  const unit = clamp(U / 800, 0.75, 1.25);
+
+  // The fuse runs around the text when it's on screen, and around the middle of the page when
+  // it isn't.
+  let box = { x: W * 0.2, y: H * 0.34, w: W * 0.6, h: Math.max(60, H * 0.16) };
+  const text = el.textWindow.getBoundingClientRect();
+  if (view === "practice" && text.width > 60 && text.height > 20) {
+    const pad = clamp(Math.min(text.left, W - text.right) - 2, 2, 14);
+    const x = Math.max(3, text.left - pad);
+    const y = Math.max(3, text.top - pad);
+    const right = Math.min(W - 3, text.right + pad);
+    const bottom = Math.min(H - 3, text.bottom + pad);
+    if (right - x > 60 && bottom - y > 30) box = { x, y, w: right - x, h: bottom - y };
+  }
+  box.r = Math.min(12, box.h / 2, box.w / 2);
+  const bx = box.x + box.w / 2;
+  const by = clamp(box.y + box.h / 2, H * 0.2, H * 0.62);
+  const S = {
+    W: 0,
+    H: 0,
+    U,
+    F,
+    cx: bx, // the middle of the view is where you were looking, the middle of the text
+    cy: by,
+    bx,
+    by,
+    box,
+    edge: 2 * (box.w + box.h - 4 * box.r) + 2 * Math.PI * box.r,
+    near: F * 0.16, // from here on a thing is in front of the message
+    dark,
+    ink: tone("--ink"),
+    good,
+    hot,
+    dpr: 1,
+    pixels: 0,
+    budget: APP.boomPixels, // the most pixels a canvas may have, which drops when frames still run slow
+    sized: 0,
+    q: 1,           // the share of the sparks drawn, which drops first when frames run slow
+    still,          // one moment shown without moving, for reduced motion
+    lifts: [],      // the keyboard's keys that fly off it, and when each one goes
+    start: 0,
+    capFont: `700 32px ${getComputedStyle(c.title).fontFamily}`,
+    caps: [],
+    sparks: [],
+    bits: [],
+    shells: [],
+    lines: [],
+    rays: [],
+    sx: new Float64Array(8),
+    sy: new Float64Array(8),
+  };
+  const blast = BOOM.blast / 1000;
+  const fuse = BOOM.fuse / 1000;
+  const letters = "abcdefghijklmnopqrstuvwxyz";
+  const size = clamp(U / 15, 30, 56);
+
+  // A key cap, thrown from x, y, z. One that's away flies right past you, and the rest come
+  // out a way, hang there turning and fall. Most only rock, so their letters keep showing,
+  // and the rest tumble over and show what's underneath.
+  const cap = (x, y, z, born, away, push, own = null) => {
+    const way = rnd() * Math.PI * 2;
+    const out = span(0.4, 1.45) * U * push * (away ? 0.45 : 1);
+    const drag = span(1.3, 1.9);
+    const reach = away ? span(1.1, 1.8) * F : span(0.05, 0.72) * F * (rnd() < 0.45 ? 0.55 : 1);
+    const turn = rnd() * Math.PI * 2;
+    const tilt = span(-0.35, 0.35);
+    const len = Math.hypot(1, tilt);
+    const color = own ? own.color : marks[S.caps.length % marks.length];
+    S.caps.push({
+      x,
+      y,
+      z,
+      vx: Math.cos(way) * out,
+      vy: Math.sin(way) * out - span(0.15, 0.7) * U,
+      vz: (reach - z) * drag,
+      drag,
+      grav: span(0.75, 1.15) * U,
+      s: own ? own.s : size * span(0.72, 1.28),
+      ax: Math.cos(turn) / len, // the line it turns about, mostly flat on the page so it tumbles
+      ay: Math.sin(turn) / len,
+      az: tilt / len,
+      spin: span(2.4, 7.5) * (rnd() < 0.5 ? -1 : 1),
+      rock: rnd() < 0.3 ? 0 : span(0.55, 1.2), // how far it rocks to and fro, or 0 for one that tumbles right over
+      yaw: span(-1.6, 1.6), // and it turns slowly on the spot as well
+      born,
+      life: span(2.9, 4.8),
+      color,
+      lettering: color[0] * 0.3 + color[1] * 0.59 + color[2] * 0.11 > 140 ? "rgba(0, 0, 0, 0.62)" : "rgba(255, 255, 255, 0.92)",
+      ch: own ? own.ch : letters[Math.floor(rnd() * letters.length)],
+    });
+  };
+  const spark = (x, y, z, v, born, life, o) => {
+    S.sparks.push({
+      x,
+      y,
+      z,
+      vx: v[0],
+      vy: v[1],
+      vz: v[2],
+      born,
+      life,
+      drag: o.drag,
+      grav: o.grav * U,
+      size: o.size * unit,
+      tail: o.tail,
+      color: rgbText(o.color),
+      wink: o.wink ? rnd() * 6.283 : -1,
+    });
+  };
+  // A speed in a random direction, evenly over a ball.
+  const ball = (speed) => {
+    const up = rnd() * 2 - 1;
+    const around = rnd() * Math.PI * 2;
+    const flat = Math.sqrt(1 - up * up);
+    return [flat * Math.cos(around) * speed, flat * Math.sin(around) * speed, up * speed];
+  };
+  // A piece of confetti, a slip of paper that flips and sways as it falls.
+  const bit = (x, y, z, v, born, life) => {
+    const color = marks[S.bits.length % marks.length];
+    S.bits.push({
+      x,
+      y,
+      z,
+      vx: v[0],
+      vy: v[1],
+      vz: v[2],
+      born,
+      life,
+      drag: span(1.3, 1.9),
+      grav: span(0.42, 0.62) * U,
+      w: span(5, 9) * unit,
+      h: span(3, 5.5) * unit,
+      front: rgbText(dark ? blend(color, white, 0.12) : color),
+      back: rgbText(blend(color, [0, 0, 0], 0.34)),
+      flip: rnd() * 6.283,
+      flipBy: span(5, 13) * (rnd() < 0.5 ? -1 : 1),
+      yaw: rnd() * 6.283,
+      yawBy: span(-2.5, 2.5),
+      sway: span(0.01, 0.035) * U,
+      swayBy: span(1.6, 3.4),
+      swayAt: rnd() * 6.283,
+    });
+  };
+
+  // The keys of the keyboard on the page, where it shows. Each lifts off as the first ring
+  // from the blast reaches it (the ring in boomLight spreads the same way), in its own color
+  // and with its own letter, and playBoom takes the key itself off the page at that moment.
+  const rows = LAYOUTS[state.settings.layout] ? LAYOUTS[state.settings.layout].rows : [];
+  const ground = rgbText(bg);
+  if (!still && view === "practice") {
+    posEls.forEach((row, r) => row.forEach((key, i) => {
+      const at = key.getBoundingClientRect();
+      if (at.width < 8 || at.height < 8 || at.bottom < 0 || at.top > H || at.right < 0 || at.left > W) return;
+      const x = at.left + at.width / 2;
+      const y = at.top + at.height / 2;
+      const share = Math.min(0.97, Math.hypot(x - bx, y - by) / (Math.max(W, H) * 0.85));
+      let color = rgbOf(getComputedStyle(key).backgroundColor, ground);
+      // A key with no color of its own would be lost against the page, so it's set off a little.
+      if (Math.abs(color[0] - bg[0]) + Math.abs(color[1] - bg[1]) + Math.abs(color[2] - bg[2]) < 36) color = blend(color, S.ink, 0.25);
+      S.lifts.push({ key, x, y, s: Math.min(at.width, at.height), ch: (rows[r] || "")[i] || "", color, at: blast - Math.log(1 - share) / 3.3 });
+    }));
+    S.lifts.sort((a, b) => a.at - b.at);
+  }
+  for (const l of S.lifts) cap(l.x, l.y, 0, l.at, rnd() < 0.28, 1, l);
+  // The blast. Caps from all over the text too, fewer when the keyboard gives its own, then
+  // sparks and a cannon of confetti.
+  const count = Math.max(26, clamp(Math.round((W * H) / 12500), 40, 90) - Math.round(S.lifts.length * 0.55));
+  for (let i = 0; i < count; i++) {
+    cap(bx + (rnd() - 0.5) * box.w * 0.9, box.y + box.h / 2 + (rnd() - 0.5) * box.h * 0.8, 0, blast + rnd() * 0.07, rnd() < 0.28, 1);
+  }
+  for (let i = 0; i < (small ? 120 : 210); i++) {
+    const v = ball(span(0.6, 2.3) * U);
+    spark(bx + (rnd() - 0.5) * box.w * 0.5, by + (rnd() - 0.5) * box.h * 0.5, 0, [v[0], v[1] * 0.8, Math.abs(v[2]) * 0.9], blast + rnd() * 0.05, span(0.6, 1.5), {
+      drag: 2.7,
+      grav: 0.3,
+      size: span(1.5, 3),
+      tail: 0.05,
+      color: rnd() < 0.3 ? hot : glow[i % glow.length],
+    });
+  }
+  for (let i = 0; i < (small ? 70 : 120); i++) {
+    bit(bx + (rnd() - 0.5) * box.w * 0.6, by, 0, [span(-1.1, 1.1) * U, -span(0.7, 1.9) * U, span(-0.06, 0.33) * F], blast + rnd() * 0.12, span(4.5, 7));
+  }
+  // What the fuse sheds, each spark where the head of the line is when it's born.
+  for (let i = 0; i < 44; i++) {
+    const share = (i + rnd()) / 44;
+    const at = alongBox(box, box.r, S.edge * share);
+    spark(at.x, at.y, 0, [span(-0.12, 0.12) * U, span(-0.16, 0.06) * U, span(0, 0.1) * U], fuse * Math.pow(share, 1 / 1.6), span(0.28, 0.5), {
+      drag: 2,
+      grav: 0.5,
+      size: 1.5,
+      tail: 0.04,
+      color: rnd() < 0.5 ? hot : good,
+    });
+  }
+  // Lines that draw in toward the text before the blast, and rays that shoot out with it.
+  for (let i = 0; i < 44; i++) S.lines.push({ a: rnd() * Math.PI * 2, from: span(0.45, 0.8), wait: rnd() * 0.22, len: span(0.05, 0.12) });
+  for (let i = 0; i < 30; i++) S.rays.push({ a: ((i + rnd()) / 30) * Math.PI * 2, from: span(0.2, 0.34), len: span(0.25, 0.6), wide: span(0.004, 0.011) });
+
+  // A firework shell that bursts at fx and fy of the screen, as deep as its share of F. It
+  // rises from below first, shedding sparks, and throws a few caps of its own.
+  const shell = (at, fx, fy, depth, big) => {
+    const z = depth * F;
+    const k = F / (F - z);
+    const x = S.cx + (fx * W - S.cx) / k;
+    const y = S.cy + (fy * H - S.cy) / k;
+    const from = { x: S.cx + ((fx + span(-0.1, 0.1)) * W - S.cx) / k, y: S.cy + (H + 30 - S.cy) / k };
+    const main = glow[S.shells.length % glow.length];
+    const other = rnd() < 0.5 ? hot : dark ? blend(good, white, 0.3) : good;
+    const rise = span(0.42, 0.56);
+    S.shells.push({ at, x, y, z, from, rise, big });
+    const n = Math.round((big ? 150 : 120) * (small ? 0.6 : 1));
+    const speed = (big ? 0.8 : span(0.56, 0.74)) * U;
+    // Every third one is two bursts, a small one of another color inside the big one.
+    const twin = !big && S.shells.length % 3 === 0;
+    for (let i = 0; i < n; i++) {
+      const inner = twin && i % 3 === 0;
+      spark(x, y, z, ball(speed * (inner ? 0.5 : 1) * span(0.84, 1)), at, span(1.4, 2.2), {
+        drag: 2.1,
+        grav: 0.3,
+        size: span(2.3, 3.5),
+        tail: 0.075,
+        color: inner ? other : rnd() < 0.8 ? main : other,
+        wink: rnd() < 0.4,
+      });
+    }
+    for (let i = 0; i < 12; i++) {
+      const u = (i + rnd()) / 12;
+      const lift = 1 - Math.pow(1 - u, 2.2);
+      spark(from.x + (x - from.x) * lift, from.y + (y - from.y) * lift, z, [span(-0.05, 0.05) * U, span(0, 0.12) * U, 0], at - rise * (1 - u), span(0.3, 0.55), { drag: 2, grav: 0.3, size: 1.4, tail: 0.04, color: hot });
+    }
+    for (let i = 0; i < (big ? 5 : 4) - (small ? 1 : 0); i++) cap(x, y, z, at, i < 2, 0.75);
+    return { x, y, z };
+  };
+  const places = [[0.17, 0.3, -0.25], [0.83, 0.27, -0.1], [0.5, 0.17, -0.3], [0.26, 0.68, 0.26], [0.75, 0.64, -0.2], [0.9, 0.44, 0.3], [0.1, 0.52, -0.05], [0.62, 0.25, 0.1], [0.36, 0.22, -0.15], [0.88, 0.72, 0.2], [0.14, 0.76, 0]];
+  BOOM.shells.forEach((ms, i) => shell(ms / 1000, places[i % places.length][0], places[i % places.length][1], places[i % places.length][2], false));
+  // The finale. Three big shells close together, each with a golden rain of slow sparks that
+  // hang, droop and wink out, a curtain of confetti from above and a fountain from each of
+  // the bottom corners.
+  const fin = BOOM.finale / 1000;
+  for (const [fx, fy, depth, wait] of [[0.24, 0.3, 0.05, 0], [0.76, 0.3, 0.05, 0.16], [0.5, 0.2, 0.26, 0.32]]) {
+    const p = shell(fin + wait, fx, fy, depth, true);
+    for (let i = 0; i < (small ? 60 : 110); i++) {
+      spark(p.x, p.y, p.z, ball(span(0.3, 0.62) * U), fin + wait + 0.05, span(2.4, 3.6), { drag: 1.05, grav: 0.4, size: span(1.6, 2.6), tail: 0.15, color: gold, wink: true });
+    }
+  }
+  for (let i = 0; i < (small ? 50 : 90); i++) {
+    const z = span(-0.3, 0.5) * F;
+    const k = F / (F - z);
+    bit(S.cx + (span(-0.05, 1.05) * W - S.cx) / k, S.cy + (-30 - S.cy) / k, z, [span(-0.06, 0.06) * U, span(0, 0.2) * U, 0], span(2.3, 8.6), span(4, 6.5));
+  }
+  for (const side of [-1, 1]) {
+    for (let i = 0; i < (small ? 30 : 55); i++) {
+      bit(side < 0 ? W * 0.03 : W * 0.97, H + 20, 0, [-side * span(0.25, 0.95) * U, -span(1.5, 2.6) * U * (H > U * 1.3 ? 1.25 : 1), span(-0.03, 0.15) * F], fin + 0.1 + rnd() * 0.35, span(3.2, 4.6));
+    }
+  }
+  return S;
+}
+
+// The two canvases cover the window, with no more pixels each than the scene's budget, which
+// starts at APP.boomPixels, and follow the window when it changes size.
+function sizeBoom(c, S) {
+  const W = window.innerWidth;
+  const H = window.innerHeight;
+  if (W === S.W && H === S.H && S.sized === S.budget && c.canvas.width * c.canvas.height === S.pixels) return;
+  S.W = W;
+  S.H = H;
+  S.sized = S.budget;
+  S.dpr = Math.min(2, window.devicePixelRatio || 1, Math.sqrt(S.budget / Math.max(1, W * H)));
+  for (const canvas of [c.canvas, c.front]) {
+    canvas.width = Math.max(1, Math.round(W * S.dpr));
+    canvas.height = Math.max(1, Math.round(H * S.dpr));
+  }
+  S.pixels = c.canvas.width * c.canvas.height;
+}
+
+// A soft dark blot, drawn once and stretched to be every cap's shadow.
+let shadowBlot = null;
+
+function capShadow() {
+  if (shadowBlot) return shadowBlot;
+  shadowBlot = node("canvas");
+  shadowBlot.width = 64;
+  shadowBlot.height = 64;
+  const ctx = shadowBlot.getContext("2d");
+  if (ctx) {
+    const g = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+    g.addColorStop(0, "rgba(0, 0, 0, 0.95)");
+    g.addColorStop(0.5, "rgba(0, 0, 0, 0.55)");
+    g.addColorStop(1, "rgba(0, 0, 0, 0)");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, 64, 64);
+  }
+  return shadowBlot;
+}
+
+// Draws the scene t ms after its start. Behind the message go the fuse, the light of the
+// blast, the shadows and whatever is far, and in front of it whatever has come near.
+function boomDraw(c, S, t) {
+  const back = c.canvas.getContext("2d");
+  const over = c.front.getContext("2d");
+  if (!back || !over) return;
+  sizeBoom(c, S);
+  const T = t / 1000;
+  // With reduced motion the one moment shown stays for seconds, so nothing in it lies over
+  // the message, and what would have goes behind it with the rest.
+  const front = S.still ? back : over;
+  for (const ctx of [back, over]) {
+    ctx.setTransform(S.dpr, 0, 0, S.dpr, 0, 0);
+    ctx.clearRect(0, 0, S.W, S.H);
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = "source-over";
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.font = S.capFont;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+  }
+  boomLight(back, S, T);
+  boomShells(back, front, S, T);
+  // Where each cap is now, the far ones first so the near ones cover them.
+  const live = [];
+  for (const p of S.caps) {
+    const a = T - p.born;
+    if (a < 0 || a > p.life) continue;
+    const e = (1 - Math.exp(-p.drag * a)) / p.drag;
+    const z = p.z + p.vz * e;
+    if (z > S.F * 0.955) continue; // it has gone past you
+    const x = p.x + p.vx * e;
+    const y = p.y + p.vy * e + (p.grav * (a - e)) / p.drag;
+    const k = S.F / (S.F - z);
+    const sx = S.cx + (x - S.cx) * k;
+    const sy = S.cy + (y - S.cy) * k;
+    const half = p.s * k;
+    if (sx < -half || sx > S.W + half || sy < -half || sy > S.H + half) continue;
+    // It fades in as it's thrown, out at the end of its time, and away as it reaches you.
+    const alpha = Math.min(1, a / 0.05) * clamp((p.life - a) / 0.5, 0, 1) * clamp((S.F * 0.955 - z) / (S.F * 0.13), 0, 1);
+    live.push({ p, x, y, z, a, k, alpha });
+  }
+  live.sort((m, n) => m.z - n.z);
+  // A cap's shadow stays on the page. The higher the cap, the further off, wider and fainter
+  // it is, which is what lifts the cap off the screen.
+  const blot = capShadow();
+  for (const m of live) {
+    if (m.z < 2) continue;
+    const lift = m.z / S.F;
+    const alpha = (S.dark ? 0.5 : 0.26) * Math.pow(Math.max(0, 1 - lift / 0.9), 1.5) * m.alpha;
+    if (alpha < 0.012) continue;
+    const r = m.p.s * (0.62 + lift * 1.1);
+    back.globalAlpha = alpha;
+    back.drawImage(blot, m.x + m.z * 0.2 - r, m.y + m.z * 0.34 - r * 0.8, r * 2, r * 1.6);
+  }
+  back.globalAlpha = 1;
+  boomSparks(back, front, S, T);
+  boomBits(back, front, S, T);
+  for (const m of live) drawKeycap(m.z > S.near ? front : back, S, m);
+  back.globalAlpha = 1;
+  front.globalAlpha = 1;
+}
+
+// The fuse and the gathering before the blast, then its flash, the frame flying out, the rings
+// and the rays, and the one soft flash of the finale.
+function boomLight(ctx, S, T) {
+  const box = S.box;
+  const far = Math.max(S.W, S.H);
+  const blast = BOOM.blast / 1000;
+  const after = T - blast;
+  const line = rgbText(S.good);
+  if (after < 0) {
+    // The fuse, a line that runs around the text faster and faster behind a bright head.
+    const share = Math.pow(clamp(T / (BOOM.fuse / 1000), 0, 1), 1.6);
+    ctx.save();
+    capPath(ctx, box.x, box.y, box.w, box.h, box.r);
+    ctx.setLineDash([Math.max(0.01, S.edge * share), S.edge * 2]);
+    ctx.strokeStyle = line;
+    ctx.lineWidth = 2.5;
+    if (S.dark) {
+      ctx.shadowColor = line;
+      ctx.shadowBlur = 10;
+    }
+    ctx.stroke();
+    ctx.restore();
+    if (share < 1) {
+      const head = alongBox(box, box.r, S.edge * share);
+      ctx.fillStyle = rgbText(S.hot);
+      ctx.beginPath();
+      ctx.arc(head.x, head.y, 3.4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // Everything draws in toward the text before it goes.
+    ctx.strokeStyle = rgbText(S.ink);
+    ctx.lineWidth = 1.2;
+    for (const l of S.lines) {
+      const u = clamp((T - l.wait) / (blast - l.wait), 0, 1);
+      if (u <= 0) continue;
+      const r1 = far * l.from * (1 - Math.pow(u, 2.4));
+      const r2 = r1 + far * l.len * (0.3 + u);
+      ctx.globalAlpha = 0.34 * Math.sin(Math.PI * Math.min(1, u * 1.15));
+      ctx.beginPath();
+      ctx.moveTo(S.bx + Math.cos(l.a) * r1, S.by + Math.sin(l.a) * r1);
+      ctx.lineTo(S.bx + Math.cos(l.a) * r2, S.by + Math.sin(l.a) * r2);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+    return;
+  }
+  const flash = (x, y, reach, alpha) => {
+    const g = ctx.createRadialGradient(x, y, 0, x, y, reach);
+    g.addColorStop(0, rgbText(S.hot, alpha));
+    g.addColorStop(0.4, rgbText(S.hot, alpha * 0.45));
+    g.addColorStop(1, rgbText(S.hot, 0));
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, S.W, S.H);
+  };
+  // One soft flash, never a flicker.
+  if (after < 0.7) flash(S.bx, S.by, far * 0.8 * (0.4 + 0.6 * Math.min(1, after / 0.1)), (S.dark ? 0.6 : 0.5) * Math.exp(-7.5 * after));
+  const last = T - BOOM.finale / 1000;
+  if (last >= 0 && last < 0.7) flash(S.W / 2, S.H * 0.28, far * 0.7, (S.dark ? 0.3 : 0.26) * Math.exp(-7 * last));
+  // The frame the fuse drew flies out at you.
+  if (after < 1.1) {
+    const grow = 1 + 2.4 * (1 - Math.exp(-4.6 * after));
+    ctx.globalAlpha = Math.exp(-3.6 * after);
+    ctx.strokeStyle = line;
+    ctx.lineWidth = 9 * Math.exp(-7 * after) + 1.5;
+    capPath(ctx, box.x + box.w / 2 - (box.w * grow) / 2, box.y + box.h / 2 - (box.h * grow) / 2, box.w * grow, box.h * grow, box.r * grow);
+    ctx.stroke();
+  }
+  // Two rings spread across the page from the middle of the text.
+  for (const [wait, color, wide] of [[0, S.hot, 0.024], [0.08, S.good, 0.012]]) {
+    const a = after - wait;
+    if (a < 0 || a > 1.6) continue;
+    ctx.globalAlpha = 0.5 * Math.exp(-2.5 * a);
+    ctx.strokeStyle = rgbText(color);
+    ctx.lineWidth = S.U * wide * Math.exp(-3.4 * a) + 1.2;
+    ctx.beginPath();
+    ctx.arc(S.bx, S.by, far * 0.85 * (1 - Math.exp(-3.3 * a)), 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  // Rays shoot out with the blast, the way speed is drawn.
+  if (after < 0.36) {
+    const u = after / 0.36;
+    ctx.fillStyle = rgbText(S.ink);
+    ctx.globalAlpha = 0.17 * (1 - u) * (1 - u);
+    for (const ray of S.rays) {
+      const r1 = far * (ray.from + 0.5 * u);
+      const r2 = r1 + far * ray.len;
+      ctx.beginPath();
+      ctx.moveTo(S.bx + Math.cos(ray.a) * r1, S.by + Math.sin(ray.a) * r1);
+      ctx.lineTo(S.bx + Math.cos(ray.a - ray.wide) * r2, S.by + Math.sin(ray.a - ray.wide) * r2);
+      ctx.lineTo(S.bx + Math.cos(ray.a + ray.wide) * r2, S.by + Math.sin(ray.a + ray.wide) * r2);
+      ctx.closePath();
+      ctx.fill();
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+
+// Each shell's trail on its way up, and the small light where it bursts.
+function boomShells(back, front, S, T) {
+  for (const sh of S.shells) {
+    const ctx = sh.z > S.near ? front : back;
+    const k = S.F / (S.F - sh.z);
+    const u = (T - (sh.at - sh.rise)) / sh.rise;
+    if (u > 0 && u < 1) {
+      const at = (q) => {
+        const lift = 1 - Math.pow(1 - clamp(q, 0, 1), 2.2);
+        return [S.cx + (sh.from.x + (sh.x - sh.from.x) * lift - S.cx) * k, S.cy + (sh.from.y + (sh.y - sh.from.y) * lift - S.cy) * k];
+      };
+      const head = at(u);
+      const tail = at(u - 0.11);
+      const fade = ctx.createLinearGradient(tail[0], tail[1], head[0], head[1]);
+      fade.addColorStop(0, rgbText(S.hot, 0));
+      fade.addColorStop(1, rgbText(S.hot, 0.85));
+      ctx.globalAlpha = Math.min(1, u * 5);
+      ctx.strokeStyle = fade;
+      ctx.lineWidth = 2.2 * k;
+      ctx.beginPath();
+      ctx.moveTo(tail[0], tail[1]);
+      ctx.lineTo(head[0], head[1]);
+      ctx.stroke();
+      ctx.fillStyle = rgbText(S.hot);
+      ctx.beginPath();
+      ctx.arc(head[0], head[1], 2.4 * k, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    const a = T - sh.at;
+    if (a >= 0 && a < 0.4) {
+      const x = S.cx + (sh.x - S.cx) * k;
+      const y = S.cy + (sh.y - S.cy) * k;
+      const reach = S.U * 0.14 * k * (0.5 + 0.5 * Math.min(1, a / 0.08));
+      const g = ctx.createRadialGradient(x, y, 0, x, y, reach);
+      g.addColorStop(0, rgbText(S.hot, 0.4 * Math.exp(-9 * a)));
+      g.addColorStop(1, rgbText(S.hot, 0));
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = g;
+      ctx.fillRect(x - reach, y - reach, reach * 2, reach * 2);
+    }
+    ctx.globalAlpha = 1;
+  }
+}
+
+// Sparks are short streaks, each from where it was a moment ago to where it is now. On a
+// dark page they add their light together where they cross.
+function boomSparks(back, front, S, T) {
+  const F = S.F;
+  if (S.dark) {
+    back.globalCompositeOperation = "lighter";
+    front.globalCompositeOperation = "lighter";
+  }
+  const sparks = S.sparks;
+  for (let i = 0; i < sparks.length; i++) {
+    if (S.q < 1 && (i % 10) / 10 >= S.q) continue;
+    const p = sparks[i];
+    const a = T - p.born;
+    if (a < 0 || a > p.life) continue;
+    const e = (1 - Math.exp(-p.drag * a)) / p.drag;
+    const z = p.z + p.vz * e;
+    if (z > F * 0.9) continue;
+    const b = Math.max(0, a - p.tail);
+    const e2 = (1 - Math.exp(-p.drag * b)) / p.drag;
+    const z2 = Math.min(p.z + p.vz * e2, F * 0.9);
+    const k = F / (F - z);
+    const k2 = F / (F - z2);
+    const x = S.cx + (p.x + p.vx * e - S.cx) * k;
+    const y = S.cy + (p.y + p.vy * e + (p.grav * (a - e)) / p.drag - S.cy) * k;
+    if (x < -40 || x > S.W + 40 || y < -40 || y > S.H + 40) continue;
+    const x2 = S.cx + (p.x + p.vx * e2 - S.cx) * k2;
+    const y2 = S.cy + (p.y + p.vy * e2 + (p.grav * (b - e2)) / p.drag - S.cy) * k2;
+    const gone = a / p.life;
+    let alpha = 1 - gone * gone * gone; // bright for most of its time, then quickly out
+    if (p.wink >= 0 && gone > 0.5) alpha *= 0.5 + 0.5 * Math.sin(p.wink + T * 38);
+    alpha *= clamp((F * 0.9 - z) / (F * 0.25), 0, 1);
+    const ctx = z > S.near ? front : back;
+    ctx.strokeStyle = p.color;
+    ctx.beginPath();
+    ctx.moveTo(x2, y2);
+    ctx.lineTo(x, y);
+    if (S.dark && S.q >= 1) {
+      ctx.globalAlpha = alpha * 0.2;
+      ctx.lineWidth = p.size * k * 3;
+      ctx.stroke();
+    }
+    ctx.globalAlpha = alpha;
+    ctx.lineWidth = p.size * k;
+    ctx.stroke();
+  }
+  for (const ctx of [back, front]) {
+    ctx.globalCompositeOperation = "source-over";
+    ctx.globalAlpha = 1;
+  }
+}
+
+// Confetti, each slip flipping over and over, so its two sides show in turn, and swaying as
+// it falls.
+function boomBits(back, front, S, T) {
+  const F = S.F;
+  for (const p of S.bits) {
+    const a = T - p.born;
+    if (a < 0 || a > p.life) continue;
+    const e = (1 - Math.exp(-p.drag * a)) / p.drag;
+    const z = p.z + p.vz * e;
+    if (z > F * 0.88) continue;
+    const x = p.x + p.vx * e + p.sway * Math.sin(p.swayAt + p.swayBy * a) * Math.min(1, a);
+    const y = p.y + p.vy * e + (p.grav * (a - e)) / p.drag;
+    const k = F / (F - z);
+    const sx = S.cx + (x - S.cx) * k;
+    const sy = S.cy + (y - S.cy) * k;
+    if (sx < -30 || sx > S.W + 30 || sy < -30 || sy > S.H + 30) continue;
+    const flip = p.flip + p.flipBy * a;
+    const yaw = p.yaw + p.yawBy * a;
+    const cf = Math.cos(flip);
+    const sf = Math.sin(flip);
+    const cw = Math.cos(yaw);
+    const sw = Math.sin(yaw);
+    const ctx = z > S.near ? front : back;
+    ctx.globalAlpha = Math.min(1, a / 0.08) * clamp((p.life - a) / 0.6, 0, 1) * clamp((F * 0.88 - z) / (F * 0.25), 0, 1);
+    ctx.fillStyle = cf >= 0 ? p.front : p.back;
+    ctx.beginPath();
+    for (let i = 0; i < 4; i++) {
+      const lx = i === 0 || i === 3 ? -p.w : p.w;
+      const ly = i < 2 ? -p.h : p.h;
+      const wz = z + ly * sf;
+      const kk = F / (F - wz);
+      const px = S.cx + (x + lx * cw - ly * cf * sw - S.cx) * kk;
+      const py = S.cy + (y + lx * sw + ly * cf * cw - S.cy) * kk;
+      if (i) ctx.lineTo(px, py);
+      else ctx.moveTo(px, py);
+    }
+    ctx.closePath();
+    ctx.fill();
+  }
+  back.globalAlpha = 1;
+  front.globalAlpha = 1;
+}
+
+// Where the light on the caps comes from, up, to the left and in front of the page.
+const CAP_LIGHT = [-0.41, -0.6, 0.69];
+// A cap's six sides. Each has its four corners, its middle and the way it faces, in half
+// widths of the cap. Corners 0 to 3 are the foot and 4 to 7 the top, which is smaller, so the
+// four walls lean in.
+const CAP_FACES = [
+  [[0, 1, 5, 4], [0, -0.89, 0], [0, -0.977, 0.215]],
+  [[1, 2, 6, 5], [0.89, 0, 0], [0.977, 0, 0.215]],
+  [[2, 3, 7, 6], [0, 0.89, 0], [0, 0.977, 0.215]],
+  [[3, 0, 4, 7], [-0.89, 0, 0], [-0.977, 0, 0.215]],
+  [[4, 5, 6, 7], [0, 0, 0.5], [0, 0, 1]],
+  [[0, 3, 2, 1], [0, 0, -0.5], [0, 0, -1]],
+];
+
+// A key cap as a real solid, turned about its own line by how long it has flown, and then on
+// the spot. Only the sides that face you are drawn, each as light as it faces the light. The
+// top carries its letter and the underside is hollow, with the cross a key sits on.
+function drawKeycap(ctx, S, m) {
+  const p = m.p;
+  const F = S.F;
+  const turn = p.rock ? p.rock * Math.sin(p.spin * m.a) : p.spin * m.a;
+  const c = Math.cos(turn);
+  const s = Math.sin(turn);
+  const v = 1 - c;
+  const t0 = c + p.ax * p.ax * v;
+  const t1 = p.ax * p.ay * v - p.az * s;
+  const t2 = p.ax * p.az * v + p.ay * s;
+  const t3 = p.ay * p.ax * v + p.az * s;
+  const t4 = c + p.ay * p.ay * v;
+  const t5 = p.ay * p.az * v - p.ax * s;
+  const cw = Math.cos(p.yaw * m.a);
+  const sw = Math.sin(p.yaw * m.a);
+  const r0 = cw * t0 - sw * t3;
+  const r1 = cw * t1 - sw * t4;
+  const r2 = cw * t2 - sw * t5;
+  const r3 = sw * t0 + cw * t3;
+  const r4 = sw * t1 + cw * t4;
+  const r5 = sw * t2 + cw * t5;
+  const r6 = p.az * p.ax * v - p.ay * s;
+  const r7 = p.az * p.ay * v + p.ax * s;
+  const r8 = c + p.az * p.az * v;
+  const half = p.s / 2;
+  // A point of the cap, given in its own measure, on the screen.
+  const place = (lx, ly, lz) => {
+    const k = F / (F - Math.min(m.z + r6 * lx + r7 * ly + r8 * lz, F * 0.985));
+    return [S.cx + (m.x + r0 * lx + r1 * ly + r2 * lz - S.cx) * k, S.cy + (m.y + r3 * lx + r4 * ly + r5 * lz - S.cy) * k];
+  };
+  for (let i = 0; i < 8; i++) {
+    const w = i < 4 ? half : half * 0.78;
+    const at = place(i % 4 === 0 || i % 4 === 3 ? -w : w, i % 4 < 2 ? -w : w, i < 4 ? -half * 0.5 : half * 0.5);
+    S.sx[i] = at[0];
+    S.sy[i] = at[1];
+  }
+  ctx.globalAlpha = m.alpha;
+  // A wide outline in the side's own color rounds its corners. It thins as the cap fades, or it
+  // would show through the side as a darker band.
+  ctx.lineWidth = Math.max(0.5, p.s * 0.11 * m.k * m.alpha * m.alpha);
+  let side = 0; // 1 when the top shows and -1 when the underside does
+  for (let f = 0; f < 6; f++) {
+    const mid = CAP_FACES[f][1];
+    const n = CAP_FACES[f][2];
+    const nx = r0 * n[0] + r1 * n[1] + r2 * n[2];
+    const ny = r3 * n[0] + r4 * n[1] + r5 * n[2];
+    const nz = r6 * n[0] + r7 * n[1] + r8 * n[2];
+    const fx = m.x + (r0 * mid[0] + r1 * mid[1] + r2 * mid[2]) * half;
+    const fy = m.y + (r3 * mid[0] + r4 * mid[1] + r5 * mid[2]) * half;
+    const fz = m.z + (r6 * mid[0] + r7 * mid[1] + r8 * mid[2]) * half;
+    if (nx * (S.cx - fx) + ny * (S.cy - fy) + nz * (F - fz) <= 0) continue; // it faces away
+    if (f === 4) side = 1;
+    if (f === 5) side = -1;
+    const lit = Math.max(0, nx * CAP_LIGHT[0] + ny * CAP_LIGHT[1] + nz * CAP_LIGHT[2]);
+    const color = shaded(p.color, f === 5 ? 0.5 : (f === 4 ? 0.76 : 0.54) + 0.44 * lit);
+    const q = CAP_FACES[f][0];
+    ctx.beginPath();
+    ctx.moveTo(S.sx[q[0]], S.sy[q[0]]);
+    ctx.lineTo(S.sx[q[1]], S.sy[q[1]]);
+    ctx.lineTo(S.sx[q[2]], S.sy[q[2]]);
+    ctx.lineTo(S.sx[q[3]], S.sy[q[3]]);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.strokeStyle = color;
+    ctx.fill();
+    ctx.stroke();
+  }
+  if (!side) return;
+  // What's on that side is drawn flat and laid onto it, as the side lies on the screen.
+  const o = place(0, 0, side * half * 0.5);
+  const ex = place(1, 0, side * half * 0.5);
+  const ey = place(0, 1, side * half * 0.5);
+  ctx.setTransform(S.dpr * (ex[0] - o[0]), S.dpr * (ex[1] - o[1]), S.dpr * (ey[0] - o[0]), S.dpr * (ey[1] - o[1]), S.dpr * o[0], S.dpr * o[1]);
+  if (side > 0) {
+    const scale = (half * 0.78 * 1.2) / 32; // capFont is 32px tall
+    ctx.scale(scale, scale);
+    ctx.fillStyle = p.lettering;
+    ctx.fillText(p.ch, 0, 1);
+  } else {
+    ctx.fillStyle = shaded(p.color, 0.36);
+    ctx.fillRect(-half * 0.7, -half * 0.7, half * 1.4, half * 1.4);
+    ctx.fillStyle = shaded(p.color, 0.7);
+    ctx.fillRect(-half * 0.34, -half * 0.09, half * 0.68, half * 0.18);
+    ctx.fillRect(-half * 0.09, -half * 0.34, half * 0.18, half * 0.68);
+  }
+  ctx.setTransform(S.dpr, 0, 0, S.dpr, 0, 0);
+}
+
+// The page takes the blast. It sinks back a touch and springs out again, which more than
+// anything makes what flies off it seem to leave the screen. In Text only it's the text
+// itself that's kicked, since the rest of the page is out of sight there. A soft one goes
+// with the finale.
+let kicked = null;
+let kickTimer = 0;
+
+function kickPage(x, y, soft) {
+  endKick();
+  const box = document.documentElement.dataset.zoom === "text" ? el.board : $(".shell");
+  const at = box.getBoundingClientRect();
+  if (!at.width || !at.height) return;
+  box.style.transformOrigin = `${(x - at.left).toFixed(1)}px ${(y - at.top).toFixed(1)}px`;
+  box.classList.add("kick");
+  box.classList.toggle("soft", soft);
+  kicked = box;
+  kickTimer = setTimeout(endKick, 700);
+}
+
+// A page that's scaled throws off whatever is measured on it meanwhile, so the keyboard's
+// hands and cue and the text's lines are measured again once it's back.
+function endKick() {
+  clearTimeout(kickTimer);
+  kickTimer = 0;
+  if (!kicked) return;
+  kicked.classList.remove("kick", "soft");
+  kicked.style.transformOrigin = "";
+  kicked = null;
+  if (view !== "practice") return;
+  measureLines();
+  drawHands();
+  markNextKey();
+  moveCaret(true);
+}
+
+// Keys wait a little longer than for the daily goal, since there's more to see, and then the
+// next key or tap clears it all, as it does there.
+function playBoom(title, detail, seed) {
+  const c = cheerParts();
+  clearCheer(c);
+  const calm = Boolean(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  const chars = cheerTitle(c, title);
+  c.detail.textContent = detail;
+  const root = c.root;
+  root.classList.remove("show", "play", "typed", "leaving", "calm");
+  root.classList.add("boom");
+  root.hidden = false;
+  void root.offsetWidth;
+  root.classList.add("show");
+  cheerOn = true;
+  coolUntil = Math.max(coolUntil, performance.now() + APP.boomHold);
+  const S = boomScene(c, seed, calm);
+  c.scene = S;
+  const at = (ms, fn) => c.timers.push(setTimeout(fn, ms));
+  if (calm) {
+    // With reduced motion nothing moves. One moment of the scene stands still behind the
+    // message, it stays for less long, and the release's one chord stands in for its sounds.
+    sound("release");
+    for (const span of chars) span.classList.add("on");
+    root.classList.add("calm", "typed");
+    boomDraw(c, S, BOOM.still);
+    // Nothing redraws it from frame to frame, so a window that changes size has it drawn again.
+    c.timers.push(setInterval(() => {
+      if (window.innerWidth !== S.W || window.innerHeight !== S.H) boomDraw(c, S, BOOM.still);
+    }, 300));
+    at(BOOM.calm, () => endCheer());
+    return;
+  }
+  root.classList.add("play");
+  boomSound(S);
+  S.start = performance.now();
+  let last = S.start;
+  let slow = 0;
+  let next = 0;
+  const frame = (now) => {
+    // A key leaves the keyboard the moment its cap takes off from the same spot.
+    while (cheerOn && next < S.lifts.length && now - S.start >= S.lifts[next].at * 1000) {
+      S.lifts[next].key.style.visibility = "hidden";
+      c.lifted.push(S.lifts[next].key);
+      next += 1;
+    }
+    // Frames that take too long thin the sparks out first, a step at a time, and after that
+    // the picture is drawn with fewer pixels. Nothing is ever left out of the motion.
+    slow = now - last > 34 ? slow + 1 : Math.max(0, slow - 0.25);
+    last = now;
+    if (slow > 10) {
+      if (S.q > 0.45) S.q -= 0.3;
+      else if (S.budget > APP.boomPixels / 4) S.budget /= 2;
+      slow = 0;
+    }
+    boomDraw(c, S, now - S.start);
+    c.raf = requestAnimationFrame(frame);
+  };
+  c.raf = requestAnimationFrame(frame);
+  at(BOOM.blast, () => kickPage(S.bx, S.by, false));
+  let t = BOOM.title;
+  for (const span of chars) {
+    at(t, () => span.classList.add("on"));
+    t += span.textContent === " " ? 30 : 62;
+  }
+  at(t + 260, () => root.classList.add("typed"));
+  at(BOOM.finale, () => kickPage(window.innerWidth / 2, window.innerHeight * 0.3, true));
+  at(BOOM.end, () => endCheer());
 }
 
 /* Zoom --------------------------------------------------------------------- */
@@ -7936,17 +8954,23 @@ function focusSink() {
 
 let audio = null;
 let noise = null;
+
+// The page's one audio context, made the first time a sound plays.
+function audioCtx() {
+  if (audio) return audio;
+  const Ctx = window.AudioContext || window.webkitAudioContext;
+  if (!Ctx) return null;
+  audio = new Ctx();
+  noise = audio.createBuffer(1, Math.floor(audio.sampleRate * 0.03), audio.sampleRate);
+  const data = noise.getChannelData(0);
+  for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / data.length) ** 4;
+  return audio;
+}
+
 function sound(kind) {
   if (!state.settings.sound) return;
   try {
-    if (!audio) {
-      const Ctx = window.AudioContext || window.webkitAudioContext;
-      if (!Ctx) return;
-      audio = new Ctx();
-      noise = audio.createBuffer(1, Math.floor(audio.sampleRate * 0.03), audio.sampleRate);
-      const data = noise.getChannelData(0);
-      for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / data.length) ** 4;
-    }
+    if (!audioCtx()) return;
     const t = audio.currentTime;
     const note = (f, at, peak, len, type = "sine") => {
       const osc = audio.createOscillator();
@@ -7962,11 +8986,6 @@ function sound(kind) {
     };
     if (kind === "perfect") {
       note(1318.5, t, 0.05, 0.35); // one soft high note
-      return;
-    }
-    if (kind === "clean") {
-      note(659.25, t, 0.07, 0.9); // two calm notes a fifth apart
-      note(987.77, t + 0.22, 0.06, 1.1);
       return;
     }
     if (kind === "release") {
@@ -8014,6 +9033,106 @@ function sound(kind) {
       osc.start(t);
       osc.stop(t + 0.16);
     }
+  } catch (err) {
+    /* sound is optional */
+  }
+}
+
+// The sounds of the clean typing goal's celebration (see playBoom), all through one gain, so
+// they hush at once when it's sent away. A rush that rises to the blast, the thump of it, a
+// note for each shell that climbs a scale, and a wide chord with a shimmer for the finale.
+let boomBus = null;
+let boomNoise = null;
+
+function boomSound(S) {
+  if (!state.settings.sound) return;
+  try {
+    const ac = audioCtx();
+    if (!ac) return;
+    hushBoom();
+    if (ac.state === "suspended" && ac.resume) ac.resume();
+    if (!boomNoise) {
+      boomNoise = ac.createBuffer(1, ac.sampleRate, ac.sampleRate);
+      const data = boomNoise.getChannelData(0);
+      for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+    }
+    const bus = ac.createGain();
+    const squash = ac.createDynamicsCompressor(); // so the loud moments never clip
+    bus.gain.value = 0.8;
+    bus.connect(squash);
+    squash.connect(ac.destination);
+    boomBus = bus;
+    const t0 = ac.currentTime + 0.03;
+    // A swell rises to its end, and anything else starts at once and dies away.
+    const tone = (f, at, peak, len, type = "sine", to = 0, swell = false) => {
+      const osc = ac.createOscillator();
+      const g = ac.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(f, at);
+      if (to) osc.frequency.exponentialRampToValueAtTime(to, at + len);
+      g.gain.setValueAtTime(0.0001, at);
+      g.gain.exponentialRampToValueAtTime(peak, at + (swell ? len * 0.94 : Math.min(0.03, len * 0.2)));
+      g.gain.exponentialRampToValueAtTime(0.0001, at + len + (swell ? 0.06 : 0));
+      osc.connect(g).connect(bus);
+      osc.start(at);
+      osc.stop(at + len + 0.12);
+    };
+    // Noise through a filter that slides, as a swell or as a burst.
+    const rush = (at, len, peak, from, to, swell = false) => {
+      const src = ac.createBufferSource();
+      const band = ac.createBiquadFilter();
+      const g = ac.createGain();
+      src.buffer = boomNoise;
+      src.loop = true;
+      band.type = "bandpass";
+      band.Q.value = 0.9;
+      band.frequency.setValueAtTime(from, at);
+      band.frequency.exponentialRampToValueAtTime(to, at + len);
+      g.gain.setValueAtTime(0.0001, at);
+      g.gain.exponentialRampToValueAtTime(peak, at + (swell ? len * 0.96 : 0.012));
+      g.gain.exponentialRampToValueAtTime(0.0001, at + len + (swell ? 0.05 : 0));
+      src.connect(band).connect(g).connect(bus);
+      src.start(at);
+      src.stop(at + len + 0.12);
+    };
+    const blast = t0 + BOOM.blast / 1000;
+    rush(t0, BOOM.blast / 1000, 0.15, 250, 3200, true);
+    tone(90, t0, 0.06, BOOM.blast / 1000, "sine", 360, true);
+    tone(92, blast, 0.42, 0.75, "sine", 36);
+    rush(blast, 0.4, 0.26, 2400, 180);
+    [196, 261.63, 329.63, 392, 523.25].forEach((f, i) => tone(f, blast + 0.02 + i * 0.012, 0.05, 2.6, "triangle"));
+    const scale = [523.25, 587.33, 659.25, 783.99, 880, 1046.5, 1174.66, 1318.51, 1567.98, 1760, 2093];
+    S.shells.filter((sh) => !sh.big).forEach((sh, i) => {
+      const f = scale[i % scale.length];
+      rush(t0 + sh.at, 0.18, 0.12, 1500 + (i % 3) * 300, 320);
+      tone(f, t0 + sh.at + 0.01, 0.065 * Math.sqrt(523.25 / f), 1.3);
+      tone(f * 2, t0 + sh.at + 0.01, 0.02 * (523.25 / f), 0.7);
+    });
+    const fin = t0 + BOOM.finale / 1000;
+    tone(80, fin, 0.4, 0.9, "sine", 34);
+    rush(fin, 0.5, 0.24, 2000, 160);
+    [130.81, 196, 261.63, 329.63, 392, 523.25, 659.25, 1046.5].forEach((f, i) => tone(f, fin + 0.03 + i * 0.03, 0.045, 4.2, i < 3 ? "triangle" : "sine"));
+    [1046.5, 1318.51, 1568, 2093, 1568, 2093, 2637].forEach((f, i) => tone(f, fin + 0.5 + i * 0.11, 0.03, 0.9));
+    for (let i = 0; i < 24; i++) rush(fin + 0.7 + Math.random() * 2.2, 0.03, 0.04, 5200, 3000); // the rain crackles
+  } catch (err) {
+    /* sound is optional */
+  }
+}
+
+function hushBoom() {
+  const bus = boomBus;
+  boomBus = null;
+  if (!bus || !audio) return;
+  try {
+    bus.gain.cancelScheduledValues(audio.currentTime);
+    bus.gain.setTargetAtTime(0.0001, audio.currentTime, 0.04);
+    setTimeout(() => {
+      try {
+        bus.disconnect();
+      } catch (err) {
+        /* it's gone already */
+      }
+    }, 500);
   } catch (err) {
     /* sound is optional */
   }
@@ -14206,6 +15325,10 @@ function onSinkInput() {
 function bindEvents() {
   for (const t of $$(".tab")) t.addEventListener("click", () => showView(t.dataset.view));
   for (const b of $$("[data-goto]")) b.addEventListener("click", () => showView(b.dataset.goto));
+  // A click or a tap anywhere sends a goal celebration away once its hold is over, as a key does.
+  document.addEventListener("pointerdown", () => {
+    if (cheerOn && performance.now() >= coolUntil) endCheer(true);
+  }, true);
   el.board.addEventListener("click", (e) => {
     if (e.target.closest(".board-empty, .draft-box")) return;
     focusSink();
