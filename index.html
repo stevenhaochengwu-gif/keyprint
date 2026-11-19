@@ -2236,7 +2236,7 @@ label.row { cursor: pointer; }
           <p class="card-lede">Short tests made of words full of your most missed keys and trickiest key switches, picked from the cards below when you start, with a few of the marks and numbers you have switched on. They keep coming until you go back to your tests.</p>
           <div class="ana-chips" id="anaDrillKeys"></div>
           <div class="ana-len">
-            <span>Words per test</span>
+            <span>Words in each test</span>
             <div class="seg" data-setting="drillWords" role="group" aria-label="Words in each Practice these test">
               <button type="button" data-value="5">5</button>
               <button type="button" data-value="10">10</button>
@@ -2552,11 +2552,11 @@ label.row { cursor: pointer; }
         <div class="row stack">
           <div class="row-text"><span class="row-label">Text to type</span></div>
           <div class="seg kinds" data-setting="mode" role="group" aria-label="Text to type">
-            <button type="button" data-value="step"><b>Step up</b><span>Each day starts short, and every perfect test adds a word.</span></button>
-            <button type="button" data-value="words"><b>Words</b><span>Tests of a set length, from the word list you pick.</span></button>
-            <button type="button" data-value="adaptive"><b>Adaptive</b><span>Letters unlock one at a time as you learn them.</span></button>
-            <button type="button" data-value="custom"><b>My text</b><span>Your own text, pasted or from a text file or a PDF.</span></button>
-            <button type="button" data-value="write"><b>Write</b><span>Warm up on the words of a piece you're about to write, then write it on the same screen.</span></button>
+            <button type="button" data-value="step"><b>Step up</b> <span>Each day starts short, and every perfect test adds a word.</span></button>
+            <button type="button" data-value="words"><b>Words</b> <span>Tests of a set length, from the word list you pick.</span></button>
+            <button type="button" data-value="adaptive"><b>Adaptive</b> <span>Letters unlock one at a time as you learn them.</span></button>
+            <button type="button" data-value="custom"><b>My text</b> <span>Your own text, pasted or from a text file or a PDF.</span></button>
+            <button type="button" data-value="write"><b>Write</b> <span>Warm up on the words of a piece you're about to write, then write it on the same screen.</span></button>
           </div>
         </div>
 
@@ -8895,7 +8895,8 @@ function fieldTick(n) {
       renderField();
     }, 350);
   }
-  const step = APP.writeTurns[Math.min(F.turn, APP.writeTurns.length - 1)];
+  // A Chinese piece is counted in characters, about two to a word, so it waits for twice as many.
+  const step = APP.writeTurns[Math.min(F.turn, APP.writeTurns.length - 1)] * (piece.zh ? 2 : 1);
   const whole = piece.zh || /\s$/.test(el.draft.value);
   if (!F.busy && whole && n - F.at >= step) changeField(piece, n);
 }
