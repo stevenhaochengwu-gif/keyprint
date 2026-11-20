@@ -1697,7 +1697,7 @@ label.row { cursor: pointer; }
    toward the edges, where caps and confetti fly over what still shows. Nothing is blurred,
    since the page behind moves when it's kicked. */
 .cheer.boom::before {
-  background: radial-gradient(ellipse at 50% 48%, color-mix(in oklab, var(--bg) 95%, transparent) 0%, color-mix(in oklab, var(--bg) 90%, transparent) 38%, color-mix(in oklab, var(--bg) 58%, transparent) 100%);
+  background: radial-gradient(ellipse at 50% 48%, color-mix(in oklab, var(--bg) 98%, transparent) 0%, color-mix(in oklab, var(--bg) 96%, transparent) 34%, color-mix(in oklab, var(--bg) 86%, transparent) 58%, color-mix(in oklab, var(--bg) 58%, transparent) 100%);
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
   opacity: 0;
@@ -2646,11 +2646,11 @@ label.row { cursor: pointer; }
         <div class="row stack">
           <div class="row-text"><span class="row-label">Text to type</span></div>
           <div class="seg kinds" data-setting="mode" role="group" aria-label="Text to type">
-            <button type="button" data-value="step"><b>Step up</b> <span>Each day starts short, and every perfect test adds a word.</span></button>
-            <button type="button" data-value="words"><b>Words</b> <span>Tests of a set length, from the word list you pick.</span></button>
-            <button type="button" data-value="adaptive"><b>Adaptive</b> <span>Letters unlock one at a time as you learn them.</span></button>
-            <button type="button" data-value="custom"><b>My text</b> <span>Your own text, pasted or from a text file or a PDF.</span></button>
-            <button type="button" data-value="write"><b>Write</b> <span>Warm up on the words of a piece you're about to write, then write it on the same screen.</span></button>
+            <button type="button" data-value="step" aria-label="Step up" aria-describedby="kindStep"><b>Step up</b> <span id="kindStep">Each day starts short, and every perfect test adds a word.</span></button>
+            <button type="button" data-value="words" aria-label="Words" aria-describedby="kindWords"><b>Words</b> <span id="kindWords">Tests of a set length, from the word list you pick.</span></button>
+            <button type="button" data-value="adaptive" aria-label="Adaptive" aria-describedby="kindAdaptive"><b>Adaptive</b> <span id="kindAdaptive">Letters unlock one at a time as you learn them.</span></button>
+            <button type="button" data-value="custom" aria-label="My text" aria-describedby="kindCustom"><b>My text</b> <span id="kindCustom">Your own text, pasted or from a text file or a PDF.</span></button>
+            <button type="button" data-value="write" aria-label="Write" aria-describedby="kindWrite"><b>Write</b> <span id="kindWrite">Warm up on the words of a piece you're about to write, then write it on the same screen.</span></button>
           </div>
         </div>
 
@@ -6298,7 +6298,8 @@ function newLesson(attempt = 1) {
     return;
   }
   if (zhOn()) {
-    // Chinese tests take their length from Step up, or from Words per test in other modes.
+    // Chinese tests take their length from Step up, or from Words per test in other modes
+    // (Write's warm-up is made in writeNext, from its own length).
     const zh = zhText(s.mode === "step" ? stepWords() : s.lessonWords, s);
     startLesson(zh.text, attempt, null, zh);
   } else if (s.mode === "custom") {
@@ -7423,10 +7424,21 @@ function clearCheer(c) {
     if (!ctx) continue;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // A canvas keeps its memory for as long as it has its size, which is the whole window's.
+    canvas.width = 1;
+    canvas.height = 1;
   }
   hushBoom();
   endKick();
   landKeys(c);
+}
+
+// Writing in your piece sends a celebration away at once, without the wait that keys have in
+// a test, so the wait goes with it. It would otherwise hold the first keys of a warm-up
+// started right after, with nothing on screen to say why.
+function dropCheer() {
+  endCheer(true);
+  coolUntil = Math.min(coolUntil, performance.now());
 }
 
 function endCheer(fast = false) {
@@ -7571,7 +7583,7 @@ const BOOM = {
   fuse: 500,    // the line has run all the way around the text
   blast: 520,
   title: 1450,  // the first letter is struck in, once the caps that come right at you have passed
-  shells: [2450, 2900, 3350, 3800, 4250, 4700, 5150, 5600, 6050, 6500, 6900],
+  shells: [2450, 2900, 3350, 3800, 4250, 4700, 5150, 5600, 6050, 6500, 6950],
   finale: 7700,
   end: 11400,   // the fade starts
   still: 2300,  // the moment that stands still with reduced motion
@@ -7851,9 +7863,14 @@ function boomScene(c, seed, still = false) {
       const y = at.top + at.height / 2;
       const share = Math.min(0.97, Math.hypot(x - bx, y - by) / (Math.max(W, H) * 0.85));
       let color = rgbOf(getComputedStyle(key).backgroundColor, ground);
-      // A key with no color of its own would be lost against the page, so it's set off a little.
-      if (Math.abs(color[0] - bg[0]) + Math.abs(color[1] - bg[1]) + Math.abs(color[2] - bg[2]) < 36) color = blend(color, S.ink, 0.25);
-      S.lifts.push({ key, x, y, s: Math.min(at.width, at.height), ch: (rows[r] || "")[i] || "", color, at: blast - Math.log(1 - share) / 3.3 });
+      // A key with no color of its own (Finger colors off, or a letter Adaptive hasn't unlocked)
+      // would be lost against the page as a cap, so it's set well off from it. A locked key
+      // shows no letter on the board, and its cap shows none either.
+      const far = Math.abs(color[0] - bg[0]) + Math.abs(color[1] - bg[1]) + Math.abs(color[2] - bg[2]);
+      const grey = Math.max(color[0], color[1], color[2]) - Math.min(color[0], color[1], color[2]) < 14;
+      if (far < 36 || (grey && far < 120)) color = blend(color, S.ink, 0.36);
+      const ch = key.classList.contains("blank") ? "" : (rows[r] || "")[i] || "";
+      S.lifts.push({ key, x, y, s: Math.min(at.width, at.height), ch, color, at: blast - Math.log(1 - share) / 3.3 });
     }));
     S.lifts.sort((a, b) => a.at - b.at);
   }
@@ -7964,8 +7981,8 @@ function sizeBoom(c, S) {
   S.sized = S.budget;
   S.dpr = Math.min(2, window.devicePixelRatio || 1, Math.sqrt(S.budget / Math.max(1, W * H)));
   for (const canvas of [c.canvas, c.front]) {
-    canvas.width = Math.max(1, Math.round(W * S.dpr));
-    canvas.height = Math.max(1, Math.round(H * S.dpr));
+    canvas.width = Math.max(1, Math.floor(W * S.dpr));
+    canvas.height = Math.max(1, Math.floor(H * S.dpr));
   }
   S.pixels = c.canvas.width * c.canvas.height;
 }
@@ -8028,12 +8045,13 @@ function boomDraw(c, S, t) {
     const sx = S.cx + (x - S.cx) * k;
     const sy = S.cy + (y - S.cy) * k;
     const half = p.s * k;
-    if (sx < -half || sx > S.W + half || sy < -half || sy > S.H + half) continue;
+    // A cap that has left the window isn't drawn, but its shadow is still on the page.
+    const off = sx < -half || sx > S.W + half || sy < -half || sy > S.H + half;
     // It fades in as it's thrown, out at the end of its time, and away as it reaches you.
     const alpha = Math.min(1, a / 0.05) * clamp((p.life - a) / 0.5, 0, 1) * clamp((S.F * 0.955 - z) / (S.F * 0.13), 0, 1);
     // Its outline (see drawKeycap) has narrowed to nothing by the time it starts to fade.
     const edge = clamp((a - 0.05) / 0.08, 0, 1) * clamp((p.life - a - 0.5) / 0.25, 0, 1) * clamp((S.F * 0.825 - z) / (S.F * 0.1), 0, 1);
-    live.push({ p, x, y, z, a, k, alpha, edge });
+    live.push({ p, x, y, z, a, k, alpha, edge, off });
   }
   live.sort((m, n) => m.z - n.z);
   // A cap's shadow stays on the page. The higher the cap, the further off, wider and fainter
@@ -8051,7 +8069,7 @@ function boomDraw(c, S, t) {
   back.globalAlpha = 1;
   boomSparks(back, front, S, T);
   boomBits(back, front, S, T);
-  for (const m of live) drawKeycap(m.z > S.near ? front : back, S, m);
+  for (const m of live) if (!m.off) drawKeycap(m.z > S.near ? front : back, S, m);
   back.globalAlpha = 1;
   front.globalAlpha = 1;
 }
@@ -8112,8 +8130,9 @@ function boomLight(ctx, S, T) {
   };
   // One soft flash, never a flicker.
   if (after < 0.7) flash(S.bx, S.by, far * 0.8 * (0.4 + 0.6 * Math.min(1, after / 0.1)), (S.dark ? 0.6 : 0.5) * Math.exp(-7.5 * after));
+  // The finale's comes up over a few frames, as the blast's spreads, so neither is a jump.
   const last = T - BOOM.finale / 1000;
-  if (last >= 0 && last < 0.7) flash(S.W / 2, S.H * 0.28, far * 0.7, (S.dark ? 0.3 : 0.26) * Math.exp(-7 * last));
+  if (last >= 0 && last < 0.8) flash(S.W / 2, S.H * 0.28, far * 0.7, (S.dark ? 0.3 : 0.26) * Math.min(1, last / 0.08) * Math.exp(-7 * Math.max(0, last - 0.08)));
   // The frame the fuse drew flies out at you.
   if (after < 1.1) {
     const grow = 1 + 2.4 * (1 - Math.exp(-4.6 * after));
@@ -8181,8 +8200,10 @@ function boomShells(back, front, S, T) {
       ctx.arc(head[0], head[1], 2.4 * k, 0, Math.PI * 2);
       ctx.fill();
     }
+    // The finale's three go off close together under its one flash, so they have no light of
+    // their own, and no two lights ever come within 450 ms.
     const a = T - sh.at;
-    if (a >= 0 && a < 0.4) {
+    if (!sh.big && a >= 0 && a < 0.4) {
       const x = S.cx + (sh.x - S.cx) * k;
       const y = S.cy + (sh.y - S.cy) * k;
       const reach = S.U * 0.14 * k * (0.5 + 0.5 * Math.min(1, a / 0.08));
@@ -8234,8 +8255,13 @@ function boomSparks(back, front, S, T) {
     ctx.moveTo(x2, y2);
     ctx.lineTo(x, y);
     if (S.dark && S.q >= 1) {
-      ctx.globalAlpha = alpha * 0.2;
-      ctx.lineWidth = p.size * k * 3;
+      // Two wide, faint strokes under the streak, so its glow falls away instead of ending
+      // in an edge.
+      ctx.globalAlpha = alpha * 0.07;
+      ctx.lineWidth = p.size * k * 4.4;
+      ctx.stroke();
+      ctx.globalAlpha = alpha * 0.13;
+      ctx.lineWidth = p.size * k * 2.6;
       ctx.stroke();
     }
     ctx.globalAlpha = alpha;
@@ -8471,6 +8497,7 @@ function playBoom(title, detail, seed) {
   S.start = performance.now();
   let last = S.start;
   let slow = 0;
+  let ups = 0;
   let next = 0;
   const frame = (now) => {
     // A key leaves the keyboard the moment its cap takes off from the same spot.
@@ -8481,11 +8508,25 @@ function playBoom(title, detail, seed) {
     }
     // Frames that take too long thin the sparks out first, a step at a time, and after that
     // the picture is drawn with fewer pixels. Nothing is ever left out of the motion.
-    slow = now - last > 34 ? slow + 1 : Math.max(0, slow - 0.25);
+    const gap = now - last;
     last = now;
+    if (gap > 34) slow = Math.max(0, slow) + 1;
+    else if (slow > 0) slow = Math.max(0, slow - 0.25);
+    else if (gap < 22) slow -= 0.25; // a frame with time to spare
     if (slow > 10) {
-      if (S.q > 0.45) S.q -= 0.3;
+      if (S.q > 0.45) S.q = Math.round((S.q - 0.3) * 10) / 10;
       else if (S.budget > APP.boomPixels / 4) S.budget /= 2;
+      slow = 0;
+    } else if (slow < -25) {
+      // A hundred frames in a row with time to spare. What a slow moment took away comes back
+      // a step at a time, twice at most, so a screen that can't keep up doesn't flicker
+      // between the two. Frames that only just keep up bring nothing back, since the sparks
+      // that came back would make them slow again.
+      if (ups < 2 && (S.q < 1 || S.budget < APP.boomPixels)) {
+        if (S.budget < APP.boomPixels) S.budget *= 2;
+        else S.q = Math.min(1, Math.round((S.q + 0.3) * 10) / 10);
+        ups += 1;
+      }
       slow = 0;
     }
     boomDraw(c, S, now - S.start);
@@ -8668,6 +8709,13 @@ function placeSink(c) {
   const r = c.getBoundingClientRect();
   if (!r.width) return;
   el.sink.style.transform = `translate(${Math.round(r.left - board.left)}px, ${Math.round(r.bottom - board.top)}px)`;
+}
+
+// The text slides to its new place over a moment (a new line in Three lines, a new pinyin
+// size), and the input was placed by where the character stood when the slide began. So it's
+// placed again when the slide ends.
+function settleSink() {
+  if (lesson && lesson.zh && !lesson.done && charEls.length) placeSink(charEls[Math.min(lesson.pos, charEls.length - 1)]);
 }
 
 // Pinyin shows with \u00fc, though the key for it is v.
@@ -9781,25 +9829,47 @@ function writeNext(attempt) {
 function warmText(piece, s) {
   const list = piece.list.length ? piece.list : POOLS[s.wordPool].words;
   let last = "";
-  const next = () => {
-    if (!Write.bag.length) {
-      Write.bag = list.slice();
-      for (let i = Write.bag.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [Write.bag[i], Write.bag[j]] = [Write.bag[j], Write.bag[i]];
-      }
-      // A new round never opens with the word the last one closed on.
-      if (Write.bag.length > 1 && Write.bag[Write.bag.length - 1] === last) Write.bag.unshift(Write.bag.pop());
+  // Every entry comes once before any comes round again.
+  const refill = () => {
+    Write.bag = list.slice();
+    for (let i = Write.bag.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [Write.bag[i], Write.bag[j]] = [Write.bag[j], Write.bag[i]];
     }
-    last = Write.bag.pop();
+    // A new round never opens with the word the last one closed on.
+    if (Write.bag.length > 1 && Write.bag[Write.bag.length - 1] === last) Write.bag.unshift(Write.bag.pop());
+  };
+  // An entry that fits in the words the test has left. When the one that's next is a phrase
+  // too long for them, a shorter one from further down the round goes first, and the phrase
+  // waits for the next test. With none short enough, the shortest goes, and the test runs over
+  // by as little as it can. The entry that came last is passed over, so nothing follows itself
+  // where one round ends and the next begins.
+  const fitting = (left) => {
+    if (!Write.bag.length) refill();
+    let pick = Write.bag.length - 1;
+    if (countWords(Write.bag[pick]) > left) {
+      let least = pick;
+      for (let i = Write.bag.length - 2; i >= 0; i--) {
+        if (Write.bag[i] === last) continue;
+        const n = countWords(Write.bag[i]);
+        if (n <= left) {
+          least = i;
+          break;
+        }
+        if (n < countWords(Write.bag[least])) least = i;
+      }
+      pick = least;
+    }
+    last = Write.bag.splice(pick, 1)[0];
     return last;
   };
   // With Capital letters off, a name in the list is typed in lowercase like everything else.
-  const word = () => (s.capitals ? next() : next().toLowerCase());
+  const word = (left) => (s.capitals ? fitting(left) : fitting(left).toLowerCase());
   // The test is Words per warm-up test long counted in words, so an entry that's a phrase of
-  // three counts as three. The last entry stays whole, which can take the test a little over.
+  // three counts as three. An entry stays whole, so a list of long phrases can still take a
+  // test a word or two over.
   const words = [];
-  for (let total = 0; total < s.writeWords; total += countWords(words[words.length - 1])) words.push(word());
+  for (let total = 0; total < s.writeWords; total += countWords(words[words.length - 1])) words.push(word(s.writeWords - total));
   return decorate(words, s, false);
 }
 
@@ -10155,7 +10225,7 @@ function onDraftChange(typed) {
     el.draft.value = text;
     showToast("This piece is full. Copy it out and start a new one");
   }
-  if (cheerOn) endCheer(true);
+  if (cheerOn) dropCheer();
   const gap = trackTime(performance.now());
   if (text !== piece.text) {
     const id = writeDevice();
@@ -10371,7 +10441,7 @@ function draftKey(e) {
     focusDraft();
     return;
   }
-  if (cheerOn) endCheer(true);
+  if (cheerOn) dropCheer();
   if (e.target === el.draft) {
     if (e.key.length === 1 && !e.repeat) pressVisual(e.key, false);
     return;
@@ -15408,6 +15478,9 @@ function onSinkInput() {
 }
 
 function bindEvents() {
+  el.text.addEventListener("transitionend", (e) => {
+    if (e.target === el.text && e.propertyName === "transform") settleSink();
+  });
   for (const t of $$(".tab")) t.addEventListener("click", () => showView(t.dataset.view));
   for (const b of $$("[data-goto]")) b.addEventListener("click", () => showView(b.dataset.goto));
   // A click or a tap anywhere sends a goal celebration away once its hold is over, as a key does.
