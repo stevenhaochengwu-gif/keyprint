@@ -8063,8 +8063,12 @@ function boomDraw(c, S, t) {
     const alpha = (S.dark ? 0.5 : 0.26) * Math.pow(Math.max(0, 1 - lift / 0.9), 1.5) * m.alpha;
     if (alpha < 0.012) continue;
     const r = m.p.s * (0.62 + lift * 1.1);
+    const x = m.x + m.z * 0.2;
+    const y = m.y + m.z * 0.34;
+    // A shadow that has left the window as well is nothing to draw.
+    if (x + r < 0 || x - r > S.W || y + r * 0.8 < 0 || y - r * 0.8 > S.H) continue;
     back.globalAlpha = alpha;
-    back.drawImage(blot, m.x + m.z * 0.2 - r, m.y + m.z * 0.34 - r * 0.8, r * 2, r * 1.6);
+    back.drawImage(blot, x - r, y - r * 0.8, r * 2, r * 1.6);
   }
   back.globalAlpha = 1;
   boomSparks(back, front, S, T);
@@ -8128,11 +8132,13 @@ function boomLight(ctx, S, T) {
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, S.W, S.H);
   };
-  // One soft flash, never a flicker.
-  if (after < 0.7) flash(S.bx, S.by, far * 0.8 * (0.4 + 0.6 * Math.min(1, after / 0.1)), (S.dark ? 0.6 : 0.5) * Math.exp(-7.5 * after));
-  // The finale's comes up over a few frames, as the blast's spreads, so neither is a jump.
+  // One soft flash at the blast and one at the finale, never a flicker. Each comes up over a
+  // few frames, so neither is a jump in how bright the page is. The blast's spreads while it
+  // fades, so it's at its brightest a moment in, and only its first frames are held back.
+  const rise = (a, over) => Math.min(1, a / over);
+  if (after < 0.7) flash(S.bx, S.by, far * 0.8 * (0.4 + 0.6 * Math.min(1, after / 0.1)), (S.dark ? 0.6 : 0.5) * rise(after, 0.06) * Math.exp(-7.5 * after));
   const last = T - BOOM.finale / 1000;
-  if (last >= 0 && last < 0.8) flash(S.W / 2, S.H * 0.28, far * 0.7, (S.dark ? 0.3 : 0.26) * Math.min(1, last / 0.08) * Math.exp(-7 * Math.max(0, last - 0.08)));
+  if (last >= 0 && last < 0.8) flash(S.W / 2, S.H * 0.28, far * 0.7, (S.dark ? 0.3 : 0.26) * rise(last, 0.08) * Math.exp(-7 * Math.max(0, last - 0.08)));
   // The frame the fuse drew flies out at you.
   if (after < 1.1) {
     const grow = 1 + 2.4 * (1 - Math.exp(-4.6 * after));
@@ -8518,10 +8524,10 @@ function playBoom(title, detail, seed) {
       else if (S.budget > APP.boomPixels / 4) S.budget /= 2;
       slow = 0;
     } else if (slow < -25) {
-      // A hundred frames in a row with time to spare. What a slow moment took away comes back
-      // a step at a time, twice at most, so a screen that can't keep up doesn't flicker
-      // between the two. Frames that only just keep up bring nothing back, since the sparks
-      // that came back would make them slow again.
+      // A hundred frames with time to spare and no slow one between them. What a slow moment
+      // took away comes back a step at a time, twice at most, so a screen that can't keep up
+      // doesn't flicker between the two. Frames that only just keep up don't count toward
+      // the hundred, since the sparks that came back would make them slow again.
       if (ups < 2 && (S.q < 1 || S.budget < APP.boomPixels)) {
         if (S.budget < APP.boomPixels) S.budget *= 2;
         else S.q = Math.min(1, Math.round((S.q + 0.3) * 10) / 10);
@@ -9866,8 +9872,8 @@ function warmText(piece, s) {
   // With Capital letters off, a name in the list is typed in lowercase like everything else.
   const word = (left) => (s.capitals ? fitting(left) : fitting(left).toLowerCase());
   // The test is Words per warm-up test long counted in words, so an entry that's a phrase of
-  // three counts as three. An entry stays whole, so a list of long phrases can still take a
-  // test a word or two over.
+  // three counts as three. An entry stays whole, so a test still runs over when nothing short
+  // enough is left in the round, by a phrase's length less one at most (four words).
   const words = [];
   for (let total = 0; total < s.writeWords; total += countWords(words[words.length - 1])) words.push(word(s.writeWords - total));
   return decorate(words, s, false);
