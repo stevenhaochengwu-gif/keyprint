@@ -49,6 +49,7 @@ const WRITE_PROMPT = 600;        // characters of what the person says they're a
 const WRITE_WORDS = 60;          // entries asked for in a word list
 const WRITE_LINES = 150;         // entries at most taken from the model's answer
 const WRITE_MORE_DAY = 100;      // lists for a piece that's under way that one account may ask for in 24 hours
+const WRITE_MORE_SITE_DAY = 3000; // lists like that across the site in one UTC day, counted apart so they never close the day for first lists
 const WRITE_SOFAR = 2400;        // characters of the piece so far the model reads for one, the newest of them, APP.writeSofar in index.html
 const WRITE_SOFAR_BYTES = 3600;  // bytes of them at most
 const WRITE_MORE_WORDS = 30;     // entries asked for in one
@@ -914,7 +915,7 @@ async function write(request, env, url, name) {
   if (got.fail) return got.fail;
   // Tag names in what was sent would only confuse where the material starts and ends.
   // A cut never leaves half of a character that takes two code units.
-  const tidy = (words) => (typeof words === "string" ? words.replace(/<\/?(?:piece|document|written)>/gi, " ").replace(/\s+/g, " ").trim() : "");
+  const tidy = (words) => (typeof words === "string" ? words.replace(/<\s*\/?\s*(?:piece|document|written)\b[^>]*>/gi, " ").replace(/\s+/g, " ").trim() : "");
   const clip = (words, max) => tidy(words).slice(0, max).replace(/[\ud800-\udbff]$/, "");
   const prompt = clip(got.body.prompt, WRITE_PROMPT);
   // The piece so far is read from its end, and a cut never starts on half a character either.
@@ -1792,7 +1793,8 @@ export class Directory {
   }
 
   // Counts one word list for Write against the account's day and the site's. A list for a
-  // piece that's under way (more) has a day's count of its own.
+  // piece that's under way (more) has counts of its own, for the account and for the site, so
+  // however much people write, a first list is never refused for them.
   wrote(body) {
     const uid = String(body.uid || "");
     const more = body.more === true;
@@ -1800,10 +1802,11 @@ export class Directory {
     return this.ctx.storage.transactionSync(() => {
       if (!this.sql.exec("SELECT 1 FROM users WHERE id = ?", uid).toArray().length) return json(401, { error: "session" });
       this.prune(now);
-      if (this.today("writes", now) >= WRITE_SITE_DAY) return json(429, { error: "closed" });
+      const day = more ? "mores" : "writes";
+      if (this.today(day, now) >= (more ? WRITE_MORE_SITE_DAY : WRITE_SITE_DAY)) return json(429, { error: "closed" });
       const wait = more ? this.count(`x:${uid}`, WRITE_MORE_DAY, DAY, now) : this.count(`w:${uid}`, WRITE_PER_DAY, DAY, now);
       if (wait) return busy(wait);
-      this.countToday("writes", now);
+      this.countToday(day, now);
       return json(200, { ok: true });
     });
   }
