@@ -9710,11 +9710,31 @@ function pySpread(py, chars) {
   return out.length === chars.length ? out : null;
 }
 
+// Whether pinyin goes with its characters, as far as the word list can tell. A character
+// often has a reading the list doesn't, so one that differs is let through, and so are a few
+// in a long question. Pinyin that has slid along under the wrong characters differs nearly
+// everywhere, and that's what this is for. With strict, nothing may differ, which is for
+// pinyin that had a label's syllables taken off its front, where being one off is likeliest.
+function pySuits(py, chars, strict = false) {
+  const reads = pyReads();
+  let known = 0;
+  let off = 0;
+  chars.forEach((ch, i) => {
+    const has = reads.get(ch);
+    if (!has) return;
+    known += 1;
+    if (!has.has(py[i])) off += 1;
+  });
+  return strict ? !off : off < 2 || off * 3 <= known;
+}
+
 // A label a model may put in front of a Chinese question. That's a number with its mark, in
 // digits or in characters, a Q, or the word for question with a number.
 const ZH_LABEL = /^\s*(?:[(\uff08]\s*[\d\uff10-\uff19]{1,2}\s*[)\uff09]|[\d\uff10-\uff19]{1,2}\s*[.\uff0e\u3001)\uff09:\uff1a]|[\u4e00\u4e8c\u4e09\u56db\u4e94\u516d\u4e03\u516b\u4e5d\u5341]{1,3}\s*[.\uff0e\u3001)\uff09:\uff1a]|[Qq]\s*[\d\uff10-\uff19]{0,2}\s*[.\uff0e\u3001)\uff09:\uff1a]|(?:\u95ee\u9898|\u95ee)\s*[\u4e00\u4e8c\u4e09\u56db\u4e94\u516d\u4e03\u516b\u4e5d\u5341\d\uff10-\uff19]{0,3}\s*[.\uff0e\u3001)\uff09:\uff1a]|\u7b2c\s*[\u4e00\u4e8c\u4e09\u56db\u4e94\u516d\u4e03\u516b\u4e5d\u5341\d\uff10-\uff19]{1,3}\s*\u4e2a?(?:\u95ee\u9898|\u95ee|\u9898)?\s*[.\uff0e\u3001)\uff09:\uff1a])\s*/;
-// The syllables such a label is spelled with, for pinyin that spells it too (see cleanAsk).
+// The syllables such a label is spelled with, for pinyin that spells it too (see cleanAsk),
+// and the ones a bare number is.
 const ZH_LABEL_PY = /^(?:wen|ti|di|ge|hao|ling|yi|er|liang|san|si|wu|liu|qi|ba|jiu|shi)$/;
+const ZH_NUMBER_PY = /^(?:ling|yi|er|liang|san|si|wu|liu|qi|ba|jiu|shi)$/;
 
 // A Chinese sentence written with no spaces, cut into words. At each place the longest word
 // that's known goes, and a single character where none is. A mark stays with the word before it.
@@ -9789,20 +9809,28 @@ function cleanAsk(raw, zh) {
   // The pinyin as it fits the characters, with syllables that were run together cut apart and
   // a lone r taken as the er of its character, or null when it doesn't come out as one real
   // syllable for each character. Every syllable has to be a real one, or English words that
-  // happened to come in the right number would pass for pinyin.
-  const fits = (list) => {
+  // happened to come in the right number would pass for pinyin, and the whole has to go with
+  // the characters as far as the word list can tell (pySuits).
+  const fits = (list, strict = false) => {
     const out = (list.length < han ? pySpread(list, chars) || list : list).map((syl, i) => (syl === "r" && chars[i] === "\u513f" ? "er" : syl));
-    return out.length === han && out.every((syl) => PY_SYL.test(syl)) ? out : null;
+    return out.length === han && out.every((syl) => PY_SYL.test(syl)) && pySuits(out, chars, strict) ? out : null;
   };
-  let done = fits(py);
-  // The pinyin may also spell a label that stood in front, the wen ti yi of a numbered
-  // question or the yi of a 1 that was taken off as a list mark. Those syllables only go when
-  // what's left fits and starts with a reading the word list has for the first character.
-  // Going by the count alone lets pinyin slide along under the wrong characters.
+  // The pinyin may also spell a label that stood in front. A label that was seen here is
+  // spelled with a syllable for each of its characters, and one or two more for a number in
+  // digits. One that was taken off as a list mark before this leaves only its number, of one
+  // or two syllables. Going by the count alone lets pinyin slide along under the wrong
+  // characters, so two things hold. Pinyin that starts with one of those syllables, where the
+  // word list reads the first character some other way, is never taken as it stands, even when
+  // its count happens to be right (a label's syllable can make up for one the model left
+  // out). And a label's syllables only go when what's left fits, with every character the list
+  // knows reading as the list has it.
   const first = pyReads().get(chars[0]);
-  for (let k = 1; !done && first && k <= 5 && k < py.length && ZH_LABEL_PY.test(py[k - 1]); k++) {
-    const rest = fits(py.slice(k));
-    if (rest && first.has(rest[0])) done = rest;
+  const spells = label ? ZH_LABEL_PY : ZH_NUMBER_PY;
+  const least = label ? Math.max(1, count(label)) : 1;
+  const most = label ? count(label) + (/[\d\uff10-\uff19]/.test(label) ? 2 : 0) : 2;
+  let done = first && spells.test(py[0] || "") && !first.has(py[0]) ? null : fits(py);
+  for (let k = least; !done && first && k <= most && k < py.length && py.slice(0, k).every((syl) => spells.test(syl)); k++) {
+    done = fits(py.slice(k), true);
   }
   if (!done) return "";
   const q = `${parts.join(" ")}|${done.join(" ")}`;
@@ -9887,7 +9915,7 @@ function cleanEntry(raw, zh) {
     // (women we, for two characters) would pass for it.
     if (py.length && py.length < chars.length) py = pySpread(py, chars) || py;
     py = py.map((syl, i) => (syl === "r" && chars[i] === "\u513f" ? "er" : syl));
-    if (!/^[㐀-鿿]{1,8}$/.test(word) || py.length !== chars.length || !py.every((p) => PY_SYL.test(p))) return "";
+    if (!/^[㐀-鿿]{1,8}$/.test(word) || py.length !== chars.length || !py.every((p) => PY_SYL.test(p)) || !pySuits(py, chars)) return "";
     return `${word} ${py.join(" ")}`;
   }
   const entry = cleanDocument(String(raw)).replace(/\s+/g, " ").replace(/[^A-Za-z' -]/g, "").replace(/\s+/g, " ").replace(/^[' -]+|[' -]+$/g, "");
