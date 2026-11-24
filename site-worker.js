@@ -858,9 +858,10 @@ function askWords(env, prompt, doc, zh, sofar, asks) {
   return env.ANTHROPIC_API_KEY ? askClaude(env, task, said) : askAI(env, task, said, sofar ? WRITE_MORE_TOKENS : WRITE_AI_TOKENS);
 }
 
-// The words of a Workers AI answer. Newer models answer like a chat completion and older ones
-// with a response string, and a model that thinks aloud puts that part inside think tags. An
-// answer that stopped at the token limit ends in the middle of a line, so that line goes.
+// The words of a Workers AI answer that came whole. Newer models answer like a chat
+// completion and older ones with a response string, and a model that thinks aloud puts that
+// part inside think tags. An answer that stopped at the token limit ends in the middle of a
+// line, so that line goes.
 function aiText(out) {
   const first = out && Array.isArray(out.choices) ? out.choices[0] : null;
   const message = first && first.message;
@@ -870,9 +871,149 @@ function aiText(out) {
   return { said, refused: Boolean(message && typeof message.refusal === "string" && message.refusal) };
 }
 
+// The fields of a streamed answer that matter here, found by a scan of all its events at
+// once rather than by parsing each, since an event is a few hundred bytes of ids, counts and
+// padding around a word or two. In JSON a quote inside a string always has a backslash before
+// it, so a key in quotes and then a colon can only be a real key. A value is a string, null,
+// or the start of a list or an object.
+const AI_FIELD = /"(content|refusal|reasoning_content|reasoning|finish_reason|response|error)"\s*:\s*(?:"((?:[^"\\]|\\.)*)"|null|([[{]))/;
+const AI_DONE = /^data:[ \t]?\[DONE\][ \t\r]*$/m;
+
+// The text of a JSON string, with its escapes read, or nothing when they're broken.
+function unquote(raw) {
+  try {
+    return JSON.parse(`"${raw}"`);
+  } catch (err) {
+    return ""; // a broken escape gives no words
+  }
+}
+
+// The text of JSON strings one after another, read together, or one at a time when one of
+// them is broken.
+function unquoteAll(raws) {
+  const all = raws.join("");
+  if (!all.includes("\\")) return all;
+  try {
+    return JSON.parse(`"${all}"`);
+  } catch (err) {
+    return raws.map(unquote).join("");
+  }
+}
+
+// Whether a chunk of a stream ends with the [DONE] event.
+function endsDone(chunk) {
+  if (typeof chunk === "string") return /\[DONE\]\s*$/.test(chunk);
+  let i = chunk.length - 1;
+  while (i >= 0 && (chunk[i] === 10 || chunk[i] === 13)) i -= 1;
+  return i >= 5 && chunk[i] === 93 && chunk[i - 1] === 69 && chunk[i - 2] === 78 && chunk[i - 3] === 79 && chunk[i - 4] === 68 && chunk[i - 5] === 91;
+}
+
+// The text of a stream's chunks, decoded together, since a character can be cut between two.
+function streamText(parts, size) {
+  if (typeof parts[0] === "string") return parts.join("");
+  const bytes = new Uint8Array(size);
+  let at = 0;
+  for (const part of parts) {
+    bytes.set(part, at);
+    at += part.length;
+  }
+  return new TextDecoder().decode(bytes);
+}
+
+// The words of a Workers AI answer as it streams, read until it ends or the time is up, so a
+// slow answer keeps what it had written by then, which is its questions first. The binding
+// hands over the bytes of server sent events. Each event is a chat completion chunk with its
+// words in choices[0].delta.content, or for an older model a response string, and data
+// [DONE] ends them. The Free plan gives a request 10 ms of CPU and a long answer is a
+// thousand events or so, so the chunks are only kept as they come and read once at the end,
+// where one scan finds everything. A body that's one JSON answer instead, which the binding
+// can pass on as it is, is read whole. An answer that didn't end by itself (cut at the time
+// limit or the token limit, closed early or broken off by an error) loses its last line, which
+// may be only part of one.
+async function aiStream(body, late) {
+  const reader = body.getReader();
+  const parts = [];
+  let size = 0;
+  let stopped = "";
+  let timedOut = false;
+  // At the time limit the reader is let go, which ends a read that's waiting, also where the
+  // stream doesn't hear the signal.
+  late.catch(() => {
+    timedOut = true;
+    reader.cancel().catch(() => {});
+  });
+  try {
+    for (;;) {
+      const step = await reader.read();
+      if (step.done) break;
+      parts.push(step.value);
+      size += step.value.length;
+      // [DONE] ends the events, so a stream that stays open after it isn't waited for.
+      if (endsDone(step.value)) break;
+    }
+  } catch (err) {
+    // The time limit breaks a read with a TimeoutError, or an AbortError where a runtime words
+    // it so, and anything else is a stream that broke.
+    stopped = err && (err.name === "TimeoutError" || err.name === "AbortError") ? "cut" : (err && err.name) || "stream";
+  } finally {
+    reader.cancel().catch(() => {}); // nothing more is wanted, and a stream that's over ignores this
+  }
+  if (timedOut) stopped = "cut";
+  const text = streamText(parts, size);
+  if (/^\s*\{/.test(text)) {
+    let out = null;
+    try {
+      out = JSON.parse(text);
+    } catch (err) {
+      // a body cut off in the middle has no answer in it
+    }
+    if (stopped) console.error("api", "write", stopped);
+    return aiText(out);
+  }
+  // The scan gives what came before each field, then its name, its string and its bracket.
+  // A string cut off at the end has no quote to close it, so it isn't one.
+  const bits = text.split(AI_FIELD);
+  const words = [];
+  const answer = [];
+  let wrote = false;
+  let refusal = false;
+  let thought = false;
+  let failed = false;
+  let finish = "";
+  for (let i = 1; i < bits.length; i += 4) {
+    const key = bits[i];
+    const raw = bits[i + 1];
+    if (key === "error") failed = failed || Boolean(raw) || bits[i + 2] !== undefined;
+    else if (raw === undefined) continue;
+    else if (key === "content") {
+      words.push(raw);
+      wrote = wrote || raw !== "";
+    } else if (key === "response") answer.push(raw);
+    else if (key === "refusal") refusal = refusal || raw !== "";
+    else if (key === "finish_reason") finish = raw;
+    else if (raw) thought = true; // reasoning_content or reasoning
+  }
+  const ended = AI_DONE.test(text);
+  const why = stopped || (failed ? "stream" : !ended && !finish ? "early" : "");
+  if (why) console.error("api", "write", why);
+  // The words are an event's content, or an older model's response strings when no event has
+  // content.
+  let said = unquoteAll(wrote ? words : answer);
+  // An answer ends by itself with a finish reason of stop, or with data [DONE] and none.
+  const whole = finish ? finish === "stop" : ended && !failed;
+  said = said.replace(/<think>[\s\S]*?<\/think>/gi, "").replace(/<think>[\s\S]*$/i, "").replace(/<\/think>/gi, "");
+  if (!whole) said = said.slice(0, said.lastIndexOf("\n") + 1);
+  said = said.trim();
+  // With thinking off the words never come as thinking, so if they ever do, the log says so.
+  if (!said && thought) console.error("api", "write", "reasoning");
+  return { said, refused: refusal };
+}
+
 // Asks Workers AI. The allowance is counted across the whole Cloudflare account, and once a
 // day's is gone the call throws, which reads as "later", so the page asks its general questions
-// and uses the person's own words. Thinking is off, since its tokens would count.
+// and uses the person's own words. Thinking is off, since its tokens would count. The answer
+// streams, so one that's slow keeps what it had written by the time limit. A first answer
+// writes its questions before its entries, so those are what a slow moment keeps.
 async function askAI(env, task, said, tokens) {
   // The file has no timers, so the time limit is an abort signal. The binding takes it and
   // stops the request, and the race is there for a runtime that doesn't.
@@ -886,6 +1027,7 @@ async function askAI(env, task, said, tokens) {
         max_completion_tokens: tokens,
         temperature: 0.6,
         chat_template_kwargs: { enable_thinking: false },
+        stream: true,
       }, { signal: limit }),
       late,
     ]);
@@ -897,7 +1039,8 @@ async function askAI(env, task, said, tokens) {
     console.error("api", "write", code ? code[1] : err && err.name);
     return { fail: "later" };
   }
-  const got = aiText(out);
+  // A stream is read as it comes, and an answer the binding gives whole is read whole.
+  const got = out && typeof out.getReader === "function" ? await aiStream(out, late) : aiText(out);
   if (!got.said && got.refused) return { fail: "refused" };
   return fieldParts(got.said);
 }
