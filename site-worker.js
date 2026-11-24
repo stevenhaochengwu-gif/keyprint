@@ -804,10 +804,10 @@ function fitBytesEnd(words, max) {
 }
 
 // A list mark in front of a line. That's a bullet, the hashes of a heading, a number in a
-// circle, a Chinese number with its comma, or a number with its mark or a dash. A number with
-// nothing after it is left alone, and so is one with a decimal point, since a question or an
-// entry can start with either.
-const LIST_MARK = /^\s*(?:[*\u2022>_\x60#-]+\s*|[\u2460-\u2473]\s*|[\u4e00\u4e8c\u4e09\u56db\u4e94\u516d\u4e03\u516b\u4e5d\u5341]{1,3}\u3001\s*|[(\uff08]?[\d\uff10-\uff19]{1,2}(?:[)\u3001\uff0e\uff09]|\.(?!\d)|\s*-\s)\s*)+/;
+// circle, a Chinese number with its comma, or a number with its mark (a period, a bracket, a
+// colon) or a dash. A number with nothing after it is left alone, and so is one with a decimal
+// point or a time of day, since a question or an entry can start with any of them.
+const LIST_MARK = /^\s*(?:[*\u2022>_\x60#-]+\s*|[\u2460-\u2473]\s*|[\u4e00\u4e8c\u4e09\u56db\u4e94\u516d\u4e03\u516b\u4e5d\u5341]{1,3}\u3001\s*|[(\uff08]?[\d\uff10-\uff19]{1,2}(?:[)\u3001\uff0e\uff09]|[.:\uff1a](?!\d)|\s*-\s)\s*)+/;
 // A line that only names a part of the answer, like Questions, Vocabulary or Key words. A
 // model writes such a name with a capital or in bold, and an entry is in lowercase, so a
 // piece whose first entries are words or vocabulary keeps them.
@@ -819,9 +819,10 @@ const fieldHead = (line, raw) => FIELD_HEAD.test(line) && (/^[A-Z]/.test(line) |
 // and the rest are entries, unless they're too long to be a word or a short phrase. A heading
 // is neither. That's a line that starts with a hash and asks nothing, one that ends in a
 // colon, or one that only names the part that follows, ahead of the first entry. A line or two
-// ahead of the first question is the model saying what follows, so it isn't an entry. The
-// page cleans both again for what the keyboard can type, and splits an answer the same way
-// where it asks Claude itself (fieldSplit in index.html).
+// ahead of the first question is the model saying what follows, so it isn't an entry, and
+// neither is a remark that ends in an exclamation mark. The page cleans both again for what
+// the keyboard can type, and splits an answer the same way where it asks Claude itself
+// (fieldSplit in index.html).
 function fieldParts(words) {
   const seen = new Set();
   const lines = [];
@@ -831,7 +832,7 @@ function fieldParts(words) {
     if (/^\s*#/.test(raw) && !asking) continue;
     const line = raw.replace(LIST_MARK, "").replace(/[\s*_`]+$/, "").replace(/\s+/g, " ").trim();
     const key = line.toLowerCase();
-    if (!line || /[:\uff1a]$/.test(line) || (!lines.length && fieldHead(line, raw)) || seen.has(key)) continue;
+    if (!line || /[:\uff1a]$/.test(line) || (!asking && /[!\uff01]$/.test(line)) || (!lines.length && fieldHead(line, raw)) || seen.has(key)) continue;
     seen.add(key);
     if (asking) {
       if (!asks.length && lines.length <= 2) lines.length = 0;

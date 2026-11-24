@@ -9713,7 +9713,7 @@ function pySpread(py, chars) {
 // A label a model may put in front of a Chinese question. That's a number with its mark, in
 // digits or in characters, a Q, or the word for question with a number.
 const ZH_LABEL = /^\s*(?:[(\uff08]\s*[\d\uff10-\uff19]{1,2}\s*[)\uff09]|[\d\uff10-\uff19]{1,2}\s*[.\uff0e\u3001)\uff09:\uff1a]|[\u4e00\u4e8c\u4e09\u56db\u4e94\u516d\u4e03\u516b\u4e5d\u5341]{1,3}\s*[.\uff0e\u3001)\uff09:\uff1a]|[Qq]\s*[\d\uff10-\uff19]{0,2}\s*[.\uff0e\u3001)\uff09:\uff1a]|(?:\u95ee\u9898|\u95ee)\s*[\u4e00\u4e8c\u4e09\u56db\u4e94\u516d\u4e03\u516b\u4e5d\u5341\d\uff10-\uff19]{0,3}\s*[.\uff0e\u3001)\uff09:\uff1a]|\u7b2c\s*[\u4e00\u4e8c\u4e09\u56db\u4e94\u516d\u4e03\u516b\u4e5d\u5341\d\uff10-\uff19]{1,3}\s*\u4e2a?(?:\u95ee\u9898|\u95ee|\u9898)?\s*[.\uff0e\u3001)\uff09:\uff1a])\s*/;
-// The syllables that spell such a label, for pinyin that spells it too.
+// The syllables such a label is spelled with, for pinyin that spells it too (see cleanAsk).
 const ZH_LABEL_PY = /^(?:wen|ti|di|ge|hao|ling|yi|er|liang|san|si|wu|liu|qi|ba|jiu|shi)$/;
 
 // A Chinese sentence written with no spaces, cut into words. At each place the longest word
@@ -9755,17 +9755,16 @@ function cleanAsk(raw, zh) {
     // What stands in front of its first letter, a bullet or a little picture, isn't part of it.
     const plain = String(raw).normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/^[^\p{L}\p{N}]+/u, "");
     if (/[^\x00-\x7f\u2018-\u201f\u2032\u2033\u2010-\u2015\u2212\u2022\u00ad\u00a0\u2000-\u200b\u202f\u205f\u3000]/.test(plain.slice(0, plain.lastIndexOf("?") + 1))) return "";
-    let q = cleanDocument(String(raw)).replace(/\s+/g, " ").replace(/[*_`#]/g, "").replace(/^[^A-Za-z0-9]+/, "").replace(/^\d{1,2}[.)]\s+/, "").replace(/^(?:q|question)\s*\d{0,2}\s*[.:)-]\s*/i, "");
+    let q = cleanDocument(String(raw)).replace(/\s+/g, " ").replace(/[*_`#]/g, "").replace(/^[^A-Za-z0-9]+/, "").replace(/^\d{1,2}[.):]\s+/, "").replace(/^(?:q|question)\s*\d{0,2}\s*[.:)-]\s*/i, "");
     const end = q.lastIndexOf("?");
     if (end < 0) return "";
     q = q.slice(0, end + 1).replace(/\s+([?,])/g, "$1").trim();
     // A quotation mark with no partner is left over from quotes around the whole line.
     if ((q.match(/"/g) || []).length % 2) q = q.replace(/"/g, "");
     const n = countWords(q);
-    return /[A-Za-z]/.test(q) && n >= 3 && n <= 30 && q.length <= APP.writeAskLen ? q : "";
+    return /[A-Za-z]/.test(q) && n >= 4 && n <= 30 && q.length <= APP.writeAskLen ? q : "";
   }
-  // A label in front isn't part of the question. Its characters are counted, since the pinyin
-  // may spell them out too.
+  // A label in front isn't part of the question.
   const whole = String(raw).normalize("NFC");
   const label = (whole.match(ZH_LABEL) || [""])[0];
   const said = whole.slice(label.length);
@@ -9776,7 +9775,7 @@ function cleanAsk(raw, zh) {
   let words = said.slice(0, from);
   if (/[A-Za-z0-9\uff10-\uff19]/.test(words)) return "";
   // Pinyin's u with two dots is typed as v, as in cleanEntry.
-  let py = said.slice(bar >= 0 ? from + 1 : from).normalize("NFKD").replace(/u(?=[\u0300-\u036f]*\u0308)/gi, "v").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z]+/g, " ").trim().split(" ").filter(Boolean);
+  const py = said.slice(bar >= 0 ? from + 1 : from).normalize("NFKD").replace(/u(?=[\u0300-\u036f]*\u0308)/gi, "v").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z]+/g, " ").trim().split(" ").filter(Boolean);
   // Only Chinese commas inside and one question mark at the end are kept of its marks.
   words = words.replace(/[?\uff1f]/g, "\uff1f").replace(/[,\uff0c\u3001;\uff1b:\uff1a]/g, "\uff0c").replace(/[^\u3400-\u9fff\uff0c\uff1f\s]/g, "");
   words = words.replace(/[\uff0c\uff1f\s]+$/, "").replace(/^[\uff0c\uff1f\s]+/, "").replace(/\uff1f/g, "\uff0c");
@@ -9786,11 +9785,27 @@ function cleanAsk(raw, zh) {
   const parts = words.split(" ").flatMap((part) => (count(part) > 4 ? zhCut(part) : [part]));
   const han = count(words);
   if (han < 2 || han > 40) return "";
-  // The pinyin may spell the label too, and may have run some syllables together.
-  if (label) while (py.length > han && ZH_LABEL_PY.test(py[0])) py = py.slice(1);
-  if (py.length < han) py = pySpread(py, words.match(/[\u3400-\u9fff]/g) || []) || py;
-  if (py.length !== han || !py.every((syl) => /^[a-z]{1,6}$/.test(syl))) return "";
-  const q = `${parts.join(" ")}|${py.join(" ")}`;
+  const chars = words.match(/[\u3400-\u9fff]/g) || [];
+  // The pinyin as it fits the characters, with syllables that were run together cut apart and
+  // a lone r taken as the er of its character, or null when it doesn't come out as one real
+  // syllable for each character. Every syllable has to be a real one, or English words that
+  // happened to come in the right number would pass for pinyin.
+  const fits = (list) => {
+    const out = (list.length < han ? pySpread(list, chars) || list : list).map((syl, i) => (syl === "r" && chars[i] === "\u513f" ? "er" : syl));
+    return out.length === han && out.every((syl) => PY_SYL.test(syl)) ? out : null;
+  };
+  let done = fits(py);
+  // The pinyin may also spell a label that stood in front, the wen ti yi of a numbered
+  // question or the yi of a 1 that was taken off as a list mark. Those syllables only go when
+  // what's left fits and starts with a reading the word list has for the first character.
+  // Going by the count alone lets pinyin slide along under the wrong characters.
+  const first = pyReads().get(chars[0]);
+  for (let k = 1; !done && first && k <= 5 && k < py.length && ZH_LABEL_PY.test(py[k - 1]); k++) {
+    const rest = fits(py.slice(k));
+    if (rest && first.has(rest[0])) done = rest;
+  }
+  if (!done) return "";
+  const q = `${parts.join(" ")}|${done.join(" ")}`;
   return q.length <= APP.writeAskLen ? q : "";
 }
 
@@ -9866,9 +9881,13 @@ function cleanEntry(raw, zh) {
     const parts = String(raw).normalize("NFKD").replace(/u(?=[\u0300-\u036f]*\u0308)/gi, "v").replace(/[\u0300-\u036f]/g, "").trim().split(/\s+/);
     const word = parts[0] || "";
     let py = parts.slice(1).join(" ").toLowerCase().replace(/[^a-z]+/g, " ").trim().split(" ").filter(Boolean);
-    // Syllables run together (shenme) are cut so each character has its own.
-    if (py.length && py.length < [...word].length) py = pySpread(py, [...word]) || py;
-    if (!/^[㐀-鿿]{1,8}$/.test(word) || py.length !== [...word].length || !py.every((p) => /^[a-z]{1,6}$/.test(p))) return "";
+    const chars = [...word];
+    // Syllables run together (shenme) are cut so each character has its own, and a lone r is
+    // the er of its character. Every syllable has to be a real one, or a gloss after the pinyin
+    // (women we, for two characters) would pass for it.
+    if (py.length && py.length < chars.length) py = pySpread(py, chars) || py;
+    py = py.map((syl, i) => (syl === "r" && chars[i] === "\u513f" ? "er" : syl));
+    if (!/^[㐀-鿿]{1,8}$/.test(word) || py.length !== chars.length || !py.every((p) => PY_SYL.test(p))) return "";
     return `${word} ${py.join(" ")}`;
   }
   const entry = cleanDocument(String(raw)).replace(/\s+/g, " ").replace(/[^A-Za-z' -]/g, "").replace(/\s+/g, " ").replace(/^[' -]+|[' -]+$/g, "");
@@ -9923,10 +9942,10 @@ function fieldSource() {
 }
 
 // A list mark in front of a line. That's a bullet, the hashes of a heading, a number in a
-// circle, a Chinese number with its comma, or a number with its mark or a dash. A number with
-// nothing after it is left alone, and so is one with a decimal point, since a question or an
-// entry can start with either.
-const LIST_MARK = /^\s*(?:[*\u2022>_\x60#-]+\s*|[\u2460-\u2473]\s*|[\u4e00\u4e8c\u4e09\u56db\u4e94\u516d\u4e03\u516b\u4e5d\u5341]{1,3}\u3001\s*|[(\uff08]?[\d\uff10-\uff19]{1,2}(?:[)\u3001\uff0e\uff09]|\.(?!\d)|\s*-\s)\s*)+/;
+// circle, a Chinese number with its comma, or a number with its mark (a period, a bracket, a
+// colon) or a dash. A number with nothing after it is left alone, and so is one with a decimal
+// point or a time of day, since a question or an entry can start with any of them.
+const LIST_MARK = /^\s*(?:[*\u2022>_\x60#-]+\s*|[\u2460-\u2473]\s*|[\u4e00\u4e8c\u4e09\u56db\u4e94\u516d\u4e03\u516b\u4e5d\u5341]{1,3}\u3001\s*|[(\uff08]?[\d\uff10-\uff19]{1,2}(?:[)\u3001\uff0e\uff09]|[.:\uff1a](?!\d)|\s*-\s)\s*)+/;
 // A line that only names a part of the answer, like Questions, Vocabulary or Key words. A
 // model writes such a name with a capital or in bold, and an entry is in lowercase, so a
 // piece whose first entries are words or vocabulary keeps them.
@@ -9939,7 +9958,7 @@ const fieldHead = (line, raw) => FIELD_HEAD.test(line) && (/^[A-Z]/.test(line) |
 // has, and the rest are entries. A heading is neither. That's a line that starts with a hash
 // and asks nothing, one that ends in a colon, or one that only names the part that follows,
 // ahead of the first entry. A line or two ahead of the first question is the model saying
-// what follows, so it isn't an entry.
+// what follows, so it isn't an entry, and neither is a remark that ends in an exclamation mark.
 function fieldSplit(text) {
   const seen = new Set();
   const lines = [];
@@ -9949,7 +9968,7 @@ function fieldSplit(text) {
     if (/^\s*#/.test(raw) && !asking) continue;
     const line = raw.replace(LIST_MARK, "").replace(/[\s*_`]+$/, "").replace(/\s+/g, " ").trim();
     const key = line.toLowerCase();
-    if (!line || /[:\uff1a]$/.test(line) || (!lines.length && fieldHead(line, raw)) || seen.has(key)) continue;
+    if (!line || /[:\uff1a]$/.test(line) || (!asking && /[!\uff01]$/.test(line)) || (!lines.length && fieldHead(line, raw)) || seen.has(key)) continue;
     seen.add(key);
     if (asking) {
       if (!asks.length && lines.length <= 2) lines.length = 0;
