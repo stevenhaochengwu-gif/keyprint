@@ -9637,7 +9637,10 @@ const PY_SYL = /^(?:[zcs]h?|[bpmfdtnlgkhjqxryw])?(?:[iuv]?(?:ang|eng|ong|ai|ei|a
 
 // Letters of pinyin cut into a number of syllables, the longest first, or null when they
 // can't be. A lone r at the end is the er of a word like nar, and only over its own character.
-function pyCut(letters, n, chars, at) {
+// left.n is how many more tries the whole cutting may take, so a long run of letters that
+// isn't pinyin at all can't keep the page busy.
+function pyCut(letters, n, chars, at, left) {
+  if ((left.n -= 1) < 0) return null;
   if (n === 1) {
     if (letters === "r") return chars[at] === "\u513f" ? ["er"] : null;
     return PY_SYL.test(letters) ? [letters] : null;
@@ -9645,7 +9648,7 @@ function pyCut(letters, n, chars, at) {
   for (let len = Math.min(6, letters.length - (n - 1)); len >= 1; len--) {
     const head = letters.slice(0, len);
     if (!PY_SYL.test(head)) continue;
-    const rest = pyCut(letters.slice(len), n - 1, chars, at + 1);
+    const rest = pyCut(letters.slice(len), n - 1, chars, at + 1, left);
     if (rest) return [head, ...rest];
   }
   return null;
@@ -9660,13 +9663,14 @@ function pySpread(py, chars) {
   const need = chars.length - py.length;
   if (need <= 0 || py.length > 60) return null;
   const dead = new Set();
+  const left = { n: 3000 };
   const fit = (i, extra) => {
     if (i === py.length) return extra ? null : [];
     const key = `${i} ${extra}`;
-    if (dead.has(key)) return null;
+    if (dead.has(key) || left.n < 0) return null;
     const most = PY_SYL.test(py[i]) ? 0 : Math.min(extra, 5);
     for (let more = 0; more <= most; more++) {
-      const cut = pyCut(py[i], more + 1, chars, i + need - extra);
+      const cut = pyCut(py[i], more + 1, chars, i + need - extra, left);
       const rest = cut && fit(i + 1, extra - more);
       if (rest) return [...cut, ...rest];
     }
@@ -9748,11 +9752,12 @@ function cleanAsk(raw, zh) {
   // A run of more than four characters with no space in it hasn't been cut into words.
   const parts = words.split(" ").flatMap((part) => (count(part) > 4 ? zhCut(part) : [part]));
   const han = count(words);
+  if (han < 2 || han > 40) return "";
   // The pinyin may start with the label's syllables, and may have run some together.
   const labelled = count(label);
   if (labelled && py.length === han + labelled) py = py.slice(labelled);
   if (py.length < han) py = pySpread(py, words.match(/[\u3400-\u9fff]/g) || []) || py;
-  if (han < 2 || han > 40 || py.length !== han || !py.every((syl) => /^[a-z]{1,6}$/.test(syl))) return "";
+  if (py.length !== han || !py.every((syl) => /^[a-z]{1,6}$/.test(syl))) return "";
   const q = `${parts.join(" ")}|${py.join(" ")}`;
   return q.length <= APP.writeAskLen ? q : "";
 }
