@@ -9632,58 +9632,89 @@ function fieldAsk(prompt, doc, zh, sofar = "", asks = 12) {
   return parts.join("\n\n");
 }
 
-// One syllable of pinyin as an input method takes it, with v for u with two dots. It lets a
-// few through that no word has, which does no harm where it's only used to cut.
-const PY_SYL = /^(?:[zcs]h?|[bpmfdtnlgkhjqxryw])?(?:[iuv]?(?:ang|eng|ong|ai|ei|ao|ou|an|en|a|o|e)|i(?:ng|n|u)?|u(?:n|i)?|vn?|er)$/;
+// One syllable of pinyin as an input method takes it, with v for u with two dots. Only er and
+// the finals that start with a, o or e stand without a consonant in front.
+const PY_SYL = /^(?:er|[aoe]|ai|ei|ao|ou|an|en|ang|eng|y(?:i|in|ing|a|ao|an|ang|e|o|ou|ong|u|ue|uan|un)|w(?:u|a|o|ai|ei|an|en|ang|eng)|(?:[zcs]h?|[bpmfdtnlgkhjqxr])(?:[iuv]?(?:ang|eng|ong|ai|ei|ao|ou|an|en|a|o|e)|i(?:ng|n|u)?|u(?:n|i)?|vn?))$/;
 
-// Letters of pinyin cut into a number of syllables, the longest first, or null when they
-// can't be. A lone r at the end is the er of a word like nar, and only over its own character.
-// left.n is how many more tries the whole cutting may take, so a long run of letters that
-// isn't pinyin at all can't keep the page busy.
-function pyCut(letters, n, chars, at, left) {
-  if ((left.n -= 1) < 0) return null;
+// The readings the word list has for each character, which tell the right way to cut a run
+// of pinyin from the wrong ones.
+let zhReads = null;
+function pyReads() {
+  if (zhReads) return zhReads;
+  zhReads = new Map();
+  const note = (word, py) => [...word].forEach((ch, i) => {
+    if (!zhReads.has(ch)) zhReads.set(ch, new Set());
+    zhReads.get(ch).add(py[i]);
+  });
+  for (const e of ZH_LIST) note(e.word, e.py);
+  for (const q of ASKS_ZH) note(q.split("|")[0].replace(/[^\u3400-\u9fff]/g, ""), q.split("|")[1].split(" "));
+  return zhReads;
+}
+
+// Every way to cut letters into n syllables. left.n is how many more tries the whole cutting
+// may take, so a long run of letters that isn't pinyin at all can't keep the page busy.
+function pyWays(letters, n, left, head = [], out = []) {
+  if ((left.n -= 1) < 0) return out;
   if (n === 1) {
-    if (letters === "r") return chars[at] === "\u513f" ? ["er"] : null;
-    return PY_SYL.test(letters) ? [letters] : null;
+    if (PY_SYL.test(letters)) out.push([...head, letters]);
+    return out;
   }
   for (let len = Math.min(6, letters.length - (n - 1)); len >= 1; len--) {
-    const head = letters.slice(0, len);
-    if (!PY_SYL.test(head)) continue;
-    const rest = pyCut(letters.slice(len), n - 1, chars, at + 1, left);
-    if (rest) return [head, ...rest];
+    const first = letters.slice(0, len);
+    if (PY_SYL.test(first)) pyWays(letters.slice(len), n - 1, left, [...head, first], out);
+  }
+  return out;
+}
+
+// A run of letters that isn't one syllable, cut into as few syllables as it can be, for the
+// characters from at on. Of the ways to do that, the best is the one whose syllables are
+// readings the word list knows for the characters they'd stand over. Next comes how pinyin
+// is written, where a syllable inside a word doesn't start with a, o or e (that takes an
+// apostrophe, which was cut on before this), and then the longest first syllable. A run that
+// ends in an r no syllable owns is a word like nar, whose r is the er over its own character.
+function pyCut(letters, chars, at, left) {
+  const reads = pyReads();
+  const fit = (way) => way.reduce((sum, syl, j) => {
+    const known = reads.get(chars[at + j]);
+    return sum + (known ? (known.has(syl) ? 4 : -2) : 0) - (j && /^[aoe]/.test(syl) ? 1 : 0);
+  }, 0);
+  for (let n = 2; n <= 6 && n <= letters.length; n++) {
+    let ways = pyWays(letters, n, left);
+    if (!ways.length && letters.endsWith("r") && chars[at + n - 1] === "\u513f") ways = pyWays(letters.slice(0, -1), n - 1, left).map((way) => [...way, "er"]);
+    if (ways.length) return ways.reduce((best, way) => (fit(way) > fit(best) ? way : best));
   }
   return null;
 }
 
 // Pinyin with fewer syllables than there are characters, because some were run together the
 // way pinyin is usually written (shenme, zenmeyang, nar), cut so each character has its own
-// again. Only a run that isn't a syllable as it stands is cut. One that is stays whole, since
-// nothing says it was joined, and cutting it would only hide a syllable the model left out
-// and put every later one over the wrong character. Gives null when it doesn't come out even.
+// again. Only a run that isn't a syllable as it stands is cut, and only into as few syllables
+// as it can hold. A run that is a syllable stays whole, since nothing says it was joined.
+// Cutting more than that would only hide a syllable the model left out, and put every later
+// one over the wrong character. Gives null when it doesn't come out even.
 function pySpread(py, chars) {
-  const need = chars.length - py.length;
-  if (need <= 0 || py.length > 60) return null;
-  const dead = new Set();
+  if (py.length >= chars.length || py.length > 60) return null;
   const left = { n: 3000 };
-  const fit = (i, extra) => {
-    if (i === py.length) return extra ? null : [];
-    const key = `${i} ${extra}`;
-    if (dead.has(key) || left.n < 0) return null;
-    const most = PY_SYL.test(py[i]) ? 0 : Math.min(extra, 5);
-    for (let more = 0; more <= most; more++) {
-      const cut = pyCut(py[i], more + 1, chars, i + need - extra, left);
-      const rest = cut && fit(i + 1, extra - more);
-      if (rest) return [...cut, ...rest];
+  const out = [];
+  for (const run of py) {
+    if (PY_SYL.test(run)) {
+      out.push(run);
+    } else if (run === "r" && chars[out.length] === "\u513f") {
+      out.push("er");
+    } else {
+      const cut = pyCut(run, chars, out.length, left);
+      if (!cut || left.n < 0) return null;
+      out.push(...cut);
     }
-    dead.add(key);
-    return null;
-  };
-  return fit(0, need);
+  }
+  return out.length === chars.length ? out : null;
 }
 
-// A label a model may put in front of a Chinese question, a number with its mark, a Q, or
-// the word for question with a number.
-const ZH_LABEL = /^\s*(?:[(\uff08]\s*[\d\uff10-\uff19]{1,2}\s*[)\uff09]|[\d\uff10-\uff19]{1,2}\s*[.\uff0e\u3001)\uff09:\uff1a]|[Qq]\s*[\d\uff10-\uff19]{0,2}\s*[.\uff0e\u3001)\uff09:\uff1a]|(?:\u95ee\u9898|\u95ee)\s*[\u4e00\u4e8c\u4e09\u56db\u4e94\u516d\u4e03\u516b\u4e5d\u5341\d\uff10-\uff19]{0,3}\s*[.\uff0e\u3001)\uff09:\uff1a]|\u7b2c\s*[\u4e00\u4e8c\u4e09\u56db\u4e94\u516d\u4e03\u516b\u4e5d\u5341\d\uff10-\uff19]{1,3}\s*\u4e2a?(?:\u95ee\u9898|\u95ee|\u9898)?\s*[.\uff0e\u3001)\uff09:\uff1a])\s*/;
+// A label a model may put in front of a Chinese question. That's a number with its mark, in
+// digits or in characters, a Q, or the word for question with a number.
+const ZH_LABEL = /^\s*(?:[(\uff08]\s*[\d\uff10-\uff19]{1,2}\s*[)\uff09]|[\d\uff10-\uff19]{1,2}\s*[.\uff0e\u3001)\uff09:\uff1a]|[\u4e00\u4e8c\u4e09\u56db\u4e94\u516d\u4e03\u516b\u4e5d\u5341]{1,3}\s*[.\uff0e\u3001)\uff09:\uff1a]|[Qq]\s*[\d\uff10-\uff19]{0,2}\s*[.\uff0e\u3001)\uff09:\uff1a]|(?:\u95ee\u9898|\u95ee)\s*[\u4e00\u4e8c\u4e09\u56db\u4e94\u516d\u4e03\u516b\u4e5d\u5341\d\uff10-\uff19]{0,3}\s*[.\uff0e\u3001)\uff09:\uff1a]|\u7b2c\s*[\u4e00\u4e8c\u4e09\u56db\u4e94\u516d\u4e03\u516b\u4e5d\u5341\d\uff10-\uff19]{1,3}\s*\u4e2a?(?:\u95ee\u9898|\u95ee|\u9898)?\s*[.\uff0e\u3001)\uff09:\uff1a])\s*/;
+// The syllables that spell such a label, for pinyin that spells it too.
+const ZH_LABEL_PY = /^(?:wen|ti|di|ge|hao|ling|yi|er|liang|san|si|wu|liu|qi|ba|jiu|shi)$/;
 
 // A Chinese sentence written with no spaces, cut into words. At each place the longest word
 // that's known goes, and a single character where none is. A mark stays with the word before it.
@@ -9721,7 +9752,8 @@ function cleanAsk(raw, zh) {
     // cleanDocument folds what a keyboard can't type, so an accent goes and a curly quote
     // straightens. A question that would lose a letter or a sign that way, like a name in
     // another script or a pound sign, would be typed with a hole in it, so it isn't kept.
-    const plain = String(raw).normalize("NFKD").replace(/[\u0300-\u036f]/g, "");
+    // What stands in front of its first letter, a bullet or a little picture, isn't part of it.
+    const plain = String(raw).normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/^[^\p{L}\p{N}]+/u, "");
     if (/[^\x00-\x7f\u2018-\u201f\u2032\u2033\u2010-\u2015\u2212\u2022\u00ad\u00a0\u2000-\u200b\u202f\u205f\u3000]/.test(plain.slice(0, plain.lastIndexOf("?") + 1))) return "";
     let q = cleanDocument(String(raw)).replace(/\s+/g, " ").replace(/[*_`#]/g, "").replace(/^[^A-Za-z0-9]+/, "").replace(/^\d{1,2}[.)]\s+/, "").replace(/^(?:q|question)\s*\d{0,2}\s*[.:)-]\s*/i, "");
     const end = q.lastIndexOf("?");
@@ -9754,9 +9786,8 @@ function cleanAsk(raw, zh) {
   const parts = words.split(" ").flatMap((part) => (count(part) > 4 ? zhCut(part) : [part]));
   const han = count(words);
   if (han < 2 || han > 40) return "";
-  // The pinyin may start with the label's syllables, and may have run some together.
-  const labelled = count(label);
-  if (labelled && py.length === han + labelled) py = py.slice(labelled);
+  // The pinyin may spell the label too, and may have run some syllables together.
+  if (label) while (py.length > han && ZH_LABEL_PY.test(py[0])) py = py.slice(1);
   if (py.length < han) py = pySpread(py, words.match(/[\u3400-\u9fff]/g) || []) || py;
   if (py.length !== han || !py.every((syl) => /^[a-z]{1,6}$/.test(syl))) return "";
   const q = `${parts.join(" ")}|${py.join(" ")}`;
@@ -9891,33 +9922,39 @@ function fieldSource() {
   return "";
 }
 
-// A list mark in front of a line, a bullet, the hashes of a heading or a number with its mark
-// or a dash. A number with nothing after it is left alone, since a question or an entry can
-// start with one.
-const LIST_MARK = /^\s*(?:[*\u2022>_\x60#-]+\s*|[(\uff08]?[\d\uff10-\uff19]{1,2}(?:[.)\u3001\uff0e\uff09]|\s*-\s)\s*)+/;
-// A line that only names a part of the answer, like Questions, Vocabulary or Key words, with
-// its pinyin in a Chinese answer. It's held up against the line without its accents.
-const FIELD_HEAD = /^(?:the\s+|your\s+|some\s+)?(?:(?:key|useful|helpful|suggested|related)\s+)?(?:questions?|vocabulary|vocab|entries|entry|words?|phrases?|terms?)(?:\s+(?:list|entries))?(?:\s+(?:and|&)\s+(?:questions?|vocabulary|entries|words?|phrases?|terms?))?$|^(?:\u95ee\u9898|\u63d0\u95ee|\u8bcd\u6c47|\u8bcd\u8bed|\u8bcd\u6761|\u6761\u76ee|\u751f\u8bcd|\u8bcd\u6c47\u8868)(?:\s+[a-z ]+)?$/i;
-const fieldHead = (line) => FIELD_HEAD.test(line.normalize("NFKD").replace(/[\u0300-\u036f]/g, ""));
+// A list mark in front of a line. That's a bullet, the hashes of a heading, a number in a
+// circle, a Chinese number with its comma, or a number with its mark or a dash. A number with
+// nothing after it is left alone, and so is one with a decimal point, since a question or an
+// entry can start with either.
+const LIST_MARK = /^\s*(?:[*\u2022>_\x60#-]+\s*|[\u2460-\u2473]\s*|[\u4e00\u4e8c\u4e09\u56db\u4e94\u516d\u4e03\u516b\u4e5d\u5341]{1,3}\u3001\s*|[(\uff08]?[\d\uff10-\uff19]{1,2}(?:[)\u3001\uff0e\uff09]|\.(?!\d)|\s*-\s)\s*)+/;
+// A line that only names a part of the answer, like Questions, Vocabulary or Key words. A
+// model writes such a name with a capital or in bold, and an entry is in lowercase, so a
+// piece whose first entries are words or vocabulary keeps them.
+const FIELD_HEAD = /^(?:the\s+|your\s+|some\s+)?(?:(?:key|useful|helpful|suggested|related)\s+)?(?:questions?|vocabulary|vocab|entries|entry|words?|phrases?|terms?)(?:\s+(?:list|entries))?(?:\s+(?:and|&)\s+(?:questions?|vocabulary|entries|words?|phrases?|terms?))?$/i;
+const fieldHead = (line, raw) => FIELD_HEAD.test(line) && (/^[A-Z]/.test(line) || /\*\*|__/.test(raw));
 
 // The lines of a model's answer in a Claude artifact, split as the site's Worker splits them
-// (fieldParts in site-worker.js, which must stay the same). A list mark in front goes. A line
-// with a question mark in it is a question, which no entry has, and the rest are entries. A
-// heading is neither. That's a line that starts with a hash and asks nothing, one that ends in
-// a colon, or one that only names the part that follows, ahead of the first entry. A line or
-// two ahead of the first question is the model saying what follows, so it isn't an entry.
+// (fieldParts in site-worker.js, which this has to match line for line). A list mark in front
+// goes, and so does a repeat. A line with a question mark in it is a question, which no entry
+// has, and the rest are entries. A heading is neither. That's a line that starts with a hash
+// and asks nothing, one that ends in a colon, or one that only names the part that follows,
+// ahead of the first entry. A line or two ahead of the first question is the model saying
+// what follows, so it isn't an entry.
 function fieldSplit(text) {
+  const seen = new Set();
   const lines = [];
   const asks = [];
   for (const raw of String(text || "").split("\n")) {
     const asking = /[?\uff1f]/.test(raw);
     if (/^\s*#/.test(raw) && !asking) continue;
     const line = raw.replace(LIST_MARK, "").replace(/[\s*_`]+$/, "").replace(/\s+/g, " ").trim();
-    if (!line || /[:\uff1a]$/.test(line) || (!lines.length && fieldHead(line))) continue;
+    const key = line.toLowerCase();
+    if (!line || /[:\uff1a]$/.test(line) || (!lines.length && fieldHead(line, raw)) || seen.has(key)) continue;
+    seen.add(key);
     if (asking) {
       if (!asks.length && lines.length <= 2) lines.length = 0;
-      asks.push(line);
-    } else {
+      if (line.length <= APP.writeAskLen && asks.length < APP.writeAsks) asks.push(line);
+    } else if (line.length <= 80 && lines.length < APP.writeList) {
       lines.push(line);
     }
   }

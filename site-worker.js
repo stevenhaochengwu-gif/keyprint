@@ -803,14 +803,16 @@ function fitBytesEnd(words, max) {
   return bytes.length <= max ? words : new TextDecoder().decode(bytes.subarray(bytes.length - max)).replace(/^\ufffd+/, "");
 }
 
-// A list mark in front of a line, a bullet, the hashes of a heading or a number with its mark
-// or a dash. A number with nothing after it is left alone, since a question or an entry can
-// start with one.
-const LIST_MARK = /^\s*(?:[*\u2022>_\x60#-]+\s*|[(\uff08]?[\d\uff10-\uff19]{1,2}(?:[.)\u3001\uff0e\uff09]|\s*-\s)\s*)+/;
-// A line that only names a part of the answer, like Questions, Vocabulary or Key words, with
-// its pinyin in a Chinese answer. It's held up against the line without its accents.
-const FIELD_HEAD = /^(?:the\s+|your\s+|some\s+)?(?:(?:key|useful|helpful|suggested|related)\s+)?(?:questions?|vocabulary|vocab|entries|entry|words?|phrases?|terms?)(?:\s+(?:list|entries))?(?:\s+(?:and|&)\s+(?:questions?|vocabulary|entries|words?|phrases?|terms?))?$|^(?:\u95ee\u9898|\u63d0\u95ee|\u8bcd\u6c47|\u8bcd\u8bed|\u8bcd\u6761|\u6761\u76ee|\u751f\u8bcd|\u8bcd\u6c47\u8868)(?:\s+[a-z ]+)?$/i;
-const fieldHead = (line) => FIELD_HEAD.test(line.normalize("NFKD").replace(/[\u0300-\u036f]/g, ""));
+// A list mark in front of a line. That's a bullet, the hashes of a heading, a number in a
+// circle, a Chinese number with its comma, or a number with its mark or a dash. A number with
+// nothing after it is left alone, and so is one with a decimal point, since a question or an
+// entry can start with either.
+const LIST_MARK = /^\s*(?:[*\u2022>_\x60#-]+\s*|[\u2460-\u2473]\s*|[\u4e00\u4e8c\u4e09\u56db\u4e94\u516d\u4e03\u516b\u4e5d\u5341]{1,3}\u3001\s*|[(\uff08]?[\d\uff10-\uff19]{1,2}(?:[)\u3001\uff0e\uff09]|\.(?!\d)|\s*-\s)\s*)+/;
+// A line that only names a part of the answer, like Questions, Vocabulary or Key words. A
+// model writes such a name with a capital or in bold, and an entry is in lowercase, so a
+// piece whose first entries are words or vocabulary keeps them.
+const FIELD_HEAD = /^(?:the\s+|your\s+|some\s+)?(?:(?:key|useful|helpful|suggested|related)\s+)?(?:questions?|vocabulary|vocab|entries|entry|words?|phrases?|terms?)(?:\s+(?:list|entries))?(?:\s+(?:and|&)\s+(?:questions?|vocabulary|entries|words?|phrases?|terms?))?$/i;
+const fieldHead = (line, raw) => FIELD_HEAD.test(line) && (/^[A-Z]/.test(line) || /\*\*|__/.test(raw));
 
 // What's in the model's answer, one thing a line, without list marks, the marks of bold,
 // headings or repeats. A line with a question mark in it is a question, which no entry has,
@@ -829,7 +831,7 @@ function fieldParts(words) {
     if (/^\s*#/.test(raw) && !asking) continue;
     const line = raw.replace(LIST_MARK, "").replace(/[\s*_`]+$/, "").replace(/\s+/g, " ").trim();
     const key = line.toLowerCase();
-    if (!line || /[:\uff1a]$/.test(line) || (!lines.length && fieldHead(line)) || seen.has(key)) continue;
+    if (!line || /[:\uff1a]$/.test(line) || (!lines.length && fieldHead(line, raw)) || seen.has(key)) continue;
     seen.add(key);
     if (asking) {
       if (!asks.length && lines.length <= 2) lines.length = 0;
