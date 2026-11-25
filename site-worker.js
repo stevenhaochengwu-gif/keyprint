@@ -900,12 +900,25 @@ function unquoteAll(raws) {
   }
 }
 
-// Whether a chunk of a stream ends with the [DONE] event.
-function endsDone(chunk) {
-  if (typeof chunk === "string") return /\[DONE\]\s*$/.test(chunk);
-  let i = chunk.length - 1;
-  while (i >= 0 && (chunk[i] === 10 || chunk[i] === 13)) i -= 1;
-  return i >= 5 && chunk[i] === 93 && chunk[i - 1] === 69 && chunk[i - 2] === 78 && chunk[i - 3] === 79 && chunk[i - 4] === 68 && chunk[i - 5] === 91;
+// Whether a stream's chunks so far end with the [DONE] event. It can be cut between two of
+// them, so the last 16 bytes are read back across as many chunks as they take.
+function endsDone(parts) {
+  let k = parts.length - 1;
+  let i = parts[k].length;
+  let left = 16;
+  const back = () => {
+    while (i === 0 && k > 0) {
+      k -= 1;
+      i = parts[k].length;
+    }
+    if (i === 0 || left === 0) return -1;
+    left -= 1;
+    i -= 1;
+    return typeof parts[k] === "string" ? parts[k].charCodeAt(i) : parts[k][i];
+  };
+  let b = back();
+  while (b === 10 || b === 13) b = back();
+  return b === 93 && back() === 69 && back() === 78 && back() === 79 && back() === 68 && back() === 91;
 }
 
 // The text of a stream's chunks, decoded together, since a character can be cut between two.
@@ -949,12 +962,12 @@ async function aiStream(body, late) {
       parts.push(step.value);
       size += step.value.length;
       // [DONE] ends the events, so a stream that stays open after it isn't waited for.
-      if (endsDone(step.value)) break;
+      if (endsDone(parts)) break;
     }
   } catch (err) {
     // The time limit breaks a read with a TimeoutError, or an AbortError where a runtime words
-    // it so, and anything else is a stream that broke.
-    stopped = err && (err.name === "TimeoutError" || err.name === "AbortError") ? "cut" : (err && err.name) || "stream";
+    // it so, and anything else is a stream that broke off, which logs as an error event does.
+    stopped = err && (err.name === "TimeoutError" || err.name === "AbortError") ? "cut" : "stream";
   } finally {
     reader.cancel().catch(() => {}); // nothing more is wanted, and a stream that's over ignores this
   }
